@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -23,6 +23,11 @@ export default function TennisScorer({ match, onScoreUpdate, isLive }: TennisSco
 
   const pointsDisplay = ["0", "15", "30", "40"];
 
+  // Update score whenever state changes
+  useEffect(() => {
+    updateScore();
+  }, [player1Sets, player2Sets, player1Games, player2Games, player1Points, player2Points, currentSet, setHistory, isDeuce, advantage]);
+
   const addPoint = (player: 1 | 2) => {
     if (!isLive) return;
 
@@ -32,11 +37,10 @@ export default function TennisScorer({ match, onScoreUpdate, isLive }: TennisSco
       setPlayer2Points(prev => prev + 1);
     }
 
-    checkGameWin();
-    updateScore();
+    checkGameWin(player);
   };
 
-  const checkGameWin = () => {
+  const checkGameWin = (player: 1 | 2) => {
     const p1Points = player === 1 ? player1Points + 1 : player1Points;
     const p2Points = player === 1 ? player2Points : player2Points + 1;
 
@@ -72,10 +76,10 @@ export default function TennisScorer({ match, onScoreUpdate, isLive }: TennisSco
     setIsDeuce(false);
     setAdvantage(null);
 
-    checkSetWin();
+    checkSetWin(winner);
   };
 
-  const checkSetWin = () => {
+  const checkSetWin = (winner: 1 | 2) => {
     const p1Games = winner === 1 ? player1Games + 1 : player1Games;
     const p2Games = winner === 1 ? player2Games : player2Games + 1;
 
@@ -104,10 +108,10 @@ export default function TennisScorer({ match, onScoreUpdate, isLive }: TennisSco
     setPlayer2Games(0);
     setCurrentSet(prev => prev + 1);
 
-    checkMatchWin();
+    checkMatchWin(winner);
   };
 
-  const checkMatchWin = () => {
+  const checkMatchWin = (winner: 1 | 2) => {
     const p1Sets = winner === 1 ? player1Sets + 1 : player1Sets;
     const p2Sets = winner === 1 ? player2Sets : player2Sets + 1;
 
@@ -122,7 +126,7 @@ export default function TennisScorer({ match, onScoreUpdate, isLive }: TennisSco
     if (points >= 3 && opponentPoints >= 3) {
       if (isDeuce) return "40";
       if (advantage === 1 && points > opponentPoints) return "Ad";
-      if (advantage === 2 && opponentPoints > points) return "Ad";
+      if (advantage === 2 && points > opponentPoints) return "Ad";
       return "40";
     }
     return pointsDisplay[Math.min(points, 3)];
