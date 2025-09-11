@@ -1,0 +1,288 @@
+import { useState, useEffect } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useRoute } from "wouter";
+import Navigation from "@/components/navigation";
+import CricketScorer from "@/components/scoring/cricket-scorer";
+import FootballScorer from "@/components/scoring/football-scorer";
+import TennisScorer from "@/components/scoring/tennis-scorer";
+import VolleyballScorer from "@/components/scoring/volleyball-scorer";
+import KabaddiScorer from "@/components/scoring/kabaddi-scorer";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/use-toast";
+import { isUnauthorizedError } from "@/lib/authUtils";
+import { apiRequest } from "@/lib/queryClient";
+import { Calendar, MapPin, Users, Play, Pause, Square } from "lucide-react";
+
+export default function MatchScorer() {
+  const [, params] = useRoute("/match/:id/score");
+  const { isAuthenticated, isLoading } = useAuth();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [matchStatus, setMatchStatus] = useState<'upcoming' | 'live' | 'completed'>('upcoming');
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      toast({
+        title: "Unauthorized",
+        description: "You are logged out. Logging in again...",
+        variant: "destructive",
+      });
+      setTimeout(() => {
+        window.location.href = "/api/login";
+      }, 500);
+      return;
+    }
+  }, [isAuthenticated, isLoading, toast]);
+
+  const { data: match, isLoading: matchLoading } = useQuery({
+    queryKey: ["/api/matches", params?.id],
+    enabled: isAuthenticated && !!params?.id,
+  });
+
+  const { data: participants = [] } = useQuery({
+    queryKey: ["/api/matches", params?.id, "participants"],
+    enabled: isAuthenticated && !!params?.id,
+  });
+
+  const updateMatchMutation = useMutation({
+    mutationFn: async (data: any) => {
+      await apiRequest("PUT", `/api/matches/${params?.id}`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/matches", params?.id] });
+    },
+    onError: (error) => {
+      if (isUnauthorizedError(error)) {
+        toast({
+          title: "Unauthorized",
+          description: "You are logged out. Logging in again...",
+          variant: "destructive",
+        });
+        setTimeout(() => {
+          window.location.href = "/api/login";
+        }, 500);
+        return;
+      }
+      toast({
+        title: "Error",
+        description: "Failed to update match. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  useEffect(() => {
+    if (match?.status) {
+      setMatchStatus(match.status);
+    }
+  }, [match?.status]);
+
+  if (isLoading || matchLoading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Navigation />
+        <div className="flex items-center justify-center h-96">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+            <p>Loading match...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated || !match) {
+    return null;
+  }
+
+  const handleStartMatch = () => {
+    updateMatchMutation.mutate({ status: 'live' });
+    setMatchStatus('live');
+    toast({
+      title: "Match Started",
+      description: "The match is now live!",
+    });
+  };
+
+  const handlePauseMatch = () => {
+    updateMatchMutation.mutate({ status: 'paused' });
+    toast({
+      title: "Match Paused",
+      description: "The match has been paused.",
+    });
+  };
+
+  const handleEndMatch = () => {
+    updateMatchMutation.mutate({ status: 'completed' });
+    setMatchStatus('completed');
+    toast({
+      title: "Match Completed",
+      description: "The match has been completed!",
+    });
+  };
+
+  const handleScoreUpdate = (scoreData: any) => {
+    updateMatchMutation.mutate({
+      team1Score: scoreData.team1Score,
+      team2Score: scoreData.team2Score,
+      matchData: scoreData.matchData,
+    });
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      weekday: 'long',
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+    });
+  };
+
+  const renderScorer = () => {
+    const scorerProps = {
+      match,
+      onScoreUpdate: handleScoreUpdate,
+      isLive: matchStatus === 'live',
+    };
+
+    switch (match.sport) {
+      case 'cricket':
+        return <CricketScorer {...scorerProps} />;
+      case 'football':
+        return <FootballScorer {...scorerProps} />;
+      case 'tennis':
+        return <TennisScorer {...scorerProps} />;
+      case 'volleyball':
+        return <VolleyballScorer {...scorerProps} />;
+      case 'kabaddi':
+        return <KabaddiScorer {...scorerProps} />;
+      default:
+        return (
+          <Card>
+            <CardContent className="p-12 text-center">
+              <h3 className="text-xl font-semibold mb-2">Scorer Not Available</h3>
+              <p className="text-muted-foreground">
+                Scoring system for {match.sport} is not yet implemented.
+              </p>
+            </CardContent>
+          </Card>
+        );
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-background" data-testid="match-scorer-page">
+      <Navigation />
+      
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Match Header */}
+        <Card className="mb-8">
+          <CardHeader>
+            <div className="flex justify-between items-start">
+              <div>
+                <CardTitle className="text-2xl mb-2" data-testid="text-match-title">
+                  {match.title}
+                </CardTitle>
+                <div className="flex items-center gap-4 text-muted-foreground">
+                  <div className="flex items-center">
+                    <Calendar className="h-4 w-4 mr-1" />
+                    {formatDate(match.scheduledAt)}
+                  </div>
+                  <div className="flex items-center">
+                    <MapPin className="h-4 w-4 mr-1" />
+                    Venue ID: {match.venueId}
+                  </div>
+                  <div className="flex items-center">
+                    <Users className="h-4 w-4 mr-1" />
+                    {participants.length} players
+                  </div>
+                </div>
+              </div>
+              <Badge 
+                variant={matchStatus === 'live' ? 'default' : 'secondary'}
+                className="text-lg px-4 py-2"
+                data-testid="badge-match-status"
+              >
+                {matchStatus === 'live' ? 'LIVE' : matchStatus.toUpperCase()}
+              </Badge>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="flex gap-4">
+              {matchStatus === 'upcoming' && (
+                <Button 
+                  onClick={handleStartMatch}
+                  disabled={updateMatchMutation.isPending}
+                  data-testid="button-start-match"
+                >
+                  <Play className="h-4 w-4 mr-2" />
+                  Start Match
+                </Button>
+              )}
+              {matchStatus === 'live' && (
+                <>
+                  <Button 
+                    variant="outline"
+                    onClick={handlePauseMatch}
+                    disabled={updateMatchMutation.isPending}
+                    data-testid="button-pause-match"
+                  >
+                    <Pause className="h-4 w-4 mr-2" />
+                    Pause
+                  </Button>
+                  <Button 
+                    variant="destructive"
+                    onClick={handleEndMatch}
+                    disabled={updateMatchMutation.isPending}
+                    data-testid="button-end-match"
+                  >
+                    <Square className="h-4 w-4 mr-2" />
+                    End Match
+                  </Button>
+                </>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Teams Display */}
+        {match.team1Name && match.team2Name && (
+          <Card className="mb-8">
+            <CardContent className="p-6">
+              <div className="grid grid-cols-3 gap-4 text-center">
+                <div>
+                  <h3 className="text-xl font-semibold mb-2" data-testid="text-team1-name">
+                    {match.team1Name}
+                  </h3>
+                  <div className="text-3xl font-bold text-primary" data-testid="text-team1-score">
+                    {match.team1Score ? JSON.stringify(match.team1Score) : "0"}
+                  </div>
+                </div>
+                <div className="flex items-center justify-center">
+                  <span className="text-2xl font-bold text-muted-foreground">VS</span>
+                </div>
+                <div>
+                  <h3 className="text-xl font-semibold mb-2" data-testid="text-team2-name">
+                    {match.team2Name}
+                  </h3>
+                  <div className="text-3xl font-bold text-primary" data-testid="text-team2-score">
+                    {match.team2Score ? JSON.stringify(match.team2Score) : "0"}
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Sport-Specific Scorer */}
+        {renderScorer()}
+      </div>
+    </div>
+  );
+}

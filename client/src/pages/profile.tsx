@@ -1,0 +1,444 @@
+import { useState, useEffect } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import Navigation from "@/components/navigation";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/use-toast";
+import { isUnauthorizedError } from "@/lib/authUtils";
+import { apiRequest } from "@/lib/queryClient";
+import { Edit, Trophy, Calendar, MapPin, TrendingUp, Star } from "lucide-react";
+import MatchCard from "@/components/match-card";
+
+const profileSchema = z.object({
+  firstName: z.string().min(1, "First name is required"),
+  lastName: z.string().min(1, "Last name is required"),
+  email: z.string().email("Invalid email address"),
+  dateOfBirth: z.string().optional(),
+  location: z.string().optional(),
+  phoneNumber: z.string().optional(),
+});
+
+export default function Profile() {
+  const { user, isAuthenticated, isLoading } = useAuth();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [isEditing, setIsEditing] = useState(false);
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      toast({
+        title: "Unauthorized",
+        description: "You are logged out. Logging in again...",
+        variant: "destructive",
+      });
+      setTimeout(() => {
+        window.location.href = "/api/login";
+      }, 500);
+      return;
+    }
+  }, [isAuthenticated, isLoading, toast]);
+
+  const form = useForm<z.infer<typeof profileSchema>>({
+    resolver: zodResolver(profileSchema),
+    defaultValues: {
+      firstName: user?.firstName || "",
+      lastName: user?.lastName || "",
+      email: user?.email || "",
+      dateOfBirth: user?.dateOfBirth || "",
+      location: user?.location || "",
+      phoneNumber: user?.phoneNumber || "",
+    },
+  });
+
+  const { data: userStats = [] } = useQuery({
+    queryKey: ["/api/user/stats"],
+    enabled: isAuthenticated,
+  });
+
+  const { data: userMatches = [] } = useQuery({
+    queryKey: ["/api/user/matches"],
+    enabled: isAuthenticated,
+  });
+
+  const { data: userBookings = [] } = useQuery({
+    queryKey: ["/api/bookings"],
+    enabled: isAuthenticated,
+  });
+
+  const updateProfileMutation = useMutation({
+    mutationFn: async (data: z.infer<typeof profileSchema>) => {
+      await apiRequest("PUT", "/api/auth/user", data);
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "Profile updated successfully!",
+      });
+      setIsEditing(false);
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+    },
+    onError: (error) => {
+      if (isUnauthorizedError(error)) {
+        toast({
+          title: "Unauthorized",
+          description: "You are logged out. Logging in again...",
+          variant: "destructive",
+        });
+        setTimeout(() => {
+          window.location.href = "/api/login";
+        }, 500);
+        return;
+      }
+      toast({
+        title: "Error",
+        description: "Failed to update profile. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Navigation />
+        <div className="flex items-center justify-center h-96">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+            <p>Loading...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return null;
+  }
+
+  const totalMatches = userStats.reduce((sum: number, stat: any) => sum + (stat.matchesPlayed || 0), 0);
+  const totalWins = userStats.reduce((sum: number, stat: any) => sum + (stat.matchesWon || 0), 0);
+  const winRate = totalMatches > 0 ? ((totalWins / totalMatches) * 100).toFixed(1) : "0";
+
+  const onSubmit = (data: z.infer<typeof profileSchema>) => {
+    updateProfileMutation.mutate(data);
+  };
+
+  return (
+    <div className="min-h-screen bg-background" data-testid="profile-page">
+      <Navigation />
+      
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Profile Header */}
+        <div className="mb-8">
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex flex-col md:flex-row items-start md:items-center gap-6">
+                <Avatar className="h-24 w-24" data-testid="img-profile-avatar">
+                  <AvatarImage src={user?.profileImageUrl} alt="Profile" />
+                  <AvatarFallback className="text-2xl">
+                    {user?.firstName?.charAt(0)}{user?.lastName?.charAt(0)}
+                  </AvatarFallback>
+                </Avatar>
+                
+                <div className="flex-1">
+                  <div className="flex items-center gap-3 mb-2">
+                    <h1 className="text-3xl font-bold" data-testid="text-user-name">
+                      {user?.firstName} {user?.lastName}
+                    </h1>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => setIsEditing(!isEditing)}
+                      data-testid="button-edit-profile"
+                    >
+                      <Edit className="h-4 w-4 mr-2" />
+                      {isEditing ? "Cancel" : "Edit"}
+                    </Button>
+                  </div>
+                  <p className="text-muted-foreground mb-4" data-testid="text-user-email">
+                    {user?.email}
+                  </p>
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div className="text-center" data-testid="stat-total-matches">
+                      <div className="text-2xl font-bold text-primary">{totalMatches}</div>
+                      <p className="text-sm text-muted-foreground">Matches Played</p>
+                    </div>
+                    <div className="text-center" data-testid="stat-total-wins">
+                      <div className="text-2xl font-bold text-green-600">{totalWins}</div>
+                      <p className="text-sm text-muted-foreground">Wins</p>
+                    </div>
+                    <div className="text-center" data-testid="stat-win-rate">
+                      <div className="text-2xl font-bold text-blue-600">{winRate}%</div>
+                      <p className="text-sm text-muted-foreground">Win Rate</p>
+                    </div>
+                    <div className="text-center" data-testid="stat-total-bookings">
+                      <div className="text-2xl font-bold text-purple-600">{userBookings.length}</div>
+                      <p className="text-sm text-muted-foreground">Bookings</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Edit Profile Form */}
+        {isEditing && (
+          <div className="mb-8">
+            <Card>
+              <CardHeader>
+                <CardTitle>Edit Profile</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Form {...form}>
+                  <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <FormField
+                        control={form.control}
+                        name="firstName"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>First Name</FormLabel>
+                            <FormControl>
+                              <Input {...field} data-testid="input-first-name" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="lastName"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Last Name</FormLabel>
+                            <FormControl>
+                              <Input {...field} data-testid="input-last-name" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="email"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Email</FormLabel>
+                            <FormControl>
+                              <Input {...field} type="email" data-testid="input-email" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="dateOfBirth"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Date of Birth</FormLabel>
+                            <FormControl>
+                              <Input {...field} type="date" data-testid="input-date-of-birth" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="location"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Location</FormLabel>
+                            <FormControl>
+                              <Input {...field} placeholder="City, State" data-testid="input-location" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="phoneNumber"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Phone Number</FormLabel>
+                            <FormControl>
+                              <Input {...field} placeholder="+91 12345 67890" data-testid="input-phone" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                    <Button 
+                      type="submit" 
+                      disabled={updateProfileMutation.isPending}
+                      data-testid="button-save-profile"
+                    >
+                      {updateProfileMutation.isPending ? "Saving..." : "Save Changes"}
+                    </Button>
+                  </form>
+                </Form>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* Profile Tabs */}
+        <Tabs defaultValue="stats" className="w-full">
+          <TabsList className="grid w-full grid-cols-3 mb-8">
+            <TabsTrigger value="stats" data-testid="tab-stats">Statistics</TabsTrigger>
+            <TabsTrigger value="matches" data-testid="tab-matches">Match History</TabsTrigger>
+            <TabsTrigger value="bookings" data-testid="tab-bookings">Bookings</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="stats" data-testid="content-stats">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {userStats.length === 0 ? (
+                <Card className="col-span-full">
+                  <CardContent className="p-12 text-center">
+                    <Trophy className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+                    <h3 className="text-xl font-semibold mb-2">No Statistics Yet</h3>
+                    <p className="text-muted-foreground">
+                      Start playing matches to see your statistics here!
+                    </p>
+                  </CardContent>
+                </Card>
+              ) : (
+                userStats.map((stat: any) => (
+                  <Card key={stat.id} data-testid={`card-stat-${stat.sport}`}>
+                    <CardHeader>
+                      <CardTitle className="capitalize">{stat.sport}</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-4">
+                        <div className="flex justify-between">
+                          <span>Matches Played:</span>
+                          <span className="font-semibold">{stat.matchesPlayed}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Matches Won:</span>
+                          <span className="font-semibold text-green-600">{stat.matchesWon}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Win Rate:</span>
+                          <span className="font-semibold">
+                            {stat.matchesPlayed > 0 
+                              ? `${((stat.matchesWon / stat.matchesPlayed) * 100).toFixed(1)}%`
+                              : "0%"
+                            }
+                          </span>
+                        </div>
+                        {stat.totalScore && (
+                          <div className="flex justify-between">
+                            <span>Total Score:</span>
+                            <span className="font-semibold">{stat.totalScore}</span>
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))
+              )}
+            </div>
+          </TabsContent>
+
+          <TabsContent value="matches" data-testid="content-matches">
+            {userMatches.length === 0 ? (
+              <Card>
+                <CardContent className="p-12 text-center">
+                  <Calendar className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+                  <h3 className="text-xl font-semibold mb-2">No Matches Yet</h3>
+                  <p className="text-muted-foreground mb-4">
+                    You haven't joined any matches yet. Find matches to join!
+                  </p>
+                  <Button onClick={() => window.location.href = '/matches'} data-testid="button-find-matches">
+                    Find Matches
+                  </Button>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {userMatches.map((match: any) => (
+                  <MatchCard key={match.id} match={match} showActions={false} />
+                ))}
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="bookings" data-testid="content-bookings">
+            {userBookings.length === 0 ? (
+              <Card>
+                <CardContent className="p-12 text-center">
+                  <MapPin className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+                  <h3 className="text-xl font-semibold mb-2">No Bookings Yet</h3>
+                  <p className="text-muted-foreground mb-4">
+                    You haven't made any venue bookings yet. Book your first venue!
+                  </p>
+                  <Button onClick={() => window.location.href = '/venues'} data-testid="button-find-venues">
+                    Find Venues
+                  </Button>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="space-y-4">
+                {userBookings.map((booking: any) => (
+                  <Card key={booking.id} data-testid={`card-booking-${booking.id}`}>
+                    <CardContent className="p-6">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <h3 className="font-semibold mb-2">Venue Booking</h3>
+                          <div className="space-y-1 text-sm text-muted-foreground">
+                            <div className="flex items-center">
+                              <Calendar className="h-4 w-4 mr-2" />
+                              {new Date(booking.startTime).toLocaleDateString('en-US', {
+                                weekday: 'long',
+                                month: 'short',
+                                day: 'numeric',
+                                year: 'numeric',
+                                hour: 'numeric',
+                                minute: '2-digit',
+                              })}
+                            </div>
+                            <div className="flex items-center">
+                              <MapPin className="h-4 w-4 mr-2" />
+                              Venue ID: {booking.venueId}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <Badge 
+                            variant={booking.status === 'confirmed' ? 'default' : 'secondary'}
+                            className="mb-2"
+                          >
+                            {booking.status}
+                          </Badge>
+                          <div className="text-lg font-bold">
+                            ₹{Number(booking.totalAmount).toLocaleString()}
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </TabsContent>
+        </Tabs>
+      </div>
+    </div>
+  );
+}

@@ -1,0 +1,51 @@
+import { Switch, Route } from "wouter";
+import { queryClient } from "./lib/queryClient";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { Toaster } from "@/components/ui/toaster";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { useAuth } from "@/hooks/useAuth";
+import NotFound from "@/pages/not-found";
+import Landing from "@/pages/landing";
+import Home from "@/pages/home";
+import Venues from "@/pages/venues";
+import Matches from "@/pages/matches";
+import Profile from "@/pages/profile";
+import Shop from "@/pages/shop";
+import CreateMatch from "@/pages/create-match";
+import MatchScorer from "@/pages/match-scorer";
+
+function Router() {
+  const { isAuthenticated, isLoading } = useAuth();
+
+  return (
+    <Switch>
+      {isLoading || !isAuthenticated ? (
+        <Route path="/" component={Landing} />
+      ) : (
+        <>
+          <Route path="/" component={Home} />
+          <Route path="/venues" component={Venues} />
+          <Route path="/matches" component={Matches} />
+          <Route path="/profile" component={Profile} />
+          <Route path="/shop" component={Shop} />
+          <Route path="/create-match" component={CreateMatch} />
+          <Route path="/match/:id/score" component={MatchScorer} />
+        </>
+      )}
+      <Route component={NotFound} />
+    </Switch>
+  );
+}
+
+function App() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Router />
+      </TooltipProvider>
+    </QueryClientProvider>
+  );
+}
+
+export default App;
