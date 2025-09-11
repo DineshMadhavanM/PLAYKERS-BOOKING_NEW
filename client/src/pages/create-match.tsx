@@ -23,7 +23,6 @@ const matchSchema = z.object({
   title: z.string().min(1, "Match title is required"),
   sport: z.string().min(1, "Sport is required"),
   matchType: z.string().min(1, "Match type is required"),
-  venueId: z.string().min(1, "Venue is required"),
   scheduledAt: z.string().min(1, "Date and time is required"),
   duration: z.number().min(30, "Duration must be at least 30 minutes"),
   maxPlayers: z.number().min(2, "Must have at least 2 players"),
@@ -31,6 +30,13 @@ const matchSchema = z.object({
   team1Name: z.string().optional(),
   team2Name: z.string().optional(),
   description: z.string().optional(),
+  // Venue details
+  venueName: z.string().min(1, "Venue name is required"),
+  venueAddress: z.string().min(1, "Venue address is required"),
+  venueCity: z.string().min(1, "City is required"),
+  venueState: z.string().min(1, "State is required"),
+  venuePricePerHour: z.number().min(0, "Price must be 0 or greater"),
+  venueDescription: z.string().optional(),
 });
 
 // Generate cricket overs options (1-50)
@@ -76,7 +82,6 @@ export default function CreateMatch() {
       title: "",
       sport: "",
       matchType: "",
-      venueId: "",
       scheduledAt: "",
       duration: 120,
       maxPlayers: 22,
@@ -84,6 +89,12 @@ export default function CreateMatch() {
       team1Name: "",
       team2Name: "",
       description: "",
+      venueName: "",
+      venueAddress: "",
+      venueCity: "",
+      venueState: "",
+      venuePricePerHour: 500,
+      venueDescription: "",
     },
   });
 
@@ -94,15 +105,46 @@ export default function CreateMatch() {
 
   const createMatchMutation = useMutation({
     mutationFn: async (data: z.infer<typeof matchSchema>) => {
-      const response = await apiRequest("POST", "/api/matches", data);
-      return response.json();
+      // First create the venue
+      const venueData = {
+        name: data.venueName,
+        address: data.venueAddress,
+        city: data.venueCity,
+        state: data.venueState,
+        pricePerHour: data.venuePricePerHour,
+        description: data.venueDescription || "",
+        sports: [data.sport],
+        facilities: [],
+      };
+      
+      const venueResponse = await apiRequest("POST", "/api/venues", venueData);
+      const venue = await venueResponse.json();
+      
+      // Then create the match with the new venue ID
+      const matchData = {
+        title: data.title,
+        sport: data.sport,
+        matchType: data.matchType,
+        venueId: venue.id,
+        scheduledAt: new Date(data.scheduledAt).toISOString(),
+        duration: data.duration,
+        maxPlayers: data.maxPlayers,
+        isPublic: data.isPublic,
+        team1Name: data.team1Name,
+        team2Name: data.team2Name,
+        description: data.description,
+      };
+      
+      const matchResponse = await apiRequest("POST", "/api/matches", matchData);
+      return matchResponse.json();
     },
     onSuccess: (match) => {
       toast({
         title: "Success",
-        description: "Match created successfully!",
+        description: "Match and venue created successfully!",
       });
       queryClient.invalidateQueries({ queryKey: ["/api/matches"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/venues"] });
       setLocation(`/match/${match.id}/score`);
     },
     onError: (error) => {
@@ -119,7 +161,7 @@ export default function CreateMatch() {
       }
       toast({
         title: "Error",
-        description: "Failed to create match. Please try again.",
+        description: "Failed to create match and venue. Please try again.",
         variant: "destructive",
       });
     },
@@ -144,15 +186,9 @@ export default function CreateMatch() {
   }
 
   const selectedSportData = sportOptions.find(sport => sport.value === selectedSport);
-  const filteredVenues = selectedSport 
-    ? venues.filter((venue: any) => venue.sports.includes(selectedSport))
-    : venues;
 
   const onSubmit = (data: z.infer<typeof matchSchema>) => {
-    createMatchMutation.mutate({
-      ...data,
-      scheduledAt: new Date(data.scheduledAt).toISOString(),
-    });
+    createMatchMutation.mutate(data);
   };
 
   return (
@@ -255,26 +291,125 @@ export default function CreateMatch() {
                     )}
                   />
 
+                </div>
+
+                {/* Venue Details */}
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 mb-4">
+                    <MapPin className="h-5 w-5" />
+                    <h3 className="text-lg font-semibold">Venue Information</h3>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <FormField
+                      control={form.control}
+                      name="venueName"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Venue Name</FormLabel>
+                          <FormControl>
+                            <Input 
+                              {...field} 
+                              placeholder="Sports Complex Name"
+                              data-testid="input-venue-name"
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="venuePricePerHour"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Price per Hour (₹)</FormLabel>
+                          <FormControl>
+                            <Input 
+                              {...field} 
+                              type="number"
+                              placeholder="500"
+                              onChange={(e) => field.onChange(parseInt(e.target.value))}
+                              data-testid="input-venue-price"
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
                   <FormField
                     control={form.control}
-                    name="venueId"
+                    name="venueAddress"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Venue</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormLabel>Full Address</FormLabel>
+                        <FormControl>
+                          <Input 
+                            {...field} 
+                            placeholder="Street address, building name, area"
+                            data-testid="input-venue-address"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <FormField
+                      control={form.control}
+                      name="venueCity"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>City</FormLabel>
                           <FormControl>
-                            <SelectTrigger data-testid="select-venue">
-                              <SelectValue placeholder="Select venue" />
-                            </SelectTrigger>
+                            <Input 
+                              {...field} 
+                              placeholder="Mumbai"
+                              data-testid="input-venue-city"
+                            />
                           </FormControl>
-                          <SelectContent>
-                            {filteredVenues.map((venue: any) => (
-                              <SelectItem key={venue.id} value={venue.id}>
-                                {venue.name} - ₹{Number(venue.pricePerHour).toLocaleString()}/hr
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="venueState"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>State</FormLabel>
+                          <FormControl>
+                            <Input 
+                              {...field} 
+                              placeholder="Maharashtra"
+                              data-testid="input-venue-state"
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  <FormField
+                    control={form.control}
+                    name="venueDescription"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Venue Description (Optional)</FormLabel>
+                        <FormControl>
+                          <Textarea 
+                            {...field} 
+                            placeholder="Facilities, parking, changing rooms, etc."
+                            className="min-h-[80px]"
+                            data-testid="textarea-venue-description"
+                          />
+                        </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
