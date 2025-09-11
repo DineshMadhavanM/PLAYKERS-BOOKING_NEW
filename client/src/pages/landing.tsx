@@ -10,7 +10,7 @@ export default function Landing() {
       <nav className="bg-card border-b border-border sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            <h1 className="text-2xl font-bold text-primary">SportHub</h1>
+            <h1 className="text-2xl font-bold text-primary">Playkers</h1>
             <Button onClick={() => window.location.href = '/api/login'} data-testid="button-login">
               Login
             </Button>
@@ -183,7 +183,7 @@ export default function Landing() {
       {/* Features Overview */}
       <section className="py-16 bg-muted/30" data-testid="features-overview">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h2 className="text-3xl font-bold text-center mb-12">Why Choose SportHub?</h2>
+          <h2 className="text-3xl font-bold text-center mb-12">Why Choose Playkers?</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
             {[
               { icon: MapPin, title: "Location-Based Search", desc: "Find venues near you with Google Maps integration" },
@@ -208,7 +208,7 @@ export default function Landing() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
             <div>
-              <h3 className="text-xl font-bold text-primary mb-4">SportHub</h3>
+              <h3 className="text-xl font-bold text-primary mb-4">Playkers</h3>
               <p className="text-muted-foreground mb-4">
                 The ultimate platform for sports venue booking, match organization, and performance tracking.
               </p>
@@ -243,7 +243,7 @@ export default function Landing() {
             </div>
           </div>
           <div className="border-t border-border mt-8 pt-8 text-center text-muted-foreground">
-            <p>&copy; 2023 SportHub. All rights reserved.</p>
+            <p>&copy; 2023 Playkers. All rights reserved.</p>
           </div>
         </div>
       </footer>

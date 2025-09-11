@@ -49,7 +49,7 @@ export default function Navigation() {
         <div className="flex justify-between items-center h-16">
           <div className="flex items-center">
             <Link href="/" data-testid="link-logo">
-              <h1 className="text-2xl font-bold text-primary">SportHub</h1>
+              <h1 className="text-2xl font-bold text-primary">Playkers</h1>
             </Link>
             <div className="hidden md:block ml-10">
               <div className="flex items-baseline space-x-4">

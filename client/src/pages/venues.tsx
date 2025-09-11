@@ -14,8 +14,8 @@ export default function Venues() {
   const { isAuthenticated, isLoading } = useAuth();
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedSport, setSelectedSport] = useState("");
-  const [selectedCity, setSelectedCity] = useState("");
+  const [selectedSport, setSelectedSport] = useState("all");
+  const [selectedCity, setSelectedCity] = useState("all");
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -33,7 +33,17 @@ export default function Venues() {
   }, [isAuthenticated, isLoading, toast]);
 
   const { data: venues = [], isLoading: venuesLoading } = useQuery({
-    queryKey: ["/api/venues", { sport: selectedSport, search: searchTerm, city: selectedCity }],
+    queryKey: ["/api/venues", selectedSport, searchTerm, selectedCity],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (selectedSport && selectedSport !== "all") params.set("sport", selectedSport);
+      if (searchTerm) params.set("search", searchTerm);
+      if (selectedCity && selectedCity !== "all") params.set("city", selectedCity);
+      
+      const response = await fetch(`/api/venues?${params.toString()}`);
+      if (!response.ok) throw new Error("Failed to fetch venues");
+      return response.json();
+    },
     enabled: isAuthenticated,
   });
 
@@ -87,7 +97,7 @@ export default function Venues() {
                   <SelectValue placeholder="All Sports" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Sports</SelectItem>
+                  <SelectItem value="all">All Sports</SelectItem>
                   {sports.map((sport) => (
                     <SelectItem key={sport} value={sport}>
                       {sport.charAt(0).toUpperCase() + sport.slice(1)}
@@ -101,7 +111,7 @@ export default function Venues() {
                   <SelectValue placeholder="All Cities" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Cities</SelectItem>
+                  <SelectItem value="all">All Cities</SelectItem>
                   {cities.map((city) => (
                     <SelectItem key={city} value={city}>
                       {city}
@@ -146,8 +156,8 @@ export default function Venues() {
                 </p>
                 <Button onClick={() => {
                   setSearchTerm("");
-                  setSelectedSport("");
-                  setSelectedCity("");
+                  setSelectedSport("all");
+                  setSelectedCity("all");
                 }} data-testid="button-clear-filters">
                   Clear Filters
                 </Button>

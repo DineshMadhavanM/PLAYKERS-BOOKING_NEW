@@ -14,7 +14,7 @@ import { useEffect } from "react";
 export default function Matches() {
   const { isAuthenticated, isLoading } = useAuth();
   const { toast } = useToast();
-  const [selectedSport, setSelectedSport] = useState("");
+  const [selectedSport, setSelectedSport] = useState("all");
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -32,7 +32,15 @@ export default function Matches() {
   }, [isAuthenticated, isLoading, toast]);
 
   const { data: allMatches = [], isLoading: matchesLoading } = useQuery({
-    queryKey: ["/api/matches", { sport: selectedSport }],
+    queryKey: ["/api/matches", selectedSport],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (selectedSport && selectedSport !== "all") params.set("sport", selectedSport);
+      
+      const response = await fetch(`/api/matches?${params.toString()}`);
+      if (!response.ok) throw new Error("Failed to fetch matches");
+      return response.json();
+    },
     enabled: isAuthenticated,
   });
 
@@ -118,7 +126,7 @@ export default function Matches() {
               <SelectValue placeholder="All Sports" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All Sports</SelectItem>
+              <SelectItem value="all">All Sports</SelectItem>
               {sports.map((sport) => (
                 <SelectItem key={sport} value={sport}>
                   {sport.charAt(0).toUpperCase() + sport.slice(1)}

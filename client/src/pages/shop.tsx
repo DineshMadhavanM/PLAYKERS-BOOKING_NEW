@@ -18,7 +18,7 @@ export default function Shop() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("all");
   const [showCart, setShowCart] = useState(false);
 
   // Redirect to login if not authenticated
@@ -37,7 +37,16 @@ export default function Shop() {
   }, [isAuthenticated, isLoading, toast]);
 
   const { data: products = [], isLoading: productsLoading } = useQuery({
-    queryKey: ["/api/products", { category: selectedCategory, search: searchTerm }],
+    queryKey: ["/api/products", selectedCategory, searchTerm],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (selectedCategory && selectedCategory !== "all") params.set("category", selectedCategory);
+      if (searchTerm) params.set("search", searchTerm);
+      
+      const response = await fetch(`/api/products?${params.toString()}`);
+      if (!response.ok) throw new Error("Failed to fetch products");
+      return response.json();
+    },
     enabled: isAuthenticated,
   });
 
@@ -180,7 +189,7 @@ export default function Shop() {
                     <SelectValue placeholder="All Categories" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">All Categories</SelectItem>
+                    <SelectItem value="all">All Categories</SelectItem>
                     {categories.map((category) => (
                       <SelectItem key={category} value={category}>
                         {category.charAt(0).toUpperCase() + category.slice(1)}
