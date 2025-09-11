@@ -89,6 +89,9 @@ export interface IStorage {
 export class DatabaseStorage implements IStorage {
   // User operations
   async getUser(id: string): Promise<User | undefined> {
+    if (!db) {
+      throw new Error("Database not available. Please configure database credentials.");
+    }
     const [user] = await db.select().from(users).where(eq(users.id, id));
     return user;
   }
@@ -439,4 +442,85 @@ export class DatabaseStorage implements IStorage {
   }
 }
 
-export const storage = new DatabaseStorage();
+// Simple memory storage for when database is not available
+class MemoryStorage implements IStorage {
+  private users = new Map<string, User>();
+  private venues = new Map<string, Venue>();
+  private matches = new Map<string, Match>();
+  private matchParticipants = new Map<string, MatchParticipant>();
+  private bookings = new Map<string, Booking>();
+  private products = new Map<string, Product>();
+  private reviews = new Map<string, Review>();
+  private cartItems = new Map<string, CartItem>();
+  private userStats = new Map<string, UserStats>();
+
+  // User operations
+  async getUser(id: string): Promise<User | undefined> {
+    return this.users.get(id);
+  }
+
+  async upsertUser(userData: UpsertUser): Promise<User> {
+    const user: User = {
+      ...userData,
+      id: userData.id,
+      createdAt: this.users.get(userData.id)?.createdAt || new Date(),
+      updatedAt: new Date(),
+    };
+    this.users.set(userData.id, user);
+    return user;
+  }
+
+  // Venue operations - just return empty arrays for now since this is fallback mode
+  async getVenues(): Promise<Venue[]> { return []; }
+  async getVenue(): Promise<Venue | undefined> { return undefined; }
+  async createVenue(): Promise<Venue> { throw new Error("Database required for venue operations"); }
+  async updateVenue(): Promise<Venue | undefined> { return undefined; }
+  async deleteVenue(): Promise<boolean> { return false; }
+
+  // Match operations - just return empty arrays for now since this is fallback mode
+  async getMatches(): Promise<Match[]> { return []; }
+  async getMatch(): Promise<Match | undefined> { return undefined; }
+  async createMatch(): Promise<Match> { throw new Error("Database required for match operations"); }
+  async updateMatch(): Promise<Match | undefined> { return undefined; }
+  async deleteMatch(): Promise<boolean> { return false; }
+  async getUserMatches(): Promise<Match[]> { return []; }
+
+  // Match participant operations
+  async addMatchParticipant(): Promise<MatchParticipant> { throw new Error("Database required for match operations"); }
+  async removeMatchParticipant(): Promise<boolean> { return false; }
+  async getMatchParticipants(): Promise<MatchParticipant[]> { return []; }
+
+  // Booking operations
+  async getBookings(): Promise<Booking[]> { return []; }
+  async getBooking(): Promise<Booking | undefined> { return undefined; }
+  async createBooking(): Promise<Booking> { throw new Error("Database required for booking operations"); }
+  async updateBooking(): Promise<Booking | undefined> { return undefined; }
+  async deleteBooking(): Promise<boolean> { return false; }
+
+  // Product operations
+  async getProducts(): Promise<Product[]> { return []; }
+  async getProduct(): Promise<Product | undefined> { return undefined; }
+  async createProduct(): Promise<Product> { throw new Error("Database required for product operations"); }
+  async updateProduct(): Promise<Product | undefined> { return undefined; }
+  async deleteProduct(): Promise<boolean> { return false; }
+
+  // Cart operations
+  async getCartItems(): Promise<CartItem[]> { return []; }
+  async addToCart(): Promise<CartItem> { throw new Error("Database required for cart operations"); }
+  async updateCartItem(): Promise<CartItem | undefined> { return undefined; }
+  async removeFromCart(): Promise<boolean> { return false; }
+  async clearCart(): Promise<boolean> { return false; }
+
+  // Review operations
+  async getReviews(): Promise<Review[]> { return []; }
+  async createReview(): Promise<Review> { throw new Error("Database required for review operations"); }
+  async updateReview(): Promise<Review | undefined> { return undefined; }
+  async deleteReview(): Promise<boolean> { return false; }
+
+  // User stats operations
+  async getUserStats(): Promise<UserStats[]> { return []; }
+  async updateUserStats(): Promise<UserStats> { throw new Error("Database required for user stats operations"); }
+}
+
+// Use DatabaseStorage if database is available, otherwise use MemoryStorage
+export const storage = db ? new DatabaseStorage() : new MemoryStorage();

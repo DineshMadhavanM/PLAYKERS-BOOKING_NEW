@@ -29,11 +29,8 @@ export function getSession() {
   
   let sessionStore;
   
-  // Check if database is available by testing if we have valid database credentials
-  const hasValidDb = process.env.DATABASE_URL || 
-    (process.env.PGHOST && process.env.PGUSER && process.env.PGPASSWORD && process.env.PGDATABASE);
-    
-  if (hasValidDb && process.env.PGHOST !== "" && process.env.PGUSER !== "") {
+  // Check if database pool is available
+  if (pool) {
     try {
       // Use PostgreSQL store when database is properly configured
       const PgSession = ConnectPgSimple(session);
@@ -51,7 +48,7 @@ export function getSession() {
     }
   } else {
     // Use memory store when database is not configured
-    console.warn("⚠️  Database not configured, using memory-based session store");
+    console.warn("⚠️  Database not available, using memory-based session store");
     console.warn("⚠️  Sessions will not persist between server restarts");
     sessionStore = new (MemoryStore(session))({
       checkPeriod: sessionTtl, // prune expired entries every 24h
