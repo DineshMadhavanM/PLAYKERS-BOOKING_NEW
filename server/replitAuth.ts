@@ -5,9 +5,9 @@ import passport from "passport";
 import session from "express-session";
 import type { Express, RequestHandler } from "express";
 import memoize from "memoizee";
-import MongoStore from "connect-mongo";
-import { storage } from "./mongodb-storage";
-import { getMongoUri } from "./mongodb";
+import ConnectPgSimple from "connect-pg-simple";
+import { storage } from "./storage";
+import { pool } from "./db";
 
 if (!process.env.REPLIT_DOMAINS) {
   throw new Error("Environment variable REPLIT_DOMAINS not provided");
@@ -25,11 +25,11 @@ const getOidcConfig = memoize(
 
 export function getSession() {
   const sessionTtl = 7 * 24 * 60 * 60 * 1000; // 1 week
-  const sessionStore = MongoStore.create({
-    mongoUrl: getMongoUri(),
-    dbName: 'playkers',
-    collectionName: 'sessions',
-    ttl: Math.floor(sessionTtl / 1000), // TTL in seconds for MongoDB
+  const PgSession = ConnectPgSimple(session);
+  const sessionStore = new PgSession({
+    pool: pool,
+    tableName: 'sessions',
+    ttl: Math.floor(sessionTtl / 1000), // TTL in seconds for PostgreSQL
   });
   return session({
     secret: process.env.SESSION_SECRET!,
