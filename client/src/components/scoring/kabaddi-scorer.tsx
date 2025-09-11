@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -24,6 +24,32 @@ export default function KabaddiScorer({ match, onScoreUpdate, isLive }: KabaddiS
   const [events, setEvents] = useState<Array<{time: number, event: string, team: string, points: number}>>([]);
   const [playerName, setPlayerName] = useState("");
 
+  // Update score whenever state changes
+  useEffect(() => {
+    const scoreData = {
+      team1Score: {
+        points: team1Score,
+        raids: team1Raids,
+        tackles: team1Tackles,
+        isRaiding: raidingTeam === 1,
+      },
+      team2Score: {
+        points: team2Score,
+        raids: team2Raids,
+        tackles: team2Tackles,
+        isRaiding: raidingTeam === 2,
+      },
+      matchData: {
+        currentHalf,
+        currentTime,
+        raidingTeam,
+        events,
+        lastEvent: events[events.length - 1],
+      },
+    };
+    onScoreUpdate(scoreData);
+  }, [team1Score, team2Score, team1Raids, team2Raids, team1Tackles, team2Tackles, raidingTeam, currentHalf, currentTime, events, onScoreUpdate]);
+
   const addRaidPoint = (team: 1 | 2, points: number = 1) => {
     if (!isLive) return;
 
@@ -47,7 +73,6 @@ export default function KabaddiScorer({ match, onScoreUpdate, isLive }: KabaddiS
     
     // Switch raiding team
     setRaidingTeam(team === 1 ? 2 : 1);
-    updateScore();
   };
 
   const addTacklePoint = (team: 1 | 2, points: number = 1) => {
@@ -70,7 +95,8 @@ export default function KabaddiScorer({ match, onScoreUpdate, isLive }: KabaddiS
 
     setEvents(prev => [...prev, event]);
     setPlayerName("");
-    updateScore();
+    // Switch raiding team after successful tackle - tackling team raids next
+    setRaidingTeam(team);
   };
 
   const addBonusPoint = (team: 1 | 2) => {
@@ -91,7 +117,6 @@ export default function KabaddiScorer({ match, onScoreUpdate, isLive }: KabaddiS
 
     setEvents(prev => [...prev, event]);
     setPlayerName("");
-    updateScore();
   };
 
   const addAllOut = (team: 1 | 2) => {
@@ -111,7 +136,8 @@ export default function KabaddiScorer({ match, onScoreUpdate, isLive }: KabaddiS
     };
 
     setEvents(prev => [...prev, event]);
-    updateScore();
+    // Switch raiding team after all out
+    setRaidingTeam(team === 1 ? 2 : 1);
   };
 
   const switchHalf = () => {
@@ -121,30 +147,6 @@ export default function KabaddiScorer({ match, onScoreUpdate, isLive }: KabaddiS
     setRaidingTeam(2); // Switch raiding team for second half
   };
 
-  const updateScore = () => {
-    const scoreData = {
-      team1Score: {
-        points: team1Score,
-        raids: team1Raids,
-        tackles: team1Tackles,
-        isRaiding: raidingTeam === 1,
-      },
-      team2Score: {
-        points: team2Score,
-        raids: team2Raids,
-        tackles: team2Tackles,
-        isRaiding: raidingTeam === 2,
-      },
-      matchData: {
-        currentHalf,
-        currentTime,
-        raidingTeam,
-        events,
-        lastEvent: events[events.length - 1],
-      },
-    };
-    onScoreUpdate(scoreData);
-  };
 
   return (
     <div className="space-y-6" data-testid="kabaddi-scorer">
