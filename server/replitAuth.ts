@@ -6,6 +6,7 @@ import session from "express-session";
 import type { Express, RequestHandler } from "express";
 import memoize from "memoizee";
 import ConnectPgSimple from "connect-pg-simple";
+import MemoryStore from "memorystore";
 import { storage } from "./storage";
 import { pool } from "./db";
 
@@ -25,12 +26,38 @@ const getOidcConfig = memoize(
 
 export function getSession() {
   const sessionTtl = 7 * 24 * 60 * 60 * 1000; // 1 week
-  const PgSession = ConnectPgSimple(session);
-  const sessionStore = new PgSession({
-    pool: pool,
-    tableName: 'sessions',
-    ttl: Math.floor(sessionTtl / 1000), // TTL in seconds for PostgreSQL
-  });
+  
+  let sessionStore;
+  
+  // Check if database is available by testing if we have valid database credentials
+  const hasValidDb = process.env.DATABASE_URL || 
+    (process.env.PGHOST && process.env.PGUSER && process.env.PGPASSWORD && process.env.PGDATABASE);
+    
+  if (hasValidDb && process.env.PGHOST !== "" && process.env.PGUSER !== "") {
+    try {
+      // Use PostgreSQL store when database is properly configured
+      const PgSession = ConnectPgSimple(session);
+      sessionStore = new PgSession({
+        pool: pool,
+        tableName: 'sessions',
+        ttl: Math.floor(sessionTtl / 1000), // TTL in seconds for PostgreSQL
+      });
+      console.log("✅ Using PostgreSQL session store");
+    } catch (error) {
+      console.warn("⚠️  PostgreSQL session store failed, falling back to memory store:", error);
+      sessionStore = new (MemoryStore(session))({
+        checkPeriod: sessionTtl, // prune expired entries every 24h
+      });
+    }
+  } else {
+    // Use memory store when database is not configured
+    console.warn("⚠️  Database not configured, using memory-based session store");
+    console.warn("⚠️  Sessions will not persist between server restarts");
+    sessionStore = new (MemoryStore(session))({
+      checkPeriod: sessionTtl, // prune expired entries every 24h
+    });
+  }
+
   return session({
     secret: process.env.SESSION_SECRET!,
     store: sessionStore,

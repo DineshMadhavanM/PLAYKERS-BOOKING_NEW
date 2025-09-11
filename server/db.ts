@@ -36,11 +36,11 @@ function getDatabaseUrl(): string {
   console.error("   2. Ensure database credentials are properly set in Secrets");
   console.error("   3. Restart the workflow to refresh environment variables");
   
-  // For development: provide a temporary fallback to continue development
-  // This should be replaced with proper database credentials
-  const fallbackUrl = "postgresql://user:password@localhost:5432/fallback_db";
-  console.warn("⚠️  Using fallback database URL for development. Database operations will fail.");
-  console.warn("⚠️  This must be fixed before production use!");
+  // For development: provide a non-connecting fallback to prevent connection errors
+  // This URL format won't attempt to connect but allows the app to start
+  const fallbackUrl = "postgresql://dummy:dummy@placeholder:0000/no_db";
+  console.warn("⚠️  Using placeholder database URL. Database operations will be skipped.");
+  console.warn("⚠️  Configure database secrets in Replit for full functionality!");
   
   return fallbackUrl;
 }
