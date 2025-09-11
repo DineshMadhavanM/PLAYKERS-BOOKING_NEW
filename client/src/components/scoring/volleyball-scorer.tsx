@@ -39,11 +39,11 @@ export default function VolleyballScorer({ match, onScoreUpdate, isLive }: Volle
     };
     setRallies(prev => [...prev, rally]);
 
-    checkSetWin();
+    checkSetWin(team);
     updateScore();
   };
 
-  const checkSetWin = () => {
+  const checkSetWin = (team: 1 | 2) => {
     const t1Points = team === 1 ? team1Points + 1 : team1Points;
     const t2Points = team === 1 ? team2Points : team2Points + 1;
 
@@ -79,10 +79,10 @@ export default function VolleyballScorer({ match, onScoreUpdate, isLive }: Volle
     setCurrentSet(prev => prev + 1);
     setServingTeam(1); // Reset serving
 
-    checkMatchWin();
+    checkMatchWin(winner);
   };
 
-  const checkMatchWin = () => {
+  const checkMatchWin = (winner: 1 | 2) => {
     const t1Sets = winner === 1 ? team1Sets + 1 : team1Sets;
     const t2Sets = winner === 1 ? team2Sets : team2Sets + 1;
 
