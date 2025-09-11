@@ -33,8 +33,15 @@ const matchSchema = z.object({
   description: z.string().optional(),
 });
 
+// Generate cricket overs options (1-50)
+const cricketOversOptions = Array.from({ length: 50 }, (_, i) => `${i + 1} Overs`);
+
 const sportOptions = [
-  { value: "cricket", label: "Cricket", types: ["T20", "ODI", "Test", "Street Cricket"] },
+  { 
+    value: "cricket", 
+    label: "Cricket", 
+    types: ["Test", ...cricketOversOptions] 
+  },
   { value: "football", label: "Football", types: ["90 min", "60 min", "7-a-side", "5-a-side"] },
   { value: "volleyball", label: "Volleyball", types: ["Best of 3", "Best of 5", "Time-based"] },
   { value: "tennis", label: "Tennis", types: ["Singles", "Doubles", "Mixed Doubles"] },
