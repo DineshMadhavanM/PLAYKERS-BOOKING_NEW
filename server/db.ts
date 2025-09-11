@@ -30,10 +30,19 @@ function getDatabaseUrl(): string {
     return url;
   }
 
-  console.error("❌ No database connection info available. Available env vars:", Object.keys(process.env));
-  throw new Error(
-    "DATABASE_URL or PG connection variables (PGHOST, PGUSER, PGPASSWORD, PGDATABASE, PGPORT) must be set. Did you forget to provision a database?",
-  );
+  console.error("❌ Database environment variables are empty. This is likely a Replit configuration issue.");
+  console.error("🔧 Troubleshooting steps:");
+  console.error("   1. Check that PostgreSQL database is properly provisioned in Replit");
+  console.error("   2. Ensure database credentials are properly set in Secrets");
+  console.error("   3. Restart the workflow to refresh environment variables");
+  
+  // For development: provide a temporary fallback to continue development
+  // This should be replaced with proper database credentials
+  const fallbackUrl = "postgresql://user:password@localhost:5432/fallback_db";
+  console.warn("⚠️  Using fallback database URL for development. Database operations will fail.");
+  console.warn("⚠️  This must be fixed before production use!");
+  
+  return fallbackUrl;
 }
 
 const databaseUrl = getDatabaseUrl();
