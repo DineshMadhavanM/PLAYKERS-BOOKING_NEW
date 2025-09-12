@@ -27,7 +27,17 @@ async function connectToDatabase() {
     const uri = getMongoUri();
     console.log('🔗 Connecting to MongoDB...');
     
-    client = new MongoClient(uri);
+    // Configure MongoDB client options for Replit compatibility
+    const options = {
+      serverApi: { version: '1' as const },
+      serverSelectionTimeoutMS: 5000,
+      connectTimeoutMS: 10000,
+      maxPoolSize: 10,
+      retryWrites: true,
+      w: 'majority' as const
+    };
+    
+    client = new MongoClient(uri, options);
     await client.connect();
     db = client.db('playkers'); // Database name
     console.log('✅ Successfully connected to MongoDB');

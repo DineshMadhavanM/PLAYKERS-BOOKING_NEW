@@ -35,7 +35,17 @@ export class MongoStorage implements IStorage {
   private userStats: Collection<UserStats>;
 
   constructor(uri: string) {
-    this.client = new MongoClient(uri);
+    // Configure MongoDB client options for Replit compatibility
+    const options = {
+      serverApi: { version: '1' as const },
+      serverSelectionTimeoutMS: 5000,
+      connectTimeoutMS: 10000,
+      maxPoolSize: 10,
+      retryWrites: true,
+      w: 'majority' as const
+    };
+    
+    this.client = new MongoClient(uri, options);
     this.db = this.client.db('playkers');
     this.users = this.db.collection<User>('users');
     this.venues = this.db.collection<Venue>('venues');
@@ -119,11 +129,11 @@ export class MongoStorage implements IStorage {
       { upsert: true, returnDocument: 'after' }
     );
 
-    if (!result?.value) {
+    if (!result) {
       throw new Error('Failed to upsert user');
     }
 
-    return result.value as User;
+    return result as User;
   }
 
   // Admin-specific methods
@@ -171,7 +181,7 @@ export class MongoStorage implements IStorage {
       { $set: { ...venue, updatedAt: new Date() } },
       { returnDocument: 'after' }
     );
-    return result?.value || undefined;
+    return result || undefined;
   }
 
   async deleteVenue(id: string): Promise<boolean> {
@@ -209,7 +219,7 @@ export class MongoStorage implements IStorage {
       { $set: { ...match, updatedAt: new Date() } },
       { returnDocument: 'after' }
     );
-    return result?.value || undefined;
+    return result || undefined;
   }
 
   async deleteMatch(id: string): Promise<boolean> {
