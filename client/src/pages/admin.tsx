@@ -19,6 +19,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { getDisplayName } from "@/lib/authUtils";
 
 interface User {
   id: string;
@@ -226,9 +227,7 @@ export default function Admin() {
                     <TableRow key={user.id} data-testid={`row-user-${user.id}`}>
                       <TableCell>
                         <div className="font-medium" data-testid={`text-user-name-${user.id}`}>
-                          {user.firstName && user.lastName
-                            ? `${user.firstName} ${user.lastName}`
-                            : "Unnamed User"}
+                          {getDisplayName(user as any)}
                         </div>
                         <div className="text-sm text-muted-foreground" data-testid={`text-user-email-${user.id}`}>
                           {user.email}
