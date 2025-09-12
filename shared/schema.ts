@@ -1,333 +1,282 @@
-import { sql, relations } from "drizzle-orm";
-import {
-  index,
-  jsonb,
-  pgTable,
-  timestamp,
-  varchar,
-  text,
-  integer,
-  decimal,
-  boolean,
-  date,
-} from "drizzle-orm/pg-core";
-import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-// Session storage table for Replit Auth
-export const sessions = pgTable(
-  "sessions",
-  {
-    sid: varchar("sid").primaryKey(),
-    sess: jsonb("sess").notNull(),
-    expire: timestamp("expire").notNull(),
-  },
-  (table) => [index("IDX_session_expire").on(table.expire)],
-);
+// Import Prisma types for TypeScript definitions
+import type {
+  users as PrismaUser,
+  venues as PrismaVenue,
+  matches as PrismaMatch,
+  match_participants as PrismaMatchParticipant,
+  bookings as PrismaBooking,
+  products as PrismaProduct,
+  reviews as PrismaReview,
+  cart_items as PrismaCartItem,
+  user_stats as PrismaUserStats,
+} from "@prisma/client";
 
-// Users table for email/password authentication and user profiles
-export const users = pgTable("users", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  email: varchar("email").notNull().unique(),
-  password: varchar("password").notNull(), // Hashed password
-  firstName: varchar("first_name"),
-  lastName: varchar("last_name"),
-  profileImageUrl: varchar("profile_image_url"),
-  dateOfBirth: date("date_of_birth"),
-  location: varchar("location"),
-  phoneNumber: varchar("phone_number"),
-  isAdmin: boolean("is_admin").default(false),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
+// Zod schemas for validation (replacing drizzle-zod)
+
+// User validation schemas
+export const insertUserSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(6),
+  firstName: z.string().nullable().optional(),
+  lastName: z.string().nullable().optional(),
+  profileImageUrl: z.string().nullable().optional(),
+  dateOfBirth: z.string().nullable().optional(),
+  location: z.string().nullable().optional(),
+  phoneNumber: z.string().nullable().optional(),
+  isAdmin: z.boolean().optional(),
 });
 
-// Venues table for sports facilities
-export const venues = pgTable("venues", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  name: varchar("name").notNull(),
-  description: text("description"),
-  address: text("address").notNull(),
-  city: varchar("city").notNull(),
-  state: varchar("state").notNull(),
-  latitude: decimal("latitude", { precision: 10, scale: 8 }),
-  longitude: decimal("longitude", { precision: 11, scale: 8 }),
-  sports: text("sports").array().notNull(), // ['cricket', 'football', etc.]
-  pricePerHour: decimal("price_per_hour", { precision: 10, scale: 2 }).notNull(),
-  facilities: text("facilities").array(), // ['parking', 'restrooms', etc.]
-  images: text("images").array(),
-  rating: decimal("rating", { precision: 3, scale: 2 }).default("0"),
-  totalReviews: integer("total_reviews").default(0),
-  ownerId: varchar("owner_id").notNull(),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
+// Venue validation schemas
+export const insertVenueSchema = z.object({
+  name: z.string(),
+  description: z.string().nullable().optional(),
+  address: z.string(),
+  city: z.string(),
+  state: z.string(),
+  latitude: z.string().nullable().optional(), // Decimal as string
+  longitude: z.string().nullable().optional(), // Decimal as string
+  sports: z.array(z.string()),
+  pricePerHour: z.string(), // Decimal as string
+  facilities: z.array(z.string()).optional(),
+  images: z.array(z.string()).optional(),
+  rating: z.string().optional(), // Decimal as string
+  totalReviews: z.number().optional(),
+  ownerId: z.string(),
 });
 
-// Matches table for game management
-export const matches = pgTable("matches", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  title: varchar("title").notNull(),
-  sport: varchar("sport").notNull(), // 'cricket', 'football', etc.
-  matchType: varchar("match_type").notNull(), // 'T20', '90min', etc.
-  isPublic: boolean("is_public").default(true),
-  venueId: varchar("venue_id").notNull(),
-  organizerId: varchar("organizer_id").notNull(),
-  scheduledAt: timestamp("scheduled_at").notNull(),
-  duration: integer("duration"), // in minutes
-  maxPlayers: integer("max_players").notNull(),
-  currentPlayers: integer("current_players").default(0),
-  status: varchar("status").default("upcoming"), // 'upcoming', 'live', 'completed', 'cancelled'
-  team1Name: varchar("team1_name"),
-  team2Name: varchar("team2_name"),
-  team1Score: jsonb("team1_score"), // flexible scoring data
-  team2Score: jsonb("team2_score"),
-  matchData: jsonb("match_data"), // detailed match statistics
-  description: text("description"),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
+// Match validation schemas
+export const insertMatchSchema = z.object({
+  title: z.string(),
+  sport: z.string(),
+  matchType: z.string(),
+  isPublic: z.boolean().optional(),
+  venueId: z.string(),
+  organizerId: z.string(),
+  scheduledAt: z.date(),
+  duration: z.number().nullable().optional(),
+  maxPlayers: z.number(),
+  currentPlayers: z.number().optional(),
+  status: z.string().optional(),
+  team1Name: z.string().nullable().optional(),
+  team2Name: z.string().nullable().optional(),
+  team1Score: z.any().nullable().optional(), // JSON
+  team2Score: z.any().nullable().optional(), // JSON
+  matchData: z.any().nullable().optional(), // JSON
+  description: z.string().nullable().optional(),
 });
 
-// Match participants
-export const matchParticipants = pgTable("match_participants", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  matchId: varchar("match_id").notNull(),
-  userId: varchar("user_id").notNull(),
-  team: varchar("team"), // 'team1', 'team2', or null for individual sports
-  role: varchar("role").default("player"), // 'player', 'captain', 'scorer'
-  status: varchar("status").default("joined"), // 'joined', 'invited', 'declined'
-  joinedAt: timestamp("joined_at").defaultNow(),
+// Match participant validation schemas
+export const insertMatchParticipantSchema = z.object({
+  matchId: z.string(),
+  userId: z.string(),
+  team: z.string().nullable().optional(),
+  role: z.string().optional(),
+  status: z.string().optional(),
 });
 
-// Bookings table for venue reservations
-export const bookings = pgTable("bookings", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  venueId: varchar("venue_id").notNull(),
-  userId: varchar("user_id").notNull(),
-  matchId: varchar("match_id"),
-  startTime: timestamp("start_time").notNull(),
-  endTime: timestamp("end_time").notNull(),
-  totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
-  status: varchar("status").default("confirmed"), // 'pending', 'confirmed', 'cancelled'
-  paymentStatus: varchar("payment_status").default("pending"), // 'pending', 'paid', 'failed'
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
+// Booking validation schemas
+export const insertBookingSchema = z.object({
+  venueId: z.string(),
+  userId: z.string(),
+  matchId: z.string().nullable().optional(),
+  startTime: z.date(),
+  endTime: z.date(),
+  totalAmount: z.string(), // Decimal as string
+  status: z.string().optional(),
+  paymentStatus: z.string().optional(),
 });
 
-// Products table for e-commerce
-export const products = pgTable("products", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  name: varchar("name").notNull(),
-  description: text("description"),
-  category: varchar("category").notNull(), // 'cricket', 'football', etc.
-  subcategory: varchar("subcategory"), // 'bats', 'balls', etc.
-  price: decimal("price", { precision: 10, scale: 2 }).notNull(),
-  discountPrice: decimal("discount_price", { precision: 10, scale: 2 }),
-  images: text("images").array(),
-  brand: varchar("brand"),
-  specifications: jsonb("specifications"),
-  inStock: boolean("in_stock").default(true),
-  stockQuantity: integer("stock_quantity").default(0),
-  rating: decimal("rating", { precision: 3, scale: 2 }).default("0"),
-  totalReviews: integer("total_reviews").default(0),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
+// Product validation schemas
+export const insertProductSchema = z.object({
+  name: z.string(),
+  description: z.string().nullable().optional(),
+  category: z.string(),
+  subcategory: z.string().nullable().optional(),
+  price: z.string(), // Decimal as string
+  discountPrice: z.string().nullable().optional(), // Decimal as string
+  images: z.array(z.string()).optional(),
+  brand: z.string().nullable().optional(),
+  specifications: z.any().nullable().optional(), // JSON
+  inStock: z.boolean().optional(),
+  stockQuantity: z.number().optional(),
+  rating: z.string().optional(), // Decimal as string
+  totalReviews: z.number().optional(),
 });
 
-// Reviews table for venues and products
-export const reviews = pgTable("reviews", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").notNull(),
-  venueId: varchar("venue_id"),
-  productId: varchar("product_id"),
-  rating: integer("rating").notNull(), // 1-5
-  comment: text("comment"),
-  images: text("images").array(),
-  isVerified: boolean("is_verified").default(false),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
+// Review validation schemas
+export const insertReviewSchema = z.object({
+  userId: z.string(),
+  venueId: z.string().nullable().optional(),
+  productId: z.string().nullable().optional(),
+  rating: z.number().min(1).max(5),
+  comment: z.string().nullable().optional(),
+  images: z.array(z.string()).optional(),
+  isVerified: z.boolean().optional(),
 });
 
-// Cart items for e-commerce
-export const cartItems = pgTable("cart_items", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").notNull(),
-  productId: varchar("product_id").notNull(),
-  quantity: integer("quantity").default(1),
-  createdAt: timestamp("created_at").defaultNow(),
+// Cart item validation schemas
+export const insertCartItemSchema = z.object({
+  userId: z.string(),
+  productId: z.string(),
+  quantity: z.number().optional(),
 });
 
-// User statistics for profile tracking
-export const userStats = pgTable("user_stats", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").notNull(),
-  sport: varchar("sport").notNull(),
-  matchesPlayed: integer("matches_played").default(0),
-  matchesWon: integer("matches_won").default(0),
-  totalScore: integer("total_score").default(0),
-  bestPerformance: jsonb("best_performance"),
-  stats: jsonb("stats"), // sport-specific statistics
-  updatedAt: timestamp("updated_at").defaultNow(),
+// User stats validation schemas (not used in forms but kept for completeness)
+export const insertUserStatsSchema = z.object({
+  userId: z.string(),
+  sport: z.string(),
+  matchesPlayed: z.number().optional(),
+  matchesWon: z.number().optional(),
+  totalScore: z.number().optional(),
+  bestPerformance: z.any().nullable().optional(), // JSON
+  stats: z.any().nullable().optional(), // JSON
 });
 
-// Relations
-export const usersRelations = relations(users, ({ many }) => ({
-  ownedVenues: many(venues),
-  organizedMatches: many(matches),
-  matchParticipations: many(matchParticipants),
-  bookings: many(bookings),
-  reviews: many(reviews),
-  cartItems: many(cartItems),
-  userStats: many(userStats),
-}));
+// TypeScript types (mapped from Prisma types with camelCase conversions)
+export type User = {
+  id: string;
+  email: string;
+  password: string;
+  firstName: string | null;
+  lastName: string | null;
+  profileImageUrl: string | null;
+  dateOfBirth: Date | null;
+  location: string | null;
+  phoneNumber: string | null;
+  isAdmin: boolean | null;
+  createdAt: Date | null;
+  updatedAt: Date | null;
+};
 
-export const venuesRelations = relations(venues, ({ one, many }) => ({
-  owner: one(users, {
-    fields: [venues.ownerId],
-    references: [users.id],
-  }),
-  matches: many(matches),
-  bookings: many(bookings),
-  reviews: many(reviews),
-}));
+export type Venue = {
+  id: string;
+  name: string;
+  description: string | null;
+  address: string;
+  city: string;
+  state: string;
+  latitude: string | null; // Decimal
+  longitude: string | null; // Decimal
+  sports: string[];
+  pricePerHour: string; // Decimal
+  facilities: string[];
+  images: string[];
+  rating: string | null; // Decimal
+  totalReviews: number | null;
+  ownerId: string;
+  createdAt: Date | null;
+  updatedAt: Date | null;
+};
 
-export const matchesRelations = relations(matches, ({ one, many }) => ({
-  venue: one(venues, {
-    fields: [matches.venueId],
-    references: [venues.id],
-  }),
-  organizer: one(users, {
-    fields: [matches.organizerId],
-    references: [users.id],
-  }),
-  participants: many(matchParticipants),
-  booking: one(bookings),
-}));
+export type Match = {
+  id: string;
+  title: string;
+  sport: string;
+  matchType: string;
+  isPublic: boolean | null;
+  venueId: string;
+  organizerId: string;
+  scheduledAt: Date;
+  duration: number | null;
+  maxPlayers: number;
+  currentPlayers: number | null;
+  status: string | null;
+  team1Name: string | null;
+  team2Name: string | null;
+  team1Score: any; // JSON
+  team2Score: any; // JSON
+  matchData: any; // JSON
+  description: string | null;
+  createdAt: Date | null;
+  updatedAt: Date | null;
+};
 
-export const matchParticipantsRelations = relations(matchParticipants, ({ one }) => ({
-  match: one(matches, {
-    fields: [matchParticipants.matchId],
-    references: [matches.id],
-  }),
-  user: one(users, {
-    fields: [matchParticipants.userId],
-    references: [users.id],
-  }),
-}));
+export type MatchParticipant = {
+  id: string;
+  matchId: string;
+  userId: string;
+  team: string | null;
+  role: string | null;
+  status: string | null;
+  joinedAt: Date | null;
+};
 
-export const bookingsRelations = relations(bookings, ({ one }) => ({
-  venue: one(venues, {
-    fields: [bookings.venueId],
-    references: [venues.id],
-  }),
-  user: one(users, {
-    fields: [bookings.userId],
-    references: [users.id],
-  }),
-  match: one(matches, {
-    fields: [bookings.matchId],
-    references: [matches.id],
-  }),
-}));
+export type Booking = {
+  id: string;
+  venueId: string;
+  userId: string;
+  matchId: string | null;
+  startTime: Date;
+  endTime: Date;
+  totalAmount: string; // Decimal
+  status: string | null;
+  paymentStatus: string | null;
+  createdAt: Date | null;
+  updatedAt: Date | null;
+};
 
-export const productsRelations = relations(products, ({ many }) => ({
-  reviews: many(reviews),
-  cartItems: many(cartItems),
-}));
+export type Product = {
+  id: string;
+  name: string;
+  description: string | null;
+  category: string;
+  subcategory: string | null;
+  price: string; // Decimal
+  discountPrice: string | null; // Decimal
+  images: string[];
+  brand: string | null;
+  specifications: any; // JSON
+  inStock: boolean | null;
+  stockQuantity: number | null;
+  rating: string | null; // Decimal
+  totalReviews: number | null;
+  createdAt: Date | null;
+  updatedAt: Date | null;
+};
 
-export const reviewsRelations = relations(reviews, ({ one }) => ({
-  user: one(users, {
-    fields: [reviews.userId],
-    references: [users.id],
-  }),
-  venue: one(venues, {
-    fields: [reviews.venueId],
-    references: [venues.id],
-  }),
-  product: one(products, {
-    fields: [reviews.productId],
-    references: [products.id],
-  }),
-}));
+export type Review = {
+  id: string;
+  userId: string;
+  venueId: string | null;
+  productId: string | null;
+  rating: number;
+  comment: string | null;
+  images: string[];
+  isVerified: boolean | null;
+  createdAt: Date | null;
+  updatedAt: Date | null;
+};
 
-export const cartItemsRelations = relations(cartItems, ({ one }) => ({
-  user: one(users, {
-    fields: [cartItems.userId],
-    references: [users.id],
-  }),
-  product: one(products, {
-    fields: [cartItems.productId],
-    references: [products.id],
-  }),
-}));
+export type CartItem = {
+  id: string;
+  userId: string;
+  productId: string;
+  quantity: number | null;
+  createdAt: Date | null;
+};
 
-export const userStatsRelations = relations(userStats, ({ one }) => ({
-  user: one(users, {
-    fields: [userStats.userId],
-    references: [users.id],
-  }),
-}));
+export type UserStats = {
+  id: string;
+  userId: string;
+  sport: string;
+  matchesPlayed: number | null;
+  matchesWon: number | null;
+  totalScore: number | null;
+  bestPerformance: any; // JSON
+  stats: any; // JSON
+  updatedAt: Date | null;
+};
 
-// Insert schemas
-export const insertUserSchema = createInsertSchema(users).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-});
-
-export const insertVenueSchema = createInsertSchema(venues).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-});
-
-export const insertMatchSchema = createInsertSchema(matches).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-});
-
-export const insertBookingSchema = createInsertSchema(bookings).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-});
-
-export const insertProductSchema = createInsertSchema(products).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-});
-
-export const insertReviewSchema = createInsertSchema(reviews).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-});
-
-export const insertMatchParticipantSchema = createInsertSchema(matchParticipants).omit({
-  id: true,
-  joinedAt: true,
-});
-
-export const insertCartItemSchema = createInsertSchema(cartItems).omit({
-  id: true,
-  createdAt: true,
-});
-
-// Types
-export type UpsertUser = typeof users.$inferInsert;
-export type User = typeof users.$inferSelect;
-export type Venue = typeof venues.$inferSelect;
+// Insert types (inferred from Zod schemas)
+export type InsertUser = z.infer<typeof insertUserSchema>;
+export type UpsertUser = User; // For compatibility with existing code
 export type InsertVenue = z.infer<typeof insertVenueSchema>;
-export type Match = typeof matches.$inferSelect;
 export type InsertMatch = z.infer<typeof insertMatchSchema>;
-export type MatchParticipant = typeof matchParticipants.$inferSelect;
 export type InsertMatchParticipant = z.infer<typeof insertMatchParticipantSchema>;
-export type Booking = typeof bookings.$inferSelect;
 export type InsertBooking = z.infer<typeof insertBookingSchema>;
-export type Product = typeof products.$inferSelect;
 export type InsertProduct = z.infer<typeof insertProductSchema>;
-export type Review = typeof reviews.$inferSelect;
 export type InsertReview = z.infer<typeof insertReviewSchema>;
-export type CartItem = typeof cartItems.$inferSelect;
 export type InsertCartItem = z.infer<typeof insertCartItemSchema>;
-export type UserStats = typeof userStats.$inferSelect;
+export type InsertUserStats = z.infer<typeof insertUserStatsSchema>;
