@@ -606,11 +606,19 @@ async function initializeStorage(): Promise<IStorage> {
   return db ? new DatabaseStorage() : new MemoryStorage();
 }
 
-// Initialize storage async
-export let storage: IStorage;
-initializeStorage().then(s => {
-  storage = s;
-}).catch(error => {
-  console.error('❌ Failed to initialize storage:', error);
-  storage = new MemoryStorage();
-});
+// Initialize storage async with fallback
+export let storage: IStorage = new MemoryStorage(); // Start with memory storage as fallback
+
+async function initStorage() {
+  try {
+    storage = await initializeStorage();
+    console.log('✅ Storage initialized successfully');
+  } catch (error) {
+    console.error('❌ Failed to initialize storage:', error);
+    console.log('⚠️  Using memory storage as fallback');
+    storage = new MemoryStorage();
+  }
+}
+
+// Initialize storage immediately
+initStorage();
