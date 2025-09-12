@@ -14,8 +14,15 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { apiRequest } from "@/lib/queryClient";
-import { Calendar, MapPin, Users, Play, Pause, Square } from "lucide-react";
+import { Calendar, MapPin, Users, Play, Pause, Square, Trophy } from "lucide-react";
 import type { Match, MatchParticipant } from "@shared/schema";
+
+interface CricketScore {
+  runs: number;
+  wickets: number;
+  overs: string;
+  ballByBall?: string[];
+}
 
 export default function MatchScorer() {
   const [, params] = useRoute("/match/:id/score");
@@ -145,6 +152,23 @@ export default function MatchScorer() {
     });
   };
 
+  const formatCricketScore = (score: any) => {
+    if (!score || typeof score !== 'object') return "0/0 (0.0)"; 
+    
+    const runs = score.runs || 0;
+    const wickets = score.wickets || 0;
+    const overs = score.overs || "0.0";
+    
+    return `${runs}/${wickets} (${overs})`;
+  };
+
+  const formatDisplayScore = (score: any, sport: string) => {
+    if (sport === 'cricket') {
+      return formatCricketScore(score);
+    }
+    return score ? JSON.stringify(score) : "0";
+  };
+
   const renderScorer = () => {
     const scorerProps = {
       match,
@@ -252,29 +276,77 @@ export default function MatchScorer() {
           </CardContent>
         </Card>
 
-        {/* Teams Display */}
+        {/* Enhanced Teams Display */}
         {match.team1Name && match.team2Name && (
-          <Card className="mb-8">
-            <CardContent className="p-6">
-              <div className="grid grid-cols-3 gap-4 text-center">
-                <div>
-                  <h3 className="text-xl font-semibold mb-2" data-testid="text-team1-name">
-                    {match.team1Name}
-                  </h3>
-                  <div className="text-3xl font-bold text-primary" data-testid="text-team1-score">
-                    {match.team1Score ? JSON.stringify(match.team1Score) : "0"}
+          <Card className="mb-8 bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900/20 dark:to-slate-800/20 border-2 border-slate-200 dark:border-slate-700">
+            <CardContent className="p-8">
+              <div className="grid grid-cols-3 gap-6 items-center">
+                {/* Team 1 */}
+                <div className="text-center">
+                  <div className="p-6 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/30 dark:to-blue-800/30 rounded-2xl border-2 border-blue-200 dark:border-blue-700 shadow-lg">
+                    <Trophy className="h-8 w-8 mx-auto mb-3 text-blue-600 dark:text-blue-400" />
+                    <h3 className="text-2xl font-bold mb-4 text-blue-800 dark:text-blue-200" data-testid="text-team1-name">
+                      {match.team1Name}
+                    </h3>
+                    <div className="space-y-2">
+                      <div className="text-4xl font-bold text-blue-600 dark:text-blue-400" data-testid="text-team1-score">
+                        {formatDisplayScore(match.team1Score, match.sport)}
+                      </div>
+                      {match.sport === 'cricket' && match.team1Score && (
+                        <div className="text-sm text-blue-700 dark:text-blue-300 font-medium">
+                          Overs: {match.team1Score.overs || "0.0"}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
+                
+                {/* VS Section */}
                 <div className="flex items-center justify-center">
-                  <span className="text-2xl font-bold text-muted-foreground">VS</span>
-                </div>
-                <div>
-                  <h3 className="text-xl font-semibold mb-2" data-testid="text-team2-name">
-                    {match.team2Name}
-                  </h3>
-                  <div className="text-3xl font-bold text-primary" data-testid="text-team2-score">
-                    {match.team2Score ? JSON.stringify(match.team2Score) : "0"}
+                  <div className="text-center p-4">
+                    <div className="text-4xl font-bold text-transparent bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text mb-2">
+                      VS
+                    </div>
+                    <Badge 
+                      variant={matchStatus === 'live' ? 'default' : 'secondary'}
+                      className={`text-sm px-3 py-1 ${
+                        matchStatus === 'live' 
+                          ? 'bg-red-600 text-white animate-pulse border-red-700' 
+                          : ''
+                      }`}
+                    >
+                      {matchStatus === 'live' ? '🔴 LIVE' : matchStatus.toUpperCase()}
+                    </Badge>
                   </div>
+                </div>
+                
+                {/* Team 2 */}
+                <div className="text-center">
+                  <div className="p-6 bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/30 dark:to-green-800/30 rounded-2xl border-2 border-green-200 dark:border-green-700 shadow-lg">
+                    <Trophy className="h-8 w-8 mx-auto mb-3 text-green-600 dark:text-green-400" />
+                    <h3 className="text-2xl font-bold mb-4 text-green-800 dark:text-green-200" data-testid="text-team2-name">
+                      {match.team2Name}
+                    </h3>
+                    <div className="space-y-2">
+                      <div className="text-4xl font-bold text-green-600 dark:text-green-400" data-testid="text-team2-score">
+                        {formatDisplayScore(match.team2Score, match.sport)}
+                      </div>
+                      {match.sport === 'cricket' && match.team2Score && (
+                        <div className="text-sm text-green-700 dark:text-green-300 font-medium">
+                          Overs: {match.team2Score.overs || "0.0"}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Match Info Footer */}
+              <div className="mt-6 pt-4 border-t border-slate-200 dark:border-slate-700">
+                <div className="flex justify-center items-center gap-6 text-sm text-muted-foreground">
+                  <span className="font-medium capitalize">{match.sport} Match</span>
+                  <span>•</span>
+                  <span>{formatDate(match.scheduledAt)}</span>
                 </div>
               </div>
             </CardContent>
