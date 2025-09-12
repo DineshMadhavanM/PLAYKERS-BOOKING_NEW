@@ -16,6 +16,7 @@ import type {
   InsertProduct,
   InsertReview,
   InsertCartItem,
+  InsertUserStats,
   UpsertUser,
 } from "@shared/schema";
 import type { IStorage } from "./storage";
@@ -104,19 +105,25 @@ export class MongoStorage implements IStorage {
   }
 
   async upsertUser(userData: UpsertUser): Promise<User> {
-    const user: User = {
-      ...userData,
-      id: userData.id,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-
-    await this.users.replaceOne(
+    const result = await this.users.findOneAndUpdate(
       { id: userData.id } as any,
-      user as any,
-      { upsert: true }
+      {
+        $set: {
+          ...userData,
+          updatedAt: new Date(),
+        },
+        $setOnInsert: {
+          createdAt: new Date(),
+        },
+      },
+      { upsert: true, returnDocument: 'after' }
     );
-    return user;
+
+    if (!result?.value) {
+      throw new Error('Failed to upsert user');
+    }
+
+    return result.value as User;
   }
 
   // Admin-specific methods
@@ -164,7 +171,7 @@ export class MongoStorage implements IStorage {
       { $set: { ...venue, updatedAt: new Date() } },
       { returnDocument: 'after' }
     );
-    return result || undefined;
+    return result?.value || undefined;
   }
 
   async deleteVenue(id: string): Promise<boolean> {
@@ -202,7 +209,7 @@ export class MongoStorage implements IStorage {
       { $set: { ...match, updatedAt: new Date() } },
       { returnDocument: 'after' }
     );
-    return result || undefined;
+    return result?.value || undefined;
   }
 
   async deleteMatch(id: string): Promise<boolean> {
@@ -247,27 +254,112 @@ export class MongoStorage implements IStorage {
   // Simplified implementations for other entities (for basic admin functionality)
   async getBookings(): Promise<Booking[]> { return []; }
   async getBooking(): Promise<Booking | undefined> { return undefined; }
-  async createBooking(): Promise<Booking> { throw new Error("Not implemented"); }
+  async createBooking(bookingData: InsertBooking): Promise<Booking> {
+    const id = `booking-${this.generateId()}`;
+    const booking: Booking = {
+      id,
+      ...bookingData,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    await this.bookings.insertOne(booking as any);
+    return booking;
+  }
   async updateBooking(): Promise<Booking | undefined> { return undefined; }
   async deleteBooking(): Promise<boolean> { return false; }
 
   async getProducts(): Promise<Product[]> { return []; }
   async getProduct(): Promise<Product | undefined> { return undefined; }
-  async createProduct(): Promise<Product> { throw new Error("Not implemented"); }
+  async createProduct(productData: InsertProduct): Promise<Product> {
+    const id = `product-${this.generateId()}`;
+    const product: Product = {
+      id,
+      ...productData,
+      inStock: productData.inStock ?? true,
+      stockQuantity: productData.stockQuantity ?? 0,
+      totalReviews: 0,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    await this.products.insertOne(product as any);
+    return product;
+  }
   async updateProduct(): Promise<Product | undefined> { return undefined; }
   async deleteProduct(): Promise<boolean> { return false; }
 
   async getCartItems(): Promise<CartItem[]> { return []; }
-  async addToCart(): Promise<CartItem> { throw new Error("Not implemented"); }
+  async addToCart(cartData: InsertCartItem): Promise<CartItem> {
+    const id = `cart-${this.generateId()}`;
+    const cartItem: CartItem = {
+      id,
+      ...cartData,
+      quantity: cartData.quantity ?? 1,
+      createdAt: new Date(),
+    };
+
+    await this.cartItems.insertOne(cartItem as any);
+    return cartItem;
+  }
   async updateCartItem(): Promise<CartItem | undefined> { return undefined; }
   async removeFromCart(): Promise<boolean> { return false; }
   async clearCart(): Promise<boolean> { return false; }
 
   async getReviews(): Promise<Review[]> { return []; }
-  async createReview(): Promise<Review> { throw new Error("Not implemented"); }
+  async createReview(reviewData: InsertReview): Promise<Review> {
+    const id = `review-${this.generateId()}`;
+    const review: Review = {
+      id,
+      ...reviewData,
+      images: reviewData.images ?? [],
+      isVerified: reviewData.isVerified ?? false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    await this.reviews.insertOne(review as any);
+    return review;
+  }
   async updateReview(): Promise<Review | undefined> { return undefined; }
   async deleteReview(): Promise<boolean> { return false; }
 
   async getUserStats(): Promise<UserStats[]> { return []; }
-  async updateUserStats(): Promise<UserStats> { throw new Error("Not implemented"); }
+  async updateUserStats(statsData: InsertUserStats): Promise<UserStats> {
+    // Separate numeric fields (for increment) from non-numeric fields (for set)
+    const { matchesPlayed, matchesWon, totalScore, ...nonNumericFields } = statsData;
+    
+    const update: any = {
+      $set: {
+        ...nonNumericFields,
+        updatedAt: new Date(),
+      },
+      $setOnInsert: {
+        id: `stats-${this.generateId()}`,
+        createdAt: new Date(),
+      },
+    };
+
+    // Only add $inc if there are numeric values to increment
+    const incrementFields: any = {};
+    if (matchesPlayed !== undefined) incrementFields.matchesPlayed = matchesPlayed;
+    if (matchesWon !== undefined) incrementFields.matchesWon = matchesWon;
+    if (totalScore !== undefined) incrementFields.totalScore = totalScore;
+    
+    if (Object.keys(incrementFields).length > 0) {
+      update.$inc = incrementFields;
+    }
+
+    const result = await this.userStats.findOneAndUpdate(
+      { userId: statsData.userId, sport: statsData.sport },
+      update,
+      { upsert: true, returnDocument: 'after' }
+    );
+
+    if (!result?.value) {
+      throw new Error('Failed to update user stats');
+    }
+
+    return result.value as UserStats;
+  }
 }
