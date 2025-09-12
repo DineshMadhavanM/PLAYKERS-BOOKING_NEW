@@ -55,10 +55,25 @@ export async function registerUser(email: string, password: string, firstName?: 
       throw new Error("User already exists with this email");
     }
 
+    // Check if this is the first user (for auto-admin)
+    let isFirstUser = false;
+    if (storage.getAllUsers) {
+      try {
+        const allUsers = await storage.getAllUsers();
+        isFirstUser = allUsers.length === 0;
+      } catch (error) {
+        // If getAllUsers fails, assume this might be the first user
+        isFirstUser = true;
+      }
+    } else {
+      // If getAllUsers is not available, assume this might be the first user
+      isFirstUser = true;
+    }
+
     // Hash password
     const hashedPassword = await hashPassword(password);
 
-    // Create user
+    // Create user (first user automatically becomes admin)
     const newUser = await storage.createUser({
       email,
       password: hashedPassword,
@@ -67,7 +82,12 @@ export async function registerUser(email: string, password: string, firstName?: 
       dateOfBirth: dateOfBirth || null,
       location: location || null,
       phoneNumber: phoneNumber || null,
+      isAdmin: isFirstUser,
     });
+
+    if (isFirstUser) {
+      console.log(`✅ First user registered as admin: ${email}`);
+    }
 
     return newUser;
   } catch (error) {

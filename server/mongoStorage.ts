@@ -81,6 +81,7 @@ export class MongoStorage implements IStorage {
     dateOfBirth?: string | null; 
     location?: string | null; 
     phoneNumber?: string | null; 
+    isAdmin?: boolean;
   }): Promise<User> {
     const id = `user-${this.generateId()}`;
     const user: User = {
@@ -93,6 +94,7 @@ export class MongoStorage implements IStorage {
       dateOfBirth: userData.dateOfBirth || null,
       location: userData.location || null,
       phoneNumber: userData.phoneNumber || null,
+      isAdmin: userData.isAdmin || false,
       createdAt: new Date(),
       updatedAt: new Date(),
     };

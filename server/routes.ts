@@ -445,9 +445,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(401).json({ message: "Authentication required" });
     }
     
-    // For now, any authenticated user can access admin (you can add role-based auth later)
-    // In production, you'd check if user has admin role
+    // Check if user has admin role
+    if (!req.session.user.isAdmin) {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+    
     next();
+  }
+
+  // Helper function to sanitize user data (remove password)
+  function sanitizeUser(user: any) {
+    const { password, ...sanitizedUser } = user;
+    return sanitizedUser;
   }
 
   // Get all users for admin panel
@@ -456,10 +465,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (storage.getAllUsers) {
         const users = await storage.getAllUsers();
         // Remove password from response for security
-        const sanitizedUsers = users.map(user => ({
-          ...user,
-          password: undefined
-        }));
+        const sanitizedUsers = users.map(sanitizeUser);
         res.json(sanitizedUsers);
       } else {
         res.status(501).json({ message: "Admin functionality not available" });
@@ -493,8 +499,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "User not found" });
       }
       // Remove password from response for security
-      const sanitizedUser = { ...user, password: undefined };
-      res.json(sanitizedUser);
+      res.json(sanitizeUser(user));
     } catch (error) {
       console.error("Error fetching user:", error);
       res.status(500).json({ message: "Failed to fetch user" });

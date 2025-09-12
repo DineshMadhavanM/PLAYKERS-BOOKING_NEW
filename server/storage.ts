@@ -33,7 +33,7 @@ export interface IStorage {
   // User operations (mandatory for authentication)
   getUser(id: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
-  createUser(user: { email: string; password: string; firstName?: string | null; lastName?: string | null; profileImageUrl?: string | null; dateOfBirth?: string | null; location?: string | null; phoneNumber?: string | null }): Promise<User>;
+  createUser(user: { email: string; password: string; firstName?: string | null; lastName?: string | null; profileImageUrl?: string | null; dateOfBirth?: string | null; location?: string | null; phoneNumber?: string | null; isAdmin?: boolean }): Promise<User>;
   upsertUser(user: UpsertUser): Promise<User>;
   
   // Admin operations
@@ -111,7 +111,7 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
-  async createUser(userData: { email: string; password: string; firstName?: string | null; lastName?: string | null; profileImageUrl?: string | null; dateOfBirth?: string | null; location?: string | null; phoneNumber?: string | null }): Promise<User> {
+  async createUser(userData: { email: string; password: string; firstName?: string | null; lastName?: string | null; profileImageUrl?: string | null; dateOfBirth?: string | null; location?: string | null; phoneNumber?: string | null; isAdmin?: boolean }): Promise<User> {
     if (!db) {
       throw new Error("Database not available. Please configure database credentials.");
     }
@@ -126,6 +126,7 @@ export class DatabaseStorage implements IStorage {
         dateOfBirth: userData.dateOfBirth || null,
         location: userData.location || null,
         phoneNumber: userData.phoneNumber || null,
+        isAdmin: userData.isAdmin || false,
       })
       .returning();
     return user;
@@ -504,7 +505,7 @@ class MemoryStorage implements IStorage {
     return undefined;
   }
 
-  async createUser(userData: { email: string; password: string; firstName?: string | null; lastName?: string | null; profileImageUrl?: string | null; dateOfBirth?: string | null; location?: string | null; phoneNumber?: string | null }): Promise<User> {
+  async createUser(userData: { email: string; password: string; firstName?: string | null; lastName?: string | null; profileImageUrl?: string | null; dateOfBirth?: string | null; location?: string | null; phoneNumber?: string | null; isAdmin?: boolean }): Promise<User> {
     const id = `user-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     const user: User = {
       id,
@@ -516,6 +517,7 @@ class MemoryStorage implements IStorage {
       dateOfBirth: userData.dateOfBirth || null,
       location: userData.location || null,
       phoneNumber: userData.phoneNumber || null,
+      isAdmin: userData.isAdmin || false,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -580,6 +582,19 @@ class MemoryStorage implements IStorage {
   async createReview(): Promise<Review> { throw new Error("Database required for review operations"); }
   async updateReview(): Promise<Review | undefined> { return undefined; }
   async deleteReview(): Promise<boolean> { return false; }
+
+  // Admin operations  
+  async getAllUsers(): Promise<User[]> {
+    return Array.from(this.users.values());
+  }
+
+  async getUserCount(): Promise<number> {
+    return this.users.size;
+  }
+
+  async deleteUser(id: string): Promise<boolean> {
+    return this.users.delete(id);
+  }
 
   // User stats operations
   async getUserStats(): Promise<UserStats[]> { return []; }

@@ -36,6 +36,7 @@ export const users = pgTable("users", {
   dateOfBirth: date("date_of_birth"),
   location: varchar("location"),
   phoneNumber: varchar("phone_number"),
+  isAdmin: boolean("is_admin").default(false),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
