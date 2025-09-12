@@ -10,10 +10,28 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 export default function Navigation() {
   const [location] = useLocation();
   const { user, isAuthenticated } = useAuth();
+  const { toast } = useToast();
+
+  const handleLogout = async () => {
+    try {
+      await apiRequest('POST', '/api/auth/logout');
+      // Refresh the page to clear the authentication state
+      window.location.href = '/';
+    } catch (error) {
+      console.error('Logout error:', error);
+      toast({
+        title: "Logout failed",
+        description: "Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
 
   const navItems = [
     { href: "/", label: "Home", active: location === "/" },
@@ -68,7 +86,7 @@ export default function Navigation() {
                   <DropdownMenuTrigger asChild>
                     <Button variant="ghost" className="relative h-8 w-8 rounded-full" data-testid="button-profile-menu">
                       <Avatar className="h-8 w-8">
-                        <AvatarImage src={user?.profileImageUrl} alt="Profile" />
+                        <AvatarImage src={user?.profileImageUrl || undefined} alt="Profile" />
                         <AvatarFallback>
                           {user?.firstName?.charAt(0)}{user?.lastName?.charAt(0)}
                         </AvatarFallback>
@@ -82,7 +100,7 @@ export default function Navigation() {
                         Profile
                       </DropdownMenuItem>
                     </Link>
-                    <DropdownMenuItem onClick={() => window.location.href = '/api/logout'} data-testid="button-logout">
+                    <DropdownMenuItem onClick={handleLogout} data-testid="button-logout">
                       Logout
                     </DropdownMenuItem>
                   </DropdownMenuContent>
@@ -112,7 +130,7 @@ export default function Navigation() {
                       <Button 
                         variant="ghost" 
                         className="w-full justify-start" 
-                        onClick={() => window.location.href = '/api/logout'}
+                        onClick={handleLogout}
                         data-testid="button-logout-mobile"
                       >
                         Logout
