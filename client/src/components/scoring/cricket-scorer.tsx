@@ -68,9 +68,8 @@ export default function CricketScorer({ match, onScoreUpdate, isLive }: CricketS
       toast({ title: "FOUR!", description: "Excellent boundary!", duration: 2000 });
     }
 
-    if (runs > 0) {
-      nextBall();
-    }
+    // All legal deliveries (including dot balls) advance to next ball
+    nextBall();
 
     setBallByBall(prev => [...prev, `${runs} run${runs !== 1 ? 's' : ''}`]);
     updateScore();
