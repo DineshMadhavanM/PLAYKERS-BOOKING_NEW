@@ -35,6 +35,11 @@ export interface IStorage {
   getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: { email: string; password: string; firstName?: string | null; lastName?: string | null; profileImageUrl?: string | null; dateOfBirth?: string | null; location?: string | null; phoneNumber?: string | null }): Promise<User>;
   upsertUser(user: UpsertUser): Promise<User>;
+  
+  // Admin operations
+  getAllUsers?(): Promise<User[]>;
+  getUserCount?(): Promise<number>;
+  deleteUser?(id: string): Promise<boolean>;
 
   // Venue operations
   getVenues(filters?: { sport?: string; city?: string; search?: string }): Promise<Venue[]>;
@@ -581,5 +586,31 @@ class MemoryStorage implements IStorage {
   async updateUserStats(): Promise<UserStats> { throw new Error("Database required for user stats operations"); }
 }
 
-// Use DatabaseStorage if database is available, otherwise use MemoryStorage
-export const storage = db ? new DatabaseStorage() : new MemoryStorage();
+// Use MongoDB if available, otherwise fallback to PostgreSQL or memory storage
+import { MongoStorage } from './mongoStorage';
+
+async function initializeStorage(): Promise<IStorage> {
+  if (process.env.MONGODB_URI) {
+    console.log('🔍 MongoDB URI found, initializing MongoDB storage...');
+    try {
+      const mongoStorage = new MongoStorage(process.env.MONGODB_URI);
+      await mongoStorage.connect();
+      return mongoStorage;
+    } catch (error) {
+      console.error('❌ Failed to connect to MongoDB:', error);
+      console.log('⚠️  Falling back to PostgreSQL or memory storage');
+    }
+  }
+  
+  // Fallback to existing storage
+  return db ? new DatabaseStorage() : new MemoryStorage();
+}
+
+// Initialize storage async
+export let storage: IStorage;
+initializeStorage().then(s => {
+  storage = s;
+}).catch(error => {
+  console.error('❌ Failed to initialize storage:', error);
+  storage = new MemoryStorage();
+});

@@ -439,6 +439,86 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin routes for user management
+  function requireAdmin(req: any, res: any, next: any) {
+    if (!req.session?.user) {
+      return res.status(401).json({ message: "Authentication required" });
+    }
+    
+    // For now, any authenticated user can access admin (you can add role-based auth later)
+    // In production, you'd check if user has admin role
+    next();
+  }
+
+  // Get all users for admin panel
+  app.get('/api/admin/users', requireAdmin, async (req: any, res) => {
+    try {
+      if (storage.getAllUsers) {
+        const users = await storage.getAllUsers();
+        // Remove password from response for security
+        const sanitizedUsers = users.map(user => ({
+          ...user,
+          password: undefined
+        }));
+        res.json(sanitizedUsers);
+      } else {
+        res.status(501).json({ message: "Admin functionality not available" });
+      }
+    } catch (error) {
+      console.error("Error fetching all users:", error);
+      res.status(500).json({ message: "Failed to fetch users" });
+    }
+  });
+
+  // Get user count for admin dashboard
+  app.get('/api/admin/users/count', requireAdmin, async (req: any, res) => {
+    try {
+      if (storage.getUserCount) {
+        const count = await storage.getUserCount();
+        res.json({ count });
+      } else {
+        res.status(501).json({ message: "Admin functionality not available" });
+      }
+    } catch (error) {
+      console.error("Error fetching user count:", error);
+      res.status(500).json({ message: "Failed to fetch user count" });
+    }
+  });
+
+  // Get single user details for admin
+  app.get('/api/admin/users/:id', requireAdmin, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.params.id);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      // Remove password from response for security
+      const sanitizedUser = { ...user, password: undefined };
+      res.json(sanitizedUser);
+    } catch (error) {
+      console.error("Error fetching user:", error);
+      res.status(500).json({ message: "Failed to fetch user" });
+    }
+  });
+
+  // Delete user for admin
+  app.delete('/api/admin/users/:id', requireAdmin, async (req: any, res) => {
+    try {
+      if (storage.deleteUser) {
+        const success = await storage.deleteUser(req.params.id);
+        if (!success) {
+          return res.status(404).json({ message: "User not found" });
+        }
+        res.status(204).send();
+      } else {
+        res.status(501).json({ message: "Admin functionality not available" });
+      }
+    } catch (error) {
+      console.error("Error deleting user:", error);
+      res.status(500).json({ message: "Failed to delete user" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

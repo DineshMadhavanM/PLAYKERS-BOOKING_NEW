@@ -1,6 +1,6 @@
 import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
-import { Bell, Plus, User, Menu } from "lucide-react";
+import { Bell, Plus, User, Menu, Settings } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import {
   DropdownMenu,
@@ -100,6 +100,12 @@ export default function Navigation() {
                         Profile
                       </DropdownMenuItem>
                     </Link>
+                    <Link href="/admin" data-testid="link-admin">
+                      <DropdownMenuItem>
+                        <Settings className="mr-2 h-4 w-4" />
+                        Admin Panel
+                      </DropdownMenuItem>
+                    </Link>
                     <DropdownMenuItem onClick={handleLogout} data-testid="button-logout">
                       Logout
                     </DropdownMenuItem>
@@ -125,6 +131,12 @@ export default function Navigation() {
                         <Button variant="ghost" className="w-full justify-start">
                           <User className="mr-2 h-4 w-4" />
                           Profile
+                        </Button>
+                      </Link>
+                      <Link href="/admin" data-testid="link-admin-mobile">
+                        <Button variant="ghost" className="w-full justify-start">
+                          <Settings className="mr-2 h-4 w-4" />
+                          Admin Panel
                         </Button>
                       </Link>
                       <Button 

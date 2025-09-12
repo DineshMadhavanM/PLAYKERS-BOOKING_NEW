@@ -13,6 +13,7 @@ import Profile from "@/pages/profile";
 import Shop from "@/pages/shop";
 import CreateMatch from "@/pages/create-match";
 import MatchScorer from "@/pages/match-scorer";
+import Admin from "@/pages/admin";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -30,6 +31,7 @@ function Router() {
           <Route path="/shop" component={Shop} />
           <Route path="/create-match" component={CreateMatch} />
           <Route path="/match/:id/score" component={MatchScorer} />
+          <Route path="/admin" component={Admin} />
         </>
       )}
       <Route component={NotFound} />
