@@ -1,4 +1,151 @@
 import { z } from "zod";
+import { 
+  pgTable, 
+  text, 
+  boolean, 
+  integer, 
+  decimal, 
+  timestamp, 
+  varchar, 
+  json, 
+  serial
+} from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
+
+// Drizzle table definitions
+export const users = pgTable("users", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  email: varchar("email", { length: 255 }).notNull().unique(),
+  password: varchar("password", { length: 255 }).notNull(),
+  firstName: varchar("first_name", { length: 100 }),
+  lastName: varchar("last_name", { length: 100 }),
+  profileImageUrl: text("profile_image_url"),
+  dateOfBirth: timestamp("date_of_birth"),
+  location: varchar("location", { length: 255 }),
+  phoneNumber: varchar("phone_number", { length: 20 }),
+  isAdmin: boolean("is_admin").default(false),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: timestamp("updated_at").default(sql`CURRENT_TIMESTAMP`),
+});
+
+export const venues = pgTable("venues", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name", { length: 255 }).notNull(),
+  description: text("description"),
+  address: text("address").notNull(),
+  city: varchar("city", { length: 100 }).notNull(),
+  state: varchar("state", { length: 50 }).notNull(),
+  latitude: decimal("latitude", { precision: 10, scale: 8 }),
+  longitude: decimal("longitude", { precision: 11, scale: 8 }),
+  sports: text("sports").array().notNull().default([]),
+  pricePerHour: decimal("price_per_hour", { precision: 10, scale: 2 }).notNull(),
+  facilities: text("facilities").array().notNull().default([]),
+  images: text("images").array().notNull().default([]),
+  rating: decimal("rating", { precision: 3, scale: 2 }),
+  totalReviews: integer("total_reviews").default(0),
+  ownerId: varchar("owner_id").notNull(),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: timestamp("updated_at").default(sql`CURRENT_TIMESTAMP`),
+});
+
+export const matches = pgTable("matches", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  title: varchar("title", { length: 255 }).notNull(),
+  sport: varchar("sport", { length: 100 }).notNull(),
+  matchType: varchar("match_type", { length: 50 }).notNull(),
+  isPublic: boolean("is_public").default(true),
+  venueId: varchar("venue_id").notNull(),
+  organizerId: varchar("organizer_id").notNull(),
+  scheduledAt: timestamp("scheduled_at").notNull(),
+  duration: integer("duration"),
+  maxPlayers: integer("max_players").notNull(),
+  currentPlayers: integer("current_players").default(0),
+  status: varchar("status", { length: 50 }).default('upcoming'),
+  team1Name: varchar("team1_name", { length: 100 }),
+  team2Name: varchar("team2_name", { length: 100 }),
+  team1Score: json("team1_score"),
+  team2Score: json("team2_score"),
+  matchData: json("match_data"),
+  description: text("description"),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: timestamp("updated_at").default(sql`CURRENT_TIMESTAMP`),
+});
+
+export const matchParticipants = pgTable("match_participants", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  matchId: varchar("match_id").notNull(),
+  userId: varchar("user_id").notNull(),
+  team: varchar("team", { length: 50 }),
+  role: varchar("role", { length: 50 }).default('player'),
+  status: varchar("status", { length: 50 }).default('joined'),
+  joinedAt: timestamp("joined_at").default(sql`CURRENT_TIMESTAMP`),
+});
+
+export const bookings = pgTable("bookings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  venueId: varchar("venue_id").notNull(),
+  userId: varchar("user_id").notNull(),
+  matchId: varchar("match_id"),
+  startTime: timestamp("start_time").notNull(),
+  endTime: timestamp("end_time").notNull(),
+  totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
+  status: varchar("status", { length: 50 }).default('confirmed'),
+  paymentStatus: varchar("payment_status", { length: 50 }).default('pending'),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: timestamp("updated_at").default(sql`CURRENT_TIMESTAMP`),
+});
+
+export const products = pgTable("products", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name", { length: 255 }).notNull(),
+  description: text("description"),
+  category: varchar("category", { length: 100 }).notNull(),
+  subcategory: varchar("subcategory", { length: 100 }),
+  price: decimal("price", { precision: 10, scale: 2 }).notNull(),
+  discountPrice: decimal("discount_price", { precision: 10, scale: 2 }),
+  images: text("images").array().notNull().default([]),
+  brand: varchar("brand", { length: 100 }),
+  specifications: json("specifications"),
+  inStock: boolean("in_stock").default(true),
+  stockQuantity: integer("stock_quantity").default(0),
+  rating: decimal("rating", { precision: 3, scale: 2 }),
+  totalReviews: integer("total_reviews").default(0),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: timestamp("updated_at").default(sql`CURRENT_TIMESTAMP`),
+});
+
+export const reviews = pgTable("reviews", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  venueId: varchar("venue_id"),
+  productId: varchar("product_id"),
+  rating: integer("rating").notNull(),
+  comment: text("comment"),
+  images: text("images").array().notNull().default([]),
+  isVerified: boolean("is_verified").default(false),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: timestamp("updated_at").default(sql`CURRENT_TIMESTAMP`),
+});
+
+export const cartItems = pgTable("cart_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  productId: varchar("product_id").notNull(),
+  quantity: integer("quantity").default(1),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`),
+});
+
+export const userStats = pgTable("user_stats", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  sport: varchar("sport", { length: 100 }).notNull(),
+  matchesPlayed: integer("matches_played").default(0),
+  matchesWon: integer("matches_won").default(0),
+  totalScore: integer("total_score").default(0),
+  bestPerformance: json("best_performance"),
+  stats: json("stats"),
+  updatedAt: timestamp("updated_at").default(sql`CURRENT_TIMESTAMP`),
+});
 
 // Import Prisma types for TypeScript definitions
 import type {
