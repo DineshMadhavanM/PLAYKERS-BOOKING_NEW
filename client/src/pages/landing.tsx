@@ -1,9 +1,26 @@
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { MapPin, Star, Calendar, Users, BarChart3, Bell, Trophy, Plus } from "lucide-react";
+import AuthForm from "@/components/AuthForm";
 
 export default function Landing() {
+  const [showAuthForm, setShowAuthForm] = useState(false);
+
+  const handleLoginClick = () => {
+    setShowAuthForm(true);
+  };
+
+  const handleAuthSuccess = () => {
+    // The useAuth hook will automatically update and redirect to the authenticated view
+    setShowAuthForm(false);
+  };
+
+  if (showAuthForm) {
+    return <AuthForm onSuccess={handleAuthSuccess} />;
+  }
+
   return (
     <div className="min-h-screen bg-background" data-testid="landing-page">
       {/* Navigation for logged out users */}
@@ -11,7 +28,7 @@ export default function Landing() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <h1 className="text-2xl font-bold text-primary">Playkers</h1>
-            <Button onClick={() => window.location.href = '/api/login'} data-testid="button-login">
+            <Button onClick={handleLoginClick} data-testid="button-login">
               Login
             </Button>
           </div>
@@ -31,7 +48,7 @@ export default function Landing() {
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Button 
                 size="lg" 
-                onClick={() => window.location.href = '/api/login'}
+                onClick={handleLoginClick}
                 data-testid="button-find-venues"
               >
                 Find Venues Near You
@@ -39,7 +56,7 @@ export default function Landing() {
               <Button 
                 variant="outline" 
                 size="lg"
-                onClick={() => window.location.href = '/api/login'}
+                onClick={handleLoginClick}
                 data-testid="button-create-first-match"
               >
                 Create Your First Match
@@ -128,7 +145,7 @@ export default function Landing() {
                       <span className="text-lg font-bold text-primary">{venue.price}</span>
                       <span className="text-muted-foreground">/hour</span>
                     </div>
-                    <Button onClick={() => window.location.href = '/api/login'} data-testid={`button-book-venue-${index}`}>
+                    <Button onClick={handleLoginClick} data-testid={`button-book-venue-${index}`}>
                       Book Now
                     </Button>
                   </div>
@@ -171,7 +188,7 @@ export default function Landing() {
           </div>
           <Button 
             size="lg" 
-            onClick={() => window.location.href = '/api/login'}
+            onClick={handleLoginClick}
             data-testid="button-create-match"
           >
             <Plus className="h-5 w-5 mr-2" />

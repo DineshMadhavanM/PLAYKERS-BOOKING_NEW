@@ -17,20 +17,8 @@ export default function Home() {
   const { user, isAuthenticated, isLoading } = useAuth();
   const { toast } = useToast();
 
-  // Redirect to login if not authenticated
-  useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
-      toast({
-        title: "Unauthorized",
-        description: "You are logged out. Logging in again...",
-        variant: "destructive",
-      });
-      setTimeout(() => {
-        window.location.href = "/api/login";
-      }, 500);
-      return;
-    }
-  }, [isAuthenticated, isLoading, toast]);
+  // The App.tsx router handles redirecting unauthenticated users to landing page
+  // No manual redirect needed here
 
   const { data: venues = [] } = useQuery({
     queryKey: ["/api/venues"],

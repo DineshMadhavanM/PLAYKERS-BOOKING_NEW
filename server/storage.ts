@@ -30,8 +30,10 @@ import { db } from "./db";
 import { eq, and, desc, asc, like, gte, lte, sql } from "drizzle-orm";
 
 export interface IStorage {
-  // User operations (mandatory for Replit Auth)
+  // User operations (mandatory for authentication)
   getUser(id: string): Promise<User | undefined>;
+  getUserByEmail(email: string): Promise<User | undefined>;
+  createUser(user: { email: string; password: string; firstName?: string | null; lastName?: string | null; profileImageUrl?: string | null }): Promise<User>;
   upsertUser(user: UpsertUser): Promise<User>;
 
   // Venue operations
@@ -93,6 +95,31 @@ export class DatabaseStorage implements IStorage {
       throw new Error("Database not available. Please configure database credentials.");
     }
     const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user;
+  }
+
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    if (!db) {
+      throw new Error("Database not available. Please configure database credentials.");
+    }
+    const [user] = await db.select().from(users).where(eq(users.email, email));
+    return user;
+  }
+
+  async createUser(userData: { email: string; password: string; firstName?: string | null; lastName?: string | null; profileImageUrl?: string | null }): Promise<User> {
+    if (!db) {
+      throw new Error("Database not available. Please configure database credentials.");
+    }
+    const [user] = await db
+      .insert(users)
+      .values({
+        email: userData.email,
+        password: userData.password,
+        firstName: userData.firstName || null,
+        lastName: userData.lastName || null,
+        profileImageUrl: userData.profileImageUrl || null,
+      })
+      .returning();
     return user;
   }
 
@@ -457,6 +484,35 @@ class MemoryStorage implements IStorage {
   // User operations
   async getUser(id: string): Promise<User | undefined> {
     return this.users.get(id);
+  }
+
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    // Search through all users to find one with matching email
+    for (const user of this.users.values()) {
+      if (user.email === email) {
+        return user;
+      }
+    }
+    return undefined;
+  }
+
+  async createUser(userData: { email: string; password: string; firstName?: string | null; lastName?: string | null; profileImageUrl?: string | null }): Promise<User> {
+    const id = `user-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const user: User = {
+      id,
+      email: userData.email,
+      password: userData.password,
+      firstName: userData.firstName || null,
+      lastName: userData.lastName || null,
+      profileImageUrl: userData.profileImageUrl || null,
+      dateOfBirth: null,
+      location: null,
+      phoneNumber: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    this.users.set(id, user);
+    return user;
   }
 
   async upsertUser(userData: UpsertUser): Promise<User> {
