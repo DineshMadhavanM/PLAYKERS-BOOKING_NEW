@@ -33,7 +33,7 @@ export interface IStorage {
   // User operations (mandatory for authentication)
   getUser(id: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
-  createUser(user: { email: string; password: string; firstName?: string | null; lastName?: string | null; profileImageUrl?: string | null }): Promise<User>;
+  createUser(user: { email: string; password: string; firstName?: string | null; lastName?: string | null; profileImageUrl?: string | null; dateOfBirth?: string | null; location?: string | null; phoneNumber?: string | null }): Promise<User>;
   upsertUser(user: UpsertUser): Promise<User>;
 
   // Venue operations
@@ -106,7 +106,7 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
-  async createUser(userData: { email: string; password: string; firstName?: string | null; lastName?: string | null; profileImageUrl?: string | null }): Promise<User> {
+  async createUser(userData: { email: string; password: string; firstName?: string | null; lastName?: string | null; profileImageUrl?: string | null; dateOfBirth?: string | null; location?: string | null; phoneNumber?: string | null }): Promise<User> {
     if (!db) {
       throw new Error("Database not available. Please configure database credentials.");
     }
@@ -118,6 +118,9 @@ export class DatabaseStorage implements IStorage {
         firstName: userData.firstName || null,
         lastName: userData.lastName || null,
         profileImageUrl: userData.profileImageUrl || null,
+        dateOfBirth: userData.dateOfBirth || null,
+        location: userData.location || null,
+        phoneNumber: userData.phoneNumber || null,
       })
       .returning();
     return user;
@@ -496,7 +499,7 @@ class MemoryStorage implements IStorage {
     return undefined;
   }
 
-  async createUser(userData: { email: string; password: string; firstName?: string | null; lastName?: string | null; profileImageUrl?: string | null }): Promise<User> {
+  async createUser(userData: { email: string; password: string; firstName?: string | null; lastName?: string | null; profileImageUrl?: string | null; dateOfBirth?: string | null; location?: string | null; phoneNumber?: string | null }): Promise<User> {
     const id = `user-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     const user: User = {
       id,
@@ -505,9 +508,9 @@ class MemoryStorage implements IStorage {
       firstName: userData.firstName || null,
       lastName: userData.lastName || null,
       profileImageUrl: userData.profileImageUrl || null,
-      dateOfBirth: null,
-      location: null,
-      phoneNumber: null,
+      dateOfBirth: userData.dateOfBirth || null,
+      location: userData.location || null,
+      phoneNumber: userData.phoneNumber || null,
       createdAt: new Date(),
       updatedAt: new Date(),
     };

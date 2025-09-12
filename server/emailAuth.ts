@@ -47,7 +47,7 @@ export async function verifyPassword(password: string, hashedPassword: string): 
 }
 
 // Register user
-export async function registerUser(email: string, password: string, firstName?: string, lastName?: string) {
+export async function registerUser(email: string, password: string, firstName?: string, lastName?: string, dateOfBirth?: string, location?: string, phoneNumber?: string) {
   try {
     // Check if user already exists
     const existingUser = await storage.getUserByEmail(email);
@@ -64,6 +64,9 @@ export async function registerUser(email: string, password: string, firstName?: 
       password: hashedPassword,
       firstName: firstName || null,
       lastName: lastName || null,
+      dateOfBirth: dateOfBirth || null,
+      location: location || null,
+      phoneNumber: phoneNumber || null,
     });
 
     return newUser;

@@ -10,7 +10,7 @@ import { z } from "zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Eye, EyeOff, Mail, Lock, User } from "lucide-react";
+import { Eye, EyeOff, Mail, Lock, User, Calendar, MapPin, Phone } from "lucide-react";
 
 // Validation schemas
 const loginSchema = z.object({
@@ -23,6 +23,9 @@ const registerSchema = z.object({
   password: z.string().min(6, "Password must be at least 6 characters"),
   firstName: z.string().min(1, "First name is required"),
   lastName: z.string().optional(),
+  dateOfBirth: z.string().min(1, "Date of birth is required"),
+  location: z.string().min(1, "City name is required"),
+  phoneNumber: z.string().min(10, "Please enter a valid phone number"),
 });
 
 type LoginForm = z.infer<typeof loginSchema>;
@@ -54,6 +57,9 @@ export default function AuthForm({ onSuccess }: AuthFormProps) {
       password: "",
       firstName: "",
       lastName: "",
+      dateOfBirth: "",
+      location: "",
+      phoneNumber: "",
     },
   });
 
@@ -301,6 +307,70 @@ export default function AuthForm({ onSuccess }: AuthFormProps) {
                                 <Eye className="h-4 w-4" />
                               )}
                             </Button>
+                          </div>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={registerForm.control}
+                    name="dateOfBirth"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Date of Birth</FormLabel>
+                        <FormControl>
+                          <div className="relative">
+                            <Calendar className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                            <Input
+                              {...field}
+                              type="date"
+                              className="pl-10"
+                              data-testid="input-register-dob"
+                            />
+                          </div>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={registerForm.control}
+                    name="location"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>City</FormLabel>
+                        <FormControl>
+                          <div className="relative">
+                            <MapPin className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                            <Input
+                              {...field}
+                              placeholder="Enter your city name"
+                              className="pl-10"
+                              data-testid="input-register-city"
+                            />
+                          </div>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={registerForm.control}
+                    name="phoneNumber"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Phone Number</FormLabel>
+                        <FormControl>
+                          <div className="relative">
+                            <Phone className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                            <Input
+                              {...field}
+                              type="tel"
+                              placeholder="Enter your phone number"
+                              className="pl-10"
+                              data-testid="input-register-phone"
+                            />
                           </div>
                         </FormControl>
                         <FormMessage />

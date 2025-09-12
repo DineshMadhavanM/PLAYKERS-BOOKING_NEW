@@ -50,6 +50,9 @@ const registerSchema = z.object({
   password: z.string().min(6),
   firstName: z.string().optional(),
   lastName: z.string().optional(),
+  dateOfBirth: z.string().optional(),
+  location: z.string().optional(),
+  phoneNumber: z.string().optional(),
 });
 
 const loginSchema = z.object({
@@ -72,8 +75,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Authentication routes
   app.post('/api/auth/register', async (req, res) => {
     try {
-      const { email, password, firstName, lastName } = registerSchema.parse(req.body);
-      const user = await registerUser(email, password, firstName, lastName);
+      const { email, password, firstName, lastName, dateOfBirth, location, phoneNumber } = registerSchema.parse(req.body);
+      const user = await registerUser(email, password, firstName, lastName, dateOfBirth, location, phoneNumber);
       
       // Regenerate session to prevent session fixation
       (req as any).session.regenerate((err: any) => {
