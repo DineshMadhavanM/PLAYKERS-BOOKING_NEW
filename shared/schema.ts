@@ -147,6 +147,19 @@ export const userStats = pgTable("user_stats", {
   updatedAt: timestamp("updated_at").default(sql`CURRENT_TIMESTAMP`),
 });
 
+export const matchRosterPlayers = pgTable("match_roster_players", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  matchId: varchar("match_id").notNull(),
+  team: varchar("team", { length: 10 }).notNull(), // 'team1' or 'team2'
+  playerName: varchar("player_name", { length: 100 }).notNull(),
+  playerEmail: varchar("player_email", { length: 255 }),
+  role: varchar("role", { length: 50 }).default('player'), // 'captain', 'vice-captain', 'wicket-keeper', 'player'
+  position: integer("position").notNull(), // 1-15 for cricket teams
+  isRegisteredUser: boolean("is_registered_user").default(false),
+  userId: varchar("user_id"), // Optional - only if player is a registered user
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`),
+});
+
 // Import Prisma types for TypeScript definitions
 import type {
   users as PrismaUser,
@@ -279,6 +292,18 @@ export const insertUserStatsSchema = z.object({
   totalScore: z.number().optional(),
   bestPerformance: z.any().nullable().optional(), // JSON
   stats: z.any().nullable().optional(), // JSON
+});
+
+// Match roster player validation schemas
+export const insertMatchRosterPlayerSchema = z.object({
+  matchId: z.string(),
+  team: z.enum(["team1", "team2"]),
+  playerName: z.string().min(1, "Player name is required"),
+  playerEmail: z.string().email().optional().or(z.literal("")),
+  role: z.enum(["captain", "vice-captain", "wicket-keeper", "player"]).optional(),
+  position: z.number().min(1).max(15),
+  isRegisteredUser: z.boolean().optional(),
+  userId: z.string().optional(),
 });
 
 // TypeScript types (mapped from Prisma types with camelCase conversions)
@@ -416,6 +441,19 @@ export type UserStats = {
   updatedAt: Date | null;
 };
 
+export type MatchRosterPlayer = {
+  id: string;
+  matchId: string;
+  team: string;
+  playerName: string;
+  playerEmail: string | null;
+  role: string | null;
+  position: number;
+  isRegisteredUser: boolean | null;
+  userId: string | null;
+  createdAt: Date | null;
+};
+
 // Insert types (inferred from Zod schemas)
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type UpsertUser = User; // For compatibility with existing code
@@ -427,3 +465,4 @@ export type InsertProduct = z.infer<typeof insertProductSchema>;
 export type InsertReview = z.infer<typeof insertReviewSchema>;
 export type InsertCartItem = z.infer<typeof insertCartItemSchema>;
 export type InsertUserStats = z.infer<typeof insertUserStatsSchema>;
+export type InsertMatchRosterPlayer = z.infer<typeof insertMatchRosterPlayerSchema>;

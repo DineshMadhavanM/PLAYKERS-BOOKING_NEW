@@ -18,6 +18,7 @@ import { isUnauthorizedError } from "@/lib/authUtils";
 import { apiRequest } from "@/lib/queryClient";
 import { Calendar, MapPin, Users, Clock, Trophy } from "lucide-react";
 import { useLocation } from "wouter";
+import CricketTeamRoster, { Player } from "@/components/cricket-team-roster";
 
 const matchSchema = z.object({
   title: z.string().min(1, "Match title is required"),
@@ -54,6 +55,8 @@ export default function CreateMatch() {
   const queryClient = useQueryClient();
   const [, setLocation] = useLocation();
   const [selectedSport, setSelectedSport] = useState("");
+  const [team1Roster, setTeam1Roster] = useState<Player[]>([]);
+  const [team2Roster, setTeam2Roster] = useState<Player[]>([]);
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -152,7 +155,55 @@ export default function CreateMatch() {
   const selectedSportData = sportOptions.find(sport => sport.value === selectedSport);
 
   const onSubmit = (data: z.infer<typeof matchSchema>) => {
-    createMatchMutation.mutate(data);
+    // Validate cricket team rosters
+    if (selectedSport === "cricket") {
+      if (team1Roster.length < 11 || team2Roster.length < 11) {
+        toast({
+          title: "Incomplete team rosters",
+          description: "Each cricket team must have at least 11 players to create the match.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Check for required roles
+      const team1Captain = team1Roster.find(p => p.role === "captain");
+      const team2Captain = team2Roster.find(p => p.role === "captain");
+      const team1WicketKeeper = team1Roster.find(p => p.role === "wicket-keeper");
+      const team2WicketKeeper = team2Roster.find(p => p.role === "wicket-keeper");
+
+      if (!team1Captain || !team2Captain) {
+        toast({
+          title: "Missing captains",
+          description: "Both teams must have a designated captain.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (!team1WicketKeeper || !team2WicketKeeper) {
+        toast({
+          title: "Missing wicket keepers",
+          description: "Both teams must have a designated wicket keeper.",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
+    // Include roster data in the submission for cricket matches
+    const matchData = selectedSport === "cricket" 
+      ? {
+          ...data,
+          matchData: {
+            team1Roster,
+            team2Roster,
+            sport: "cricket"
+          }
+        }
+      : data;
+
+    createMatchMutation.mutate(matchData);
   };
 
   return (
@@ -208,7 +259,6 @@ export default function CreateMatch() {
                             field.onChange(value);
                             setSelectedSport(value);
                             form.setValue("matchType", "");
-                            form.setValue("venueId", "");
                           }} 
                           defaultValue={field.value}
                         >
@@ -372,6 +422,48 @@ export default function CreateMatch() {
                     )}
                   />
                 </div>
+
+                {/* Cricket Team Rosters - Only show for cricket matches */}
+                {selectedSport === "cricket" && (
+                  <div className="space-y-6">
+                    <div className="border-t pt-6">
+                      <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                        <Users className="h-5 w-5" />
+                        Team Rosters (Required for Cricket)
+                      </h3>
+                      <p className="text-sm text-muted-foreground mb-6">
+                        Add players to both teams. Each team needs at least 11 players and can have up to 15 players.
+                        Assign captain, vice-captain, and wicket-keeper roles.
+                      </p>
+                      
+                      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                        <CricketTeamRoster
+                          teamName={form.watch("team1Name") || "Team 1"}
+                          teamNumber={1}
+                          players={team1Roster}
+                          onPlayersChange={setTeam1Roster}
+                        />
+                        
+                        <CricketTeamRoster
+                          teamName={form.watch("team2Name") || "Team 2"}
+                          teamNumber={2}
+                          players={team2Roster}
+                          onPlayersChange={setTeam2Roster}
+                        />
+                      </div>
+
+                      {/* Roster Validation Messages */}
+                      {selectedSport === "cricket" && (team1Roster.length < 11 || team2Roster.length < 11) && (
+                        <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                          <p className="text-sm text-yellow-800">
+                            ⚠️ Each team needs at least 11 players to start the match. 
+                            Team 1 has {team1Roster.length} players, Team 2 has {team2Roster.length} players.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
 
                 {/* Match Visibility */}
                 <FormField
