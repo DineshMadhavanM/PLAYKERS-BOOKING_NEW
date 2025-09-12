@@ -225,7 +225,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/matches', requireAuth, async (req: any, res) => {
     try {
       const userId = req.session.user.id;
-      const matchData = insertMatchSchema.parse({ ...req.body, organizerId: userId });
+      
+      // Convert scheduledAt string to Date object if it's a string
+      const requestBody = { ...req.body, organizerId: userId };
+      if (requestBody.scheduledAt && typeof requestBody.scheduledAt === 'string') {
+        requestBody.scheduledAt = new Date(requestBody.scheduledAt);
+      }
+      
+      const matchData = insertMatchSchema.parse(requestBody);
       const match = await storage.createMatch(matchData);
       res.status(201).json(match);
     } catch (error) {
