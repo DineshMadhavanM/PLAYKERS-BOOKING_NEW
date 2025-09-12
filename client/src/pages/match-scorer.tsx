@@ -14,15 +14,9 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { apiRequest } from "@/lib/queryClient";
-import { Calendar, MapPin, Users, Play, Pause, Square, Trophy } from "lucide-react";
+import { Calendar, MapPin, Users, Play, Pause, Square } from "lucide-react";
 import type { Match, MatchParticipant } from "@shared/schema";
 
-interface CricketScore {
-  runs: number;
-  wickets: number;
-  overs: string;
-  ballByBall?: string[];
-}
 
 export default function MatchScorer() {
   const [, params] = useRoute("/match/:id/score");
@@ -152,22 +146,6 @@ export default function MatchScorer() {
     });
   };
 
-  const formatCricketScore = (score: any) => {
-    if (!score || typeof score !== 'object') return "0/0 (0.0)"; 
-    
-    const runs = score.runs || 0;
-    const wickets = score.wickets || 0;
-    const overs = score.overs || "0.0";
-    
-    return `${runs}/${wickets} (${overs})`;
-  };
-
-  const formatDisplayScore = (score: any, sport: string) => {
-    if (sport === 'cricket') {
-      return formatCricketScore(score);
-    }
-    return score ? JSON.stringify(score) : "0";
-  };
 
   const renderScorer = () => {
     const scorerProps = {
