@@ -15,6 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { apiRequest } from "@/lib/queryClient";
 import { Calendar, MapPin, Users, Play, Pause, Square } from "lucide-react";
+import type { Match, MatchParticipant } from "@shared/schema";
 
 export default function MatchScorer() {
   const [, params] = useRoute("/match/:id/score");
@@ -38,12 +39,12 @@ export default function MatchScorer() {
     }
   }, [isAuthenticated, isLoading, toast]);
 
-  const { data: match, isLoading: matchLoading } = useQuery({
+  const { data: match, isLoading: matchLoading } = useQuery<Match>({
     queryKey: ["/api/matches", params?.id],
     enabled: isAuthenticated && !!params?.id,
   });
 
-  const { data: participants = [] } = useQuery({
+  const { data: participants = [] } = useQuery<MatchParticipant[]>({
     queryKey: ["/api/matches", params?.id, "participants"],
     enabled: isAuthenticated && !!params?.id,
   });
@@ -77,7 +78,7 @@ export default function MatchScorer() {
 
   useEffect(() => {
     if (match?.status) {
-      setMatchStatus(match.status);
+      setMatchStatus(match.status as 'upcoming' | 'live' | 'completed');
     }
   }, [match?.status]);
 
@@ -133,8 +134,8 @@ export default function MatchScorer() {
     });
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
+  const formatDate = (date: Date | string) => {
+    return new Date(date).toLocaleDateString('en-US', {
       weekday: 'long',
       month: 'short',
       day: 'numeric',
