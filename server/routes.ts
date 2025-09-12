@@ -48,8 +48,8 @@ function csrfProtection(req: any, res: any, next: any) {
 const registerSchema = z.object({
   email: z.string().email(),
   password: z.string().min(6),
-  firstName: z.string().optional(),
-  lastName: z.string().optional(),
+  firstName: z.string().trim().min(1, "First name is required"),
+  lastName: z.string().trim().min(1, "Last name is required"),
   dateOfBirth: z.string().optional(),
   location: z.string().optional(),
   phoneNumber: z.string().optional(),

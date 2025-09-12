@@ -21,8 +21,8 @@ const loginSchema = z.object({
 const registerSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
   password: z.string().min(6, "Password must be at least 6 characters"),
-  firstName: z.string().min(1, "First name is required"),
-  lastName: z.string().optional(),
+  firstName: z.string().trim().min(1, "First name is required"),
+  lastName: z.string().trim().min(1, "Last name is required"),
   dateOfBirth: z.string().min(1, "Date of birth is required"),
   location: z.string().min(1, "City name is required"),
   phoneNumber: z.string().min(10, "Please enter a valid phone number"),
@@ -239,7 +239,7 @@ export default function AuthForm({ onSuccess }: AuthFormProps) {
                     name="lastName"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Last Name (Optional)</FormLabel>
+                        <FormLabel>Last Name</FormLabel>
                         <FormControl>
                           <div className="relative">
                             <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
