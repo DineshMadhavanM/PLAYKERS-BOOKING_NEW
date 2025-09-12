@@ -79,9 +79,29 @@ export default function AuthForm({ onSuccess }: AuthFormProps) {
       onSuccess?.();
     },
     onError: (error: any) => {
+      let errorMessage = "Invalid email or password. Please try again.";
+      
+      // Extract user-friendly message from error response
+      // Error format from queryClient: "401: {"message":"Invalid email or password"}"
+      if (error.message && typeof error.message === 'string') {
+        const match = error.message.match(/^\d+:\s*(.+)$/);
+        if (match) {
+          try {
+            // Try to parse JSON response
+            const parsedError = JSON.parse(match[1]);
+            if (parsedError.message) {
+              errorMessage = parsedError.message;
+            }
+          } catch (parseError) {
+            // If JSON parsing fails, use the text after status code
+            errorMessage = match[1] || errorMessage;
+          }
+        }
+      }
+      
       toast({
         title: "Login failed",
-        description: error.message || "Invalid email or password. Please try again.",
+        description: errorMessage,
         variant: "destructive",
       });
     },
@@ -103,9 +123,29 @@ export default function AuthForm({ onSuccess }: AuthFormProps) {
       onSuccess?.();
     },
     onError: (error: any) => {
+      let errorMessage = "Failed to create account. Please try again.";
+      
+      // Extract user-friendly message from error response
+      // Error format from queryClient: "400: {"message":"Email already exists"}"
+      if (error.message && typeof error.message === 'string') {
+        const match = error.message.match(/^\d+:\s*(.+)$/);
+        if (match) {
+          try {
+            // Try to parse JSON response
+            const parsedError = JSON.parse(match[1]);
+            if (parsedError.message) {
+              errorMessage = parsedError.message;
+            }
+          } catch (parseError) {
+            // If JSON parsing fails, use the text after status code
+            errorMessage = match[1] || errorMessage;
+          }
+        }
+      }
+      
       toast({
         title: "Registration failed",
-        description: error.message || "Failed to create account. Please try again.",
+        description: errorMessage,
         variant: "destructive",
       });
     },

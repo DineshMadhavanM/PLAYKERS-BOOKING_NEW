@@ -14,10 +14,11 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
-import { isUnauthorizedError } from "@/lib/authUtils";
+import { isUnauthorizedError, getDisplayName } from "@/lib/authUtils";
 import { apiRequest } from "@/lib/queryClient";
-import { Edit, Trophy, Calendar, MapPin, TrendingUp, Star } from "lucide-react";
+import { Edit, Trophy, Calendar, MapPin, TrendingUp, Star, AlertCircle } from "lucide-react";
 import MatchCard from "@/components/match-card";
+import type { UserStats, Match, Booking } from "@shared/schema";
 
 const profileSchema = z.object({
   firstName: z.string().min(1, "First name is required"),
@@ -27,6 +28,8 @@ const profileSchema = z.object({
   location: z.string().optional(),
   phoneNumber: z.string().optional(),
 });
+
+type ProfileFormData = z.infer<typeof profileSchema>;
 
 export default function Profile() {
   const { user, isAuthenticated, isLoading } = useAuth();
@@ -49,35 +52,35 @@ export default function Profile() {
     }
   }, [isAuthenticated, isLoading, toast]);
 
-  const form = useForm<z.infer<typeof profileSchema>>({
+  const form = useForm<ProfileFormData>({
     resolver: zodResolver(profileSchema),
     defaultValues: {
       firstName: user?.firstName || "",
       lastName: user?.lastName || "",
       email: user?.email || "",
-      dateOfBirth: user?.dateOfBirth || "",
+      dateOfBirth: user?.dateOfBirth ? new Date(user.dateOfBirth).toISOString().split('T')[0] : "",
       location: user?.location || "",
       phoneNumber: user?.phoneNumber || "",
     },
   });
 
-  const { data: userStats = [] } = useQuery({
+  const { data: userStats = [] } = useQuery<UserStats[]>({
     queryKey: ["/api/user/stats"],
     enabled: isAuthenticated,
   });
 
-  const { data: userMatches = [] } = useQuery({
+  const { data: userMatches = [] } = useQuery<Match[]>({
     queryKey: ["/api/user/matches"],
     enabled: isAuthenticated,
   });
 
-  const { data: userBookings = [] } = useQuery({
+  const { data: userBookings = [] } = useQuery<Booking[]>({
     queryKey: ["/api/bookings"],
     enabled: isAuthenticated,
   });
 
   const updateProfileMutation = useMutation({
-    mutationFn: async (data: z.infer<typeof profileSchema>) => {
+    mutationFn: async (data: ProfileFormData) => {
       await apiRequest("PUT", "/api/auth/user", data);
     },
     onSuccess: () => {
@@ -126,11 +129,11 @@ export default function Profile() {
     return null;
   }
 
-  const totalMatches = userStats.reduce((sum: number, stat: any) => sum + (stat.matchesPlayed || 0), 0);
-  const totalWins = userStats.reduce((sum: number, stat: any) => sum + (stat.matchesWon || 0), 0);
+  const totalMatches = userStats.reduce((sum: number, stat: UserStats) => sum + (stat.matchesPlayed || 0), 0);
+  const totalWins = userStats.reduce((sum: number, stat: UserStats) => sum + (stat.matchesWon || 0), 0);
   const winRate = totalMatches > 0 ? ((totalWins / totalMatches) * 100).toFixed(1) : "0";
 
-  const onSubmit = (data: z.infer<typeof profileSchema>) => {
+  const onSubmit = (data: ProfileFormData) => {
     updateProfileMutation.mutate(data);
   };
 
@@ -139,13 +142,41 @@ export default function Profile() {
       <Navigation />
       
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Profile Completion Nudge */}
+        {(!user?.firstName || !user?.lastName) && (
+          <Card className="mb-6 border-orange-200 bg-orange-50 dark:border-orange-900 dark:bg-orange-950/20" data-testid="card-profile-completion">
+            <CardContent className="p-4">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="h-5 w-5 text-orange-600 dark:text-orange-400 mt-0.5 flex-shrink-0" />
+                <div className="flex-1">
+                  <h3 className="font-semibold text-orange-900 dark:text-orange-100 mb-1">
+                    Complete Your Profile
+                  </h3>
+                  <p className="text-sm text-orange-700 dark:text-orange-200 mb-3">
+                    Add your full name to get better recommendations and connect with other players. 
+                    Your current display name is "{getDisplayName(user as any)}".
+                  </p>
+                  <Button 
+                    size="sm" 
+                    onClick={() => setIsEditing(true)}
+                    className="bg-orange-600 hover:bg-orange-700 text-white"
+                    data-testid="button-complete-profile"
+                  >
+                    Complete Profile
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Profile Header */}
         <div className="mb-8">
           <Card>
             <CardContent className="p-6">
               <div className="flex flex-col md:flex-row items-start md:items-center gap-6">
                 <Avatar className="h-24 w-24" data-testid="img-profile-avatar">
-                  <AvatarImage src={user?.profileImageUrl} alt="Profile" />
+                  <AvatarImage src={user?.profileImageUrl || undefined} alt="Profile" />
                   <AvatarFallback className="text-2xl">
                     {user?.firstName?.charAt(0)}{user?.lastName?.charAt(0)}
                   </AvatarFallback>
@@ -318,7 +349,7 @@ export default function Profile() {
                   </CardContent>
                 </Card>
               ) : (
-                userStats.map((stat: any) => (
+                userStats.map((stat: UserStats) => (
                   <Card key={stat.id} data-testid={`card-stat-${stat.sport}`}>
                     <CardHeader>
                       <CardTitle className="capitalize">{stat.sport}</CardTitle>
@@ -336,8 +367,8 @@ export default function Profile() {
                         <div className="flex justify-between">
                           <span>Win Rate:</span>
                           <span className="font-semibold">
-                            {stat.matchesPlayed > 0 
-                              ? `${((stat.matchesWon / stat.matchesPlayed) * 100).toFixed(1)}%`
+                            {(stat.matchesPlayed || 0) > 0 
+                              ? `${(((stat.matchesWon || 0) / (stat.matchesPlayed || 1)) * 100).toFixed(1)}%`
                               : "0%"
                             }
                           </span>
@@ -372,7 +403,7 @@ export default function Profile() {
               </Card>
             ) : (
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {userMatches.map((match: any) => (
+                {userMatches.map((match: Match) => (
                   <MatchCard key={match.id} match={match} showActions={false} />
                 ))}
               </div>
@@ -395,7 +426,7 @@ export default function Profile() {
               </Card>
             ) : (
               <div className="space-y-4">
-                {userBookings.map((booking: any) => (
+                {userBookings.map((booking: Booking) => (
                   <Card key={booking.id} data-testid={`card-booking-${booking.id}`}>
                     <CardContent className="p-6">
                       <div className="flex justify-between items-start">
