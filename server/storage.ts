@@ -623,17 +623,28 @@ async function initializeStorage(): Promise<IStorage> {
 
 // Initialize storage async with fallback
 export let storage: IStorage = new MemoryStorage(); // Start with memory storage as fallback
+let storageInitialized = false;
+let initializationPromise: Promise<void>;
 
 async function initStorage() {
   try {
     storage = await initializeStorage();
+    storageInitialized = true;
     console.log('✅ Storage initialized successfully');
   } catch (error) {
     console.error('❌ Failed to initialize storage:', error);
     console.log('⚠️  Using memory storage as fallback');
     storage = new MemoryStorage();
+    storageInitialized = true;
   }
 }
 
-// Initialize storage immediately
-initStorage();
+// Initialize storage immediately and expose promise for dependent code
+initializationPromise = initStorage();
+
+// Export a function to ensure storage is ready before use
+export async function ensureStorageReady(): Promise<void> {
+  if (!storageInitialized) {
+    await initializationPromise;
+  }
+}
