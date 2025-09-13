@@ -69,6 +69,15 @@ export default function CricketScorer({ match, onScoreUpdate, isLive }: CricketS
   const [battingStats, setBattingStats] = useState<PlayerBattingStats[]>([]);
   const [bowlingStats, setBowlingStats] = useState<PlayerBowlingStats[]>([]);
 
+  // Initialize current players from match data when match goes live
+  useEffect(() => {
+    if (isLive && match?.matchData?.currentPlayers) {
+      const { striker, bowler } = match.matchData.currentPlayers;
+      if (striker && !currentStriker) setCurrentStriker(striker);
+      if (bowler && !currentBowler) setCurrentBowler(bowler);
+    }
+  }, [isLive, match?.matchData?.currentPlayers, currentStriker, currentBowler]);
+
   // Flash effects
   const triggerFlashEffect = (type: 'six' | 'four' | 'wicket') => {
     switch (type) {
