@@ -10,6 +10,9 @@ import KabaddiScorer from "@/components/scoring/kabaddi-scorer";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
@@ -24,6 +27,9 @@ export default function MatchScorer() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [matchStatus, setMatchStatus] = useState<'upcoming' | 'live' | 'completed'>('upcoming');
+  const [showTossDialog, setShowTossDialog] = useState(false);
+  const [tossWinner, setTossWinner] = useState<string>('');
+  const [tossDecision, setTossDecision] = useState<'bat' | 'bowl' | ''>('');
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -102,12 +108,56 @@ export default function MatchScorer() {
   }
 
   const handleStartMatch = () => {
-    updateMatchMutation.mutate({ status: 'live' });
+    // For cricket matches, show toss dialog first
+    if (match?.sport === 'cricket') {
+      setShowTossDialog(true);
+      return;
+    }
+    
+    // For non-cricket matches, start immediately
+    startMatchAfterToss();
+  };
+
+  const startMatchAfterToss = () => {
+    const matchData: any = { status: 'live' };
+    
+    // Include toss information for cricket matches
+    if (match?.sport === 'cricket' && tossWinner && tossDecision) {
+      matchData.matchData = {
+        ...match.matchData,
+        toss: {
+          winner: tossWinner,
+          decision: tossDecision,
+          timestamp: new Date().toISOString()
+        }
+      };
+    }
+    
+    updateMatchMutation.mutate(matchData);
     setMatchStatus('live');
+    setShowTossDialog(false);
+    
+    const description = match?.sport === 'cricket' 
+      ? `${tossWinner} won the toss and chose to ${tossDecision} first. Match is now live!`
+      : "The match is now live!";
+    
     toast({
       title: "Match Started",
-      description: "The match is now live!",
+      description: description,
     });
+  };
+
+  const handleTossSubmit = () => {
+    if (!tossWinner || !tossDecision) {
+      toast({
+        title: "Incomplete Toss Information",
+        description: "Please select both toss winner and decision.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    startMatchAfterToss();
   };
 
   const handlePauseMatch = () => {
@@ -258,6 +308,71 @@ export default function MatchScorer() {
         {/* Sport-Specific Scorer */}
         {renderScorer()}
       </div>
+
+      {/* Toss Dialog for Cricket Matches */}
+      <Dialog open={showTossDialog} onOpenChange={setShowTossDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              🏏 Cricket Toss
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-6 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="toss-winner">Which team won the toss?</Label>
+              <Select value={tossWinner} onValueChange={setTossWinner}>
+                <SelectTrigger id="toss-winner" data-testid="select-toss-winner">
+                  <SelectValue placeholder="Select team that won the toss" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={match?.team1Name || "Team 1"}>
+                    {match?.team1Name || "Team 1"}
+                  </SelectItem>
+                  <SelectItem value={match?.team2Name || "Team 2"}>
+                    {match?.team2Name || "Team 2"}
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="toss-decision">What did they choose?</Label>
+              <Select value={tossDecision} onValueChange={(value) => setTossDecision(value as 'bat' | 'bowl')}>
+                <SelectTrigger id="toss-decision" data-testid="select-toss-decision">
+                  <SelectValue placeholder="Select batting or bowling first" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="bat">🏏 Bat First</SelectItem>
+                  <SelectItem value="bowl">⚾ Bowl First</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex gap-3 pt-4">
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  setShowTossDialog(false);
+                  setTossWinner('');
+                  setTossDecision('');
+                }}
+                className="flex-1"
+                data-testid="button-cancel-toss"
+              >
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleTossSubmit}
+                disabled={!tossWinner || !tossDecision || updateMatchMutation.isPending}
+                className="flex-1"
+                data-testid="button-confirm-toss"
+              >
+                Start Match
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
