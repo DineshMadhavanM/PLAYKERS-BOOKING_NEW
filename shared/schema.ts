@@ -283,7 +283,7 @@ export type MatchRosterPlayer = {
 
 // Insert types (inferred from Zod schemas)
 export type InsertUser = z.infer<typeof insertUserSchema>;
-export type UpsertUser = User; // For compatibility with existing code
+export type UpsertUser = Omit<User, 'createdAt' | 'updatedAt' | 'password'> & { password?: string }; // Storage handles timestamps, password optional for OAuth users
 export type InsertVenue = z.infer<typeof insertVenueSchema>;
 export type InsertMatch = z.infer<typeof insertMatchSchema>;
 export type InsertMatchParticipant = z.infer<typeof insertMatchParticipantSchema>;

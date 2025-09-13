@@ -115,25 +115,37 @@ export class MongoStorage implements IStorage {
   }
 
   async upsertUser(userData: UpsertUser): Promise<User> {
-    const result = await this.users.findOneAndUpdate(
-      { id: userData.id } as any,
-      {
-        $set: {
-          ...userData,
-          updatedAt: new Date(),
-        },
-        $setOnInsert: {
-          createdAt: new Date(),
-        },
+    // Prepare update data, excluding createdAt/updatedAt which are managed by storage
+    const { id, ...updateFields } = userData;
+    
+    const updateData: any = {
+      $set: {
+        ...updateFields,
+        updatedAt: new Date(),
       },
+      $setOnInsert: {
+        createdAt: new Date(),
+      },
+    };
+
+    // Only set password if provided (OAuth users don't have passwords)
+    if (updateFields.password !== undefined) {
+      updateData.$set.password = updateFields.password;
+    } else {
+      updateData.$setOnInsert.password = "";
+    }
+
+    const result = await this.users.findOneAndUpdate(
+      { id } as any,
+      updateData,
       { upsert: true, returnDocument: 'after' }
     );
 
-    if (!result.value) {
+    if (!result) {
       throw new Error('Failed to upsert user');
     }
 
-    return result.value as User;
+    return result as User;
   }
 
   // Admin-specific methods
@@ -195,7 +207,7 @@ export class MongoStorage implements IStorage {
       { $set: { ...venue, updatedAt: new Date() } },
       { returnDocument: 'after' }
     );
-    return result.value || undefined;
+    return result || undefined;
   }
 
   async deleteVenue(id: string): Promise<boolean> {
@@ -411,10 +423,10 @@ export class MongoStorage implements IStorage {
       { upsert: true, returnDocument: 'after' }
     );
 
-    if (!result.value) {
+    if (!result) {
       throw new Error('Failed to update user stats');
     }
 
-    return result.value as UserStats;
+    return result as UserStats;
   }
 }
