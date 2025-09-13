@@ -242,12 +242,44 @@ export class MongoStorage implements IStorage {
   }
 
   async updateMatch(id: string, match: Partial<InsertMatch>): Promise<Match | undefined> {
-    const result = await this.matches.findOneAndUpdate(
-      { id } as any,
-      { $set: { ...match, updatedAt: new Date() } },
-      { returnDocument: 'after' }
-    );
-    return result.value || undefined;
+    console.log('🔍 updateMatch called with:', { id, matchData: match });
+    
+    // First check if the match exists
+    const existingMatch = await this.matches.findOne({ id } as any);
+    console.log('🔍 Existing match found:', existingMatch ? 'YES' : 'NO');
+    
+    if (!existingMatch) {
+      console.log('❌ Match not found for id:', id);
+      return undefined;
+    }
+    
+    try {
+      // Create update object
+      const updateData = { ...match, updatedAt: new Date() };
+      console.log('🔍 Update data structure:', JSON.stringify(updateData, null, 2));
+      
+      const result = await this.matches.findOneAndUpdate(
+        { id } as any,
+        { $set: updateData },
+        { returnDocument: 'after' }
+      );
+      
+      console.log('🔍 MongoDB operation completed');
+      console.log('🔍 Result object exists:', !!result);
+      console.log('🔍 Result value exists:', !!result.value);
+      
+      if (result.value) {
+        console.log('✅ Update successful');
+        return result.value as Match;
+      } else {
+        console.log('❌ Update failed - result.value is null/undefined');
+        console.log('🔍 Full result object:', result);
+        return undefined;
+      }
+    } catch (error) {
+      console.error('❌ Error during update:', error);
+      throw error;
+    }
   }
 
   async deleteMatch(id: string): Promise<boolean> {
