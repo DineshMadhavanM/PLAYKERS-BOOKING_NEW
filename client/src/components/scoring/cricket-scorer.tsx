@@ -3,6 +3,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import type { Match } from "@shared/schema";
 
@@ -34,6 +37,10 @@ export default function CricketScorer({ match, onScoreUpdate, isLive }: CricketS
   const [showWicketFlash, setShowWicketFlash] = useState(false);
   const [showExtrasDialog, setShowExtrasDialog] = useState(false);
   const [selectedExtraType, setSelectedExtraType] = useState<'wide' | 'no-ball' | 'bye' | 'leg-bye' | null>(null);
+  const [showWicketDialog, setShowWicketDialog] = useState(false);
+  const [selectedWicketType, setSelectedWicketType] = useState<'bowled' | 'caught' | 'run-out' | 'hit-wicket' | 'stump-out' | null>(null);
+  const [fielderName, setFielderName] = useState('');
+  const [nextBatsman, setNextBatsman] = useState('');
 
   // Flash effects
   const triggerFlashEffect = (type: 'six' | 'four' | 'wicket') => {
@@ -78,7 +85,15 @@ export default function CricketScorer({ match, onScoreUpdate, isLive }: CricketS
     updateScore();
   };
 
-  const addWicket = () => {
+  const openWicketDialog = () => {
+    if (!isLive) return;
+    setSelectedWicketType(null);
+    setFielderName('');
+    setNextBatsman('');
+    setShowWicketDialog(true);
+  };
+
+  const addWicket = (wicketType: 'bowled' | 'caught' | 'run-out' | 'hit-wicket' | 'stump-out', fielder?: string, nextBatsmanName?: string) => {
     if (!isLive) return;
 
     if (currentInning === 1) {
@@ -89,10 +104,36 @@ export default function CricketScorer({ match, onScoreUpdate, isLive }: CricketS
 
     // Trigger wicket flash effect
     triggerFlashEffect('wicket');
-    toast({ title: "WICKET!", description: "That's out!", variant: "destructive", duration: 3000 });
+    toast({ title: "WICKET!", description: `${wicketType.replace('-', ' ').toUpperCase()}!`, variant: "destructive", duration: 3000 });
 
     nextBall();
-    setBallByBall(prev => [...prev, "Wicket!"]);
+    
+    // Enhanced wicket description
+    let wicketDescription = '';
+    switch (wicketType) {
+      case 'bowled':
+        wicketDescription = 'Bowled!';
+        break;
+      case 'caught':
+        wicketDescription = fielder ? `Caught by ${fielder}` : 'Caught!';
+        break;
+      case 'run-out':
+        wicketDescription = fielder ? `Run out by ${fielder}` : 'Run out!';
+        break;
+      case 'hit-wicket':
+        wicketDescription = 'Hit wicket!';
+        break;
+      case 'stump-out':
+        wicketDescription = 'Stumped!';
+        break;
+    }
+
+    if (nextBatsmanName) {
+      wicketDescription += ` | ${nextBatsmanName} in`;
+    }
+
+    setBallByBall(prev => [...prev, wicketDescription]);
+    setShowWicketDialog(false);
     updateScore();
   };
 
@@ -295,7 +336,7 @@ export default function CricketScorer({ match, onScoreUpdate, isLive }: CricketS
                   <h4 className="font-semibold mb-3 text-red-700 dark:text-red-300">🎯 Wicket</h4>
                   <Button 
                     variant="destructive" 
-                    onClick={addWicket}
+                    onClick={openWicketDialog}
                     data-testid="button-wicket"
                     size="lg"
                     className="w-full bg-red-600 hover:bg-red-700"
@@ -613,6 +654,125 @@ export default function CricketScorer({ match, onScoreUpdate, isLive }: CricketS
               >
                 Cancel
               </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Enhanced Wicket Dialog */}
+      <Dialog open={showWicketDialog} onOpenChange={setShowWicketDialog}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              🎯 Wicket Details
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-6 py-4">
+            {/* Wicket Type Selection */}
+            <div className="space-y-3">
+              <Label className="font-medium">Select wicket type:</Label>
+              <div className="grid grid-cols-2 gap-3">
+                <Button 
+                  onClick={() => setSelectedWicketType('bowled')} 
+                  variant={selectedWicketType === 'bowled' ? 'default' : 'outline'}
+                  data-testid="button-bowled"
+                  className="bg-red-50 hover:bg-red-100"
+                >
+                  Bowled
+                </Button>
+                <Button 
+                  onClick={() => setSelectedWicketType('caught')} 
+                  variant={selectedWicketType === 'caught' ? 'default' : 'outline'}
+                  data-testid="button-caught"
+                  className="bg-red-50 hover:bg-red-100"
+                >
+                  Caught
+                </Button>
+                <Button 
+                  onClick={() => setSelectedWicketType('run-out')} 
+                  variant={selectedWicketType === 'run-out' ? 'default' : 'outline'}
+                  data-testid="button-run-out"
+                  className="bg-red-50 hover:bg-red-100"
+                >
+                  Run Out
+                </Button>
+                <Button 
+                  onClick={() => setSelectedWicketType('hit-wicket')} 
+                  variant={selectedWicketType === 'hit-wicket' ? 'default' : 'outline'}
+                  data-testid="button-hit-wicket"
+                  className="bg-red-50 hover:bg-red-100"
+                >
+                  Hit Wicket
+                </Button>
+                <Button 
+                  onClick={() => setSelectedWicketType('stump-out')} 
+                  variant={selectedWicketType === 'stump-out' ? 'default' : 'outline'}
+                  data-testid="button-stump-out"
+                  className="bg-red-50 hover:bg-red-100 col-span-2"
+                >
+                  Stump Out
+                </Button>
+              </div>
+            </div>
+
+            {/* Fielder Name Input (for caught and run-out) */}
+            {(selectedWicketType === 'caught' || selectedWicketType === 'run-out') && (
+              <div className="space-y-2">
+                <Label htmlFor="fielder-name" className="font-medium">
+                  Fielder Name:
+                </Label>
+                <Input
+                  id="fielder-name"
+                  value={fielderName}
+                  onChange={(e) => setFielderName(e.target.value)}
+                  placeholder="Enter fielder's name"
+                  data-testid="input-fielder-name"
+                  className="w-full"
+                />
+              </div>
+            )}
+
+            {/* Next Batsman Input */}
+            {selectedWicketType && (
+              <div className="space-y-2">
+                <Label htmlFor="next-batsman" className="font-medium">
+                  Next Batsman:
+                </Label>
+                <Input
+                  id="next-batsman"
+                  value={nextBatsman}
+                  onChange={(e) => setNextBatsman(e.target.value)}
+                  placeholder="Enter next batsman's name"
+                  data-testid="input-next-batsman"
+                  className="w-full"
+                />
+              </div>
+            )}
+
+            {/* Action Buttons */}
+            <div className="flex gap-3 pt-4">
+              <Button 
+                variant="outline" 
+                onClick={() => setShowWicketDialog(false)}
+                className="flex-1"
+                data-testid="button-cancel-wicket"
+              >
+                Cancel
+              </Button>
+              {selectedWicketType && (
+                <Button 
+                  onClick={() => addWicket(
+                    selectedWicketType, 
+                    fielderName || undefined, 
+                    nextBatsman || undefined
+                  )}
+                  variant="destructive"
+                  className="flex-1 bg-red-600 hover:bg-red-700"
+                  data-testid="button-confirm-wicket"
+                >
+                  Confirm Wicket
+                </Button>
+              )}
             </div>
           </div>
         </DialogContent>
