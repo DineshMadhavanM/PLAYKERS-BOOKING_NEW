@@ -242,26 +242,11 @@ export class MongoStorage implements IStorage {
   }
 
   async updateMatch(id: string, match: Partial<InsertMatch>): Promise<Match | undefined> {
-    console.log('🔍 updateMatch called with:', { id, matchData: match });
-    
-    // First check if the match exists
-    const existingMatch = await this.matches.findOne({ id } as any);
-    console.log('🔍 Existing match found:', existingMatch ? 'YES' : 'NO');
-    
-    if (!existingMatch) {
-      console.log('❌ Match not found for id:', id);
-      return undefined;
-    }
-    
     const result = await this.matches.findOneAndUpdate(
       { id } as any,
       { $set: { ...match, updatedAt: new Date() } },
       { returnDocument: 'after' }
     );
-    
-    console.log('🔍 Update result:', result.value ? 'SUCCESS' : 'FAILED');
-    console.log('🔍 Result value:', result.value);
-    
     return result.value || undefined;
   }
 
