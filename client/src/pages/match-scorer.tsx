@@ -443,6 +443,7 @@ export default function MatchScorer() {
 
               const battingPlayers = rosterPlayers.filter(p => p.team === battingTeam);
               const bowlingPlayers = rosterPlayers.filter(p => p.team === bowlingTeam);
+              
 
               return (
                 <>
@@ -459,8 +460,8 @@ export default function MatchScorer() {
                         </SelectTrigger>
                         <SelectContent>
                           {battingPlayers.map((player: any) => (
-                            <SelectItem key={player.id} value={player.playerName}>
-                              {player.playerName} {player.role === 'captain' ? '(C)' : ''} {player.role === 'wicket-keeper' ? '(WK)' : ''}
+                            <SelectItem key={player.id} value={player.name}>
+                              {player.name} {player.role === 'captain' ? '(C)' : ''} {player.role === 'wicket-keeper' ? '(WK)' : ''}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -475,8 +476,8 @@ export default function MatchScorer() {
                         </SelectTrigger>
                         <SelectContent>
                           {battingPlayers.map((player: any) => (
-                            <SelectItem key={player.id} value={player.playerName}>
-                              {player.playerName} {player.role === 'captain' ? '(C)' : ''} {player.role === 'wicket-keeper' ? '(WK)' : ''}
+                            <SelectItem key={player.id} value={player.name}>
+                              {player.name} {player.role === 'captain' ? '(C)' : ''} {player.role === 'wicket-keeper' ? '(WK)' : ''}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -497,8 +498,8 @@ export default function MatchScorer() {
                         </SelectTrigger>
                         <SelectContent>
                           {bowlingPlayers.map((player: any) => (
-                            <SelectItem key={player.id} value={player.playerName}>
-                              {player.playerName} {player.role === 'captain' ? '(C)' : ''} {player.role === 'wicket-keeper' ? '(WK)' : ''}
+                            <SelectItem key={player.id} value={player.name}>
+                              {player.name} {player.role === 'captain' ? '(C)' : ''} {player.role === 'wicket-keeper' ? '(WK)' : ''}
                             </SelectItem>
                           ))}
                         </SelectContent>
