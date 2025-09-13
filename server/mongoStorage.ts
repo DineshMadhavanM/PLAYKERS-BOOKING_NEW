@@ -244,6 +244,9 @@ export class MongoStorage implements IStorage {
     const newParticipant: MatchParticipant = {
       id,
       ...participant,
+      team: participant.team ?? null,
+      role: participant.role ?? 'player',
+      status: participant.status ?? 'joined',
       joinedAt: new Date(),
     };
 
@@ -269,6 +272,9 @@ export class MongoStorage implements IStorage {
     const booking: Booking = {
       id,
       ...bookingData,
+      matchId: bookingData.matchId ?? null,
+      status: bookingData.status ?? 'confirmed',
+      paymentStatus: bookingData.paymentStatus ?? 'pending',
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -286,9 +292,16 @@ export class MongoStorage implements IStorage {
     const product: Product = {
       id,
       ...productData,
+      description: productData.description ?? null,
+      subcategory: productData.subcategory ?? null,
+      discountPrice: productData.discountPrice ?? null,
+      images: productData.images ?? [],
+      brand: productData.brand ?? null,
+      specifications: productData.specifications ?? null,
       inStock: productData.inStock ?? true,
       stockQuantity: productData.stockQuantity ?? 0,
-      totalReviews: 0,
+      rating: productData.rating ?? null,
+      totalReviews: productData.totalReviews ?? 0,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -322,6 +335,9 @@ export class MongoStorage implements IStorage {
     const review: Review = {
       id,
       ...reviewData,
+      venueId: reviewData.venueId ?? null,
+      productId: reviewData.productId ?? null,
+      comment: reviewData.comment ?? null,
       images: reviewData.images ?? [],
       isVerified: reviewData.isVerified ?? false,
       createdAt: new Date(),
