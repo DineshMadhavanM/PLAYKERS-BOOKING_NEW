@@ -77,6 +77,20 @@ export default function CricketScorer({ match, onScoreUpdate, isLive }: CricketS
   const [team1Balls, setTeam1Balls] = useState(0);
   const [team2Balls, setTeam2Balls] = useState(0);
 
+  // Bowling rules and restrictions tracking
+  const [lastOverBowlerByInning, setLastOverBowlerByInning] = useState<{[key: number]: string}>({});
+  const [bowlingHistoryByInning, setBowlingHistoryByInning] = useState<{[key: number]: Array<{over: number; bowler: string}>}>({1: [], 2: []});
+  const [ballsByBowlerByInning, setBallsByBowlerByInning] = useState<{[key: number]: Record<string, number>}>({1: {}, 2: {}});
+  
+  // Next bowler selection dialog
+  const [showBowlerDialog, setShowBowlerDialog] = useState(false);
+  const [selectedNextBowler, setSelectedNextBowler] = useState('');
+  const [eligibleBowlers, setEligibleBowlers] = useState<string[]>([]);
+  
+  // Match configuration for bowling restrictions
+  const totalOvers = parseInt(match.matchType?.replace(/[^\d]/g, '') || '20'); // Extract number from match type like "20 Overs"
+  const maxOversPerBowler = Math.floor(totalOvers / 5);
+
   // Initialize current players from match data when match goes live
   useEffect(() => {
     if (isLive && match?.matchData?.currentPlayers) {
