@@ -251,6 +251,16 @@ export default function CricketScorer({ match, onScoreUpdate, isLive }: CricketS
 
   const addRuns = (runs: number) => {
     if (!isLive) return;
+    
+    // Block scoring while bowler selection is in progress
+    if (showBowlerDialog) {
+      toast({
+        title: "Select Next Bowler",
+        description: "Please select a bowler for the next over before continuing.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     // Calculate updated values locally
     const newTeam1Runs = currentInning === 1 ? team1Runs + runs : team1Runs;
@@ -290,6 +300,7 @@ export default function CricketScorer({ match, onScoreUpdate, isLive }: CricketS
     // Rotate strike at end of over
     if (endOfOver) {
       rotateStrike();
+      handleOverCompletion();
     }
 
     setBallByBall(newBallByBall);
@@ -315,6 +326,16 @@ export default function CricketScorer({ match, onScoreUpdate, isLive }: CricketS
 
   const addWicket = (wicketType: 'bowled' | 'caught' | 'run-out' | 'hit-wicket' | 'stump-out', fielder?: string, nextBatsmanName?: string, dismissedBatter?: 'striker' | 'non-striker') => {
     if (!isLive) return;
+    
+    // Block scoring while bowler selection is in progress
+    if (showBowlerDialog) {
+      toast({
+        title: "Select Next Bowler",
+        description: "Please select a bowler for the next over before continuing.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     // Calculate updated values locally
     const newTeam1Wickets = currentInning === 1 ? team1Wickets + 1 : team1Wickets;
@@ -394,6 +415,7 @@ export default function CricketScorer({ match, onScoreUpdate, isLive }: CricketS
     // Rotate strike at end of over regardless of new batsman
     if (endOfOver) {
       rotateStrike();
+      handleOverCompletion();
     }
 
     setBallByBall(newBallByBall);
@@ -417,6 +439,16 @@ export default function CricketScorer({ match, onScoreUpdate, isLive }: CricketS
 
   const addExtra = (type: 'wide' | 'no-ball' | 'bye' | 'leg-bye', runs: number = 1) => {
     if (!isLive) return;
+    
+    // Block scoring while bowler selection is in progress
+    if (showBowlerDialog) {
+      toast({
+        title: "Select Next Bowler",
+        description: "Please select a bowler for the next over before continuing.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     // For wides and no-balls, don't count as ball faced by bowler
     const countsAsBall = type !== 'wide' && type !== 'no-ball';
@@ -481,6 +513,7 @@ export default function CricketScorer({ match, onScoreUpdate, isLive }: CricketS
       // Rotate strike at end of over
       if (endOfOver) {
         rotateStrike();
+        handleOverCompletion();
       }
     }
 
@@ -534,7 +567,7 @@ export default function CricketScorer({ match, onScoreUpdate, isLive }: CricketS
       ...prev,
       [currentInning]: [
         ...prev[currentInning],
-        { over: currentOver - 1, bowler: currentBowler } // currentOver was already incremented
+        { over: currentOver, bowler: currentBowler } // Use currentOver as the completed over
       ]
     }));
 
@@ -542,8 +575,8 @@ export default function CricketScorer({ match, onScoreUpdate, isLive }: CricketS
     const eligible = computeEligibleBowlers();
     setEligibleBowlers(eligible);
 
-    // Add commentary for over completion
-    setBallByBall(prev => [...prev, `Over ${currentOver - 1} completed by ${currentBowler}`]);
+    // Add commentary for over completion  
+    setBallByBall(prev => [...prev, `Over ${currentOver} completed by ${currentBowler}`]);
 
     // Show bowler selection dialog
     setSelectedNextBowler('');
@@ -1621,6 +1654,138 @@ export default function CricketScorer({ match, onScoreUpdate, isLive }: CricketS
                   Confirm Wicket
                 </Button>
               )}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Next Bowler Selection Dialog */}
+      <Dialog open={showBowlerDialog} onOpenChange={setShowBowlerDialog}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              🎳 Select Next Bowler - Over {currentOver}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-6 py-4">
+            {/* Over completion info */}
+            <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg border border-blue-200 dark:border-blue-800">
+              <p className="text-sm font-medium text-blue-800 dark:text-blue-200 mb-2">
+                Over {currentOver > 1 ? currentOver - 1 : 1} completed by {lastOverBowlerByInning[currentInning]}
+              </p>
+              <p className="text-xs text-blue-600 dark:text-blue-400">
+                Select next bowler for Over {currentOver}. Max {maxOversPerBowler} overs per bowler.
+              </p>
+            </div>
+
+            {/* Eligible bowlers dropdown */}
+            <div className="space-y-2">
+              <Label htmlFor="next-bowler" className="font-medium">
+                Next Bowler:
+              </Label>
+              <Select value={selectedNextBowler} onValueChange={setSelectedNextBowler}>
+                <SelectTrigger className="w-full" data-testid="select-next-bowler">
+                  <SelectValue placeholder="Select next bowler" />
+                </SelectTrigger>
+                <SelectContent>
+                  {getFieldingRoster().map((player: any) => {
+                    const isEligible = eligibleBowlers.includes(player.name);
+                    const restrictionReason = getBowlerRestrictionReason(player.name);
+                    const oversBowled = getOversBowled(player.name);
+                    
+                    return (
+                      <SelectItem 
+                        key={player.id} 
+                        value={player.name}
+                        disabled={!isEligible}
+                        data-testid={`bowler-option-${player.name.replace(/\s+/g, '-').toLowerCase()}`}
+                      >
+                        <div className="flex items-center justify-between w-full">
+                          <span>{player.name}</span>
+                          <div className="text-xs text-muted-foreground ml-2">
+                            {oversBowled > 0 && <span>({oversBowled} overs)</span>}
+                            {restrictionReason && (
+                              <span className="text-red-500 ml-1">- {restrictionReason}</span>
+                            )}
+                          </div>
+                        </div>
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+              {eligibleBowlers.length === 0 && (
+                <p className="text-xs text-red-600 dark:text-red-400">
+                  ⚠️ No eligible bowlers available! All have reached quota or bowled last over.
+                </p>
+              )}
+            </div>
+
+            {/* Bowling stats summary */}
+            {selectedNextBowler && (
+              <div className="bg-gray-50 dark:bg-gray-900/20 p-3 rounded-lg border">
+                <p className="text-sm font-medium text-gray-800 dark:text-gray-200 mb-1">
+                  {selectedNextBowler} - Bowling Stats
+                </p>
+                <div className="text-xs text-gray-600 dark:text-gray-400 space-y-1">
+                  <p>Overs bowled this innings: {getOversBowled(selectedNextBowler)}/{maxOversPerBowler}</p>
+                  <p>Balls bowled: {getBallsBowled(selectedNextBowler)}</p>
+                </div>
+              </div>
+            )}
+
+            {/* Action Buttons */}
+            <div className="flex gap-3 pt-4">
+              <Button 
+                variant="outline" 
+                onClick={() => setShowBowlerDialog(false)}
+                className="flex-1"
+                data-testid="button-cancel-bowler"
+              >
+                Cancel
+              </Button>
+              <Button 
+                onClick={() => {
+                  if (!selectedNextBowler) {
+                    toast({
+                      title: "Bowler Required",
+                      description: "Please select a bowler for the next over.",
+                      variant: "destructive",
+                    });
+                    return;
+                  }
+                  
+                  if (!eligibleBowlers.includes(selectedNextBowler)) {
+                    toast({
+                      title: "Invalid Selection",
+                      description: "Selected bowler is not eligible due to bowling restrictions.",
+                      variant: "destructive",
+                    });
+                    return;
+                  }
+
+                  // Set new bowler
+                  setCurrentBowler(selectedNextBowler);
+                  
+                  // Add commentary
+                  setBallByBall(prev => [...prev, `Over ${currentOver}: ${selectedNextBowler} to bowl`]);
+                  
+                  // Close dialog
+                  setShowBowlerDialog(false);
+                  
+                  // Success message
+                  toast({
+                    title: "Bowler Selected",
+                    description: `${selectedNextBowler} will bowl Over ${currentOver}`,
+                    duration: 2000,
+                  });
+                }}
+                disabled={!selectedNextBowler || !eligibleBowlers.includes(selectedNextBowler)}
+                className="flex-1 bg-blue-600 hover:bg-blue-700"
+                data-testid="button-confirm-bowler"
+              >
+                Confirm Bowler
+              </Button>
             </div>
           </div>
         </DialogContent>
