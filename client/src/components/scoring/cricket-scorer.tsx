@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import type { Match } from "@shared/schema";
 
@@ -20,6 +21,26 @@ interface CricketScore {
   wickets: number;
   overs: string;
   ballByBall?: string[];
+}
+
+interface PlayerBattingStats {
+  name: string;
+  runs: number;
+  balls: number;
+  dots: number;
+  fours: number;
+  sixes: number;
+  strikeRate: number;
+}
+
+interface PlayerBowlingStats {
+  name: string;
+  wickets: number;
+  overs: number;
+  balls: number;
+  runsConceded: number;
+  economyRate: number;
+  bowlingAverage: number;
 }
 
 export default function CricketScorer({ match, onScoreUpdate, isLive }: CricketScorerProps) {
@@ -41,6 +62,12 @@ export default function CricketScorer({ match, onScoreUpdate, isLive }: CricketS
   const [selectedWicketType, setSelectedWicketType] = useState<'bowled' | 'caught' | 'run-out' | 'hit-wicket' | 'stump-out' | null>(null);
   const [fielderName, setFielderName] = useState('');
   const [nextBatsman, setNextBatsman] = useState('');
+  
+  // Live scorecard state
+  const [currentStriker, setCurrentStriker] = useState('');
+  const [currentBowler, setCurrentBowler] = useState('');
+  const [battingStats, setBattingStats] = useState<PlayerBattingStats[]>([]);
+  const [bowlingStats, setBowlingStats] = useState<PlayerBowlingStats[]>([]);
 
   // Flash effects
   const triggerFlashEffect = (type: 'six' | 'four' | 'wicket') => {
@@ -60,6 +87,63 @@ export default function CricketScorer({ match, onScoreUpdate, isLive }: CricketS
     }
   };
 
+  // Update player statistics
+  const updateBattingStats = (playerName: string, runs: number) => {
+    setBattingStats(prev => {
+      const existingPlayerIndex = prev.findIndex(p => p.name === playerName);
+      if (existingPlayerIndex >= 0) {
+        const updated = [...prev];
+        const player = updated[existingPlayerIndex];
+        player.runs += runs;
+        player.balls += 1;
+        if (runs === 0) player.dots += 1;
+        if (runs === 4) player.fours += 1;
+        if (runs === 6) player.sixes += 1;
+        player.strikeRate = player.balls > 0 ? (player.runs / player.balls) * 100 : 0;
+        return updated;
+      } else {
+        const newPlayer: PlayerBattingStats = {
+          name: playerName,
+          runs,
+          balls: 1,
+          dots: runs === 0 ? 1 : 0,
+          fours: runs === 4 ? 1 : 0,
+          sixes: runs === 6 ? 1 : 0,
+          strikeRate: runs * 100
+        };
+        return [...prev, newPlayer];
+      }
+    });
+  };
+
+  const updateBowlingStats = (playerName: string, runs: number, isWicket: boolean = false) => {
+    setBowlingStats(prev => {
+      const existingPlayerIndex = prev.findIndex(p => p.name === playerName);
+      if (existingPlayerIndex >= 0) {
+        const updated = [...prev];
+        const player = updated[existingPlayerIndex];
+        player.runsConceded += runs;
+        player.balls += 1;
+        if (isWicket) player.wickets += 1;
+        player.overs = Math.floor(player.balls / 6) + (player.balls % 6) * 0.1;
+        player.economyRate = player.overs > 0 ? player.runsConceded / player.overs : 0;
+        player.bowlingAverage = player.wickets > 0 ? player.runsConceded / player.wickets : 0;
+        return updated;
+      } else {
+        const newPlayer: PlayerBowlingStats = {
+          name: playerName,
+          wickets: isWicket ? 1 : 0,
+          overs: 0.1,
+          balls: 1,
+          runsConceded: runs,
+          economyRate: runs * 10,
+          bowlingAverage: isWicket ? runs : 0
+        };
+        return [...prev, newPlayer];
+      }
+    });
+  };
+
   const addRuns = (runs: number) => {
     if (!isLive) return;
 
@@ -68,6 +152,10 @@ export default function CricketScorer({ match, onScoreUpdate, isLive }: CricketS
     } else {
       setTeam2Runs(prev => prev + runs);
     }
+
+    // Update player stats
+    if (currentStriker) updateBattingStats(currentStriker, runs);
+    if (currentBowler) updateBowlingStats(currentBowler, runs);
 
     // Trigger flash effects for boundaries
     if (runs === 6) {
@@ -100,6 +188,14 @@ export default function CricketScorer({ match, onScoreUpdate, isLive }: CricketS
       setTeam1Wickets(prev => prev + 1);
     } else {
       setTeam2Wickets(prev => prev + 1);
+    }
+
+    // Update bowling stats for wicket
+    if (currentBowler) updateBowlingStats(currentBowler, 0, true);
+
+    // Update striker to next batsman if provided
+    if (nextBatsmanName) {
+      setCurrentStriker(nextBatsmanName);
     }
 
     // Trigger wicket flash effect
@@ -150,6 +246,14 @@ export default function CricketScorer({ match, onScoreUpdate, isLive }: CricketS
       setTeam1Runs(prev => prev + runs);
     } else {
       setTeam2Runs(prev => prev + runs);
+    }
+
+    // Update bowling stats for extras
+    if (currentBowler) updateBowlingStats(currentBowler, runs);
+
+    // For byes and leg-byes, update batting stats (as batsman faced a ball)
+    if ((type === 'bye' || type === 'leg-bye') && currentStriker) {
+      updateBattingStats(currentStriker, 0); // No runs to batsman for byes/leg-byes
     }
 
     if (type !== 'wide' && type !== 'no-ball') {
@@ -291,6 +395,136 @@ export default function CricketScorer({ match, onScoreUpdate, isLive }: CricketS
           </div>
         </CardContent>
       </Card>
+
+      {/* Live Scorecard Section */}
+      {isLive && (battingStats.length > 0 || bowlingStats.length > 0) && (
+        <div className="space-y-6">
+          {/* Current Score Banner */}
+          <Card className="bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20 border-purple-200 dark:border-purple-800">
+            <CardContent className="p-4">
+              <div className="text-center">
+                <h2 className="text-2xl font-bold text-purple-800 dark:text-purple-200">
+                  {currentInning === 1 ? (match.team1Name || "Team 1") : (match.team2Name || "Team 2")}: {" "}
+                  <span className="text-purple-600 dark:text-purple-400">
+                    {currentInning === 1 ? `${team1Runs}/${team1Wickets}` : `${team2Runs}/${team2Wickets}`}
+                  </span>
+                  {" "} in {currentOver}.{currentBall} overs
+                </h2>
+                {currentStriker && currentBowler && (
+                  <div className="mt-2 flex justify-center gap-4 text-sm text-purple-700 dark:text-purple-300">
+                    <span>Striker: <strong>{currentStriker}</strong></span>
+                    <span>Bowler: <strong>{currentBowler}</strong></span>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Batting Statistics Table */}
+          {battingStats.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-blue-800 dark:text-blue-200">
+                  🏏 Batting Statistics - {currentInning === 1 ? (match.team1Name || "Team 1") : (match.team2Name || "Team 2")}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="font-semibold">Player Name</TableHead>
+                      <TableHead className="text-center font-semibold">Runs</TableHead>
+                      <TableHead className="text-center font-semibold">Balls</TableHead>
+                      <TableHead className="text-center font-semibold">Dots</TableHead>
+                      <TableHead className="text-center font-semibold">4s</TableHead>
+                      <TableHead className="text-center font-semibold">6s</TableHead>
+                      <TableHead className="text-center font-semibold">Strike Rate</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {battingStats.map((player, index) => (
+                      <TableRow 
+                        key={index} 
+                        className={currentStriker === player.name ? "bg-blue-50 dark:bg-blue-900/20" : ""}
+                        data-testid={`batting-row-${player.name.replace(/\s+/g, '-').toLowerCase()}`}
+                      >
+                        <TableCell className="font-medium">
+                          {player.name}
+                          {currentStriker === player.name && (
+                            <Badge variant="default" className="ml-2 text-xs bg-blue-600">
+                              Striker
+                            </Badge>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-center font-semibold text-green-600">{player.runs}</TableCell>
+                        <TableCell className="text-center">{player.balls}</TableCell>
+                        <TableCell className="text-center text-gray-600">{player.dots}</TableCell>
+                        <TableCell className="text-center text-blue-600 font-semibold">{player.fours}</TableCell>
+                        <TableCell className="text-center text-yellow-600 font-semibold">{player.sixes}</TableCell>
+                        <TableCell className="text-center font-medium">
+                          {player.strikeRate.toFixed(1)}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Bowling Statistics Table */}
+          {bowlingStats.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-orange-800 dark:text-orange-200">
+                  ⚡ Bowling Statistics - {currentInning === 1 ? (match.team2Name || "Team 2") : (match.team1Name || "Team 1")}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="font-semibold">Player Name</TableHead>
+                      <TableHead className="text-center font-semibold">Wickets</TableHead>
+                      <TableHead className="text-center font-semibold">Overs</TableHead>
+                      <TableHead className="text-center font-semibold">Runs Conceded</TableHead>
+                      <TableHead className="text-center font-semibold">Economy Rate</TableHead>
+                      <TableHead className="text-center font-semibold">Bowling Average</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {bowlingStats.map((player, index) => (
+                      <TableRow 
+                        key={index}
+                        className={currentBowler === player.name ? "bg-orange-50 dark:bg-orange-900/20" : ""}
+                        data-testid={`bowling-row-${player.name.replace(/\s+/g, '-').toLowerCase()}`}
+                      >
+                        <TableCell className="font-medium">
+                          {player.name}
+                          {currentBowler === player.name && (
+                            <Badge variant="default" className="ml-2 text-xs bg-orange-600">
+                              Bowling
+                            </Badge>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-center font-semibold text-red-600">{player.wickets}</TableCell>
+                        <TableCell className="text-center">{player.overs.toFixed(1)}</TableCell>
+                        <TableCell className="text-center">{player.runsConceded}</TableCell>
+                        <TableCell className="text-center font-medium">
+                          {player.economyRate.toFixed(2)}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          {player.bowlingAverage > 0 ? player.bowlingAverage.toFixed(2) : '-'}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
 
       {/* Enhanced Scoring Controls */}
       {isLive && (
