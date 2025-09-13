@@ -91,6 +91,50 @@ export default function CricketScorer({ match, onScoreUpdate, isLive }: CricketS
   const totalOvers = parseInt(match.matchType?.replace(/[^\d]/g, '') || '20'); // Extract number from match type like "20 Overs"
   const maxOversPerBowler = Math.floor(totalOvers / 5);
 
+  // Bowler eligibility helper functions
+  const getFieldingRoster = () => {
+    return currentInning === 1 
+      ? (match.matchData?.team2Roster || [])
+      : (match.matchData?.team1Roster || []);
+  };
+
+  const getBallsBowled = (playerName: string) => {
+    return ballsByBowlerByInning[currentInning]?.[playerName] || 0;
+  };
+
+  const getOversBowled = (playerName: string) => {
+    return Math.floor(getBallsBowled(playerName) / 6);
+  };
+
+  const hasReachedQuota = (playerName: string) => {
+    return getOversBowled(playerName) >= maxOversPerBowler;
+  };
+
+  const isPreviousOverBowler = (playerName: string) => {
+    return playerName === lastOverBowlerByInning[currentInning];
+  };
+
+  const computeEligibleBowlers = () => {
+    const fieldingRoster = getFieldingRoster();
+    return fieldingRoster
+      .filter((player: any) => {
+        const isNotPreviousBowler = !isPreviousOverBowler(player.name);
+        const hasNotReachedQuota = !hasReachedQuota(player.name);
+        return isNotPreviousBowler && hasNotReachedQuota;
+      })
+      .map((player: any) => player.name);
+  };
+
+  const getBowlerRestrictionReason = (playerName: string) => {
+    if (isPreviousOverBowler(playerName)) {
+      return "Bowled last over";
+    }
+    if (hasReachedQuota(playerName)) {
+      return `Quota reached (${maxOversPerBowler} overs)`;
+    }
+    return null;
+  };
+
   // Initialize current players from match data when match goes live
   useEffect(() => {
     if (isLive && match?.matchData?.currentPlayers) {
