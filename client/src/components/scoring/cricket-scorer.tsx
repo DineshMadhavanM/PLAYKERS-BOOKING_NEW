@@ -554,7 +554,12 @@ export default function CricketScorer({ match, onScoreUpdate, isLive }: CricketS
 
   // Handle over completion - trigger bowler selection dialog
   const handleOverCompletion = () => {
-    if (!currentBowler) return;
+    if (!currentBowler) {
+      console.log("No current bowler set, skipping over completion");
+      return;
+    }
+
+    console.log("Over completed! Current bowler:", currentBowler, "Current over:", currentOver);
 
     // Update last over bowler for current inning
     setLastOverBowlerByInning(prev => ({
@@ -573,6 +578,8 @@ export default function CricketScorer({ match, onScoreUpdate, isLive }: CricketS
 
     // Compute and set eligible bowlers
     const eligible = computeEligibleBowlers();
+    console.log("Eligible bowlers:", eligible);
+    console.log("Fielding roster:", getFieldingRoster());
     setEligibleBowlers(eligible);
 
     // Add commentary for over completion  
@@ -581,6 +588,7 @@ export default function CricketScorer({ match, onScoreUpdate, isLive }: CricketS
     // Show bowler selection dialog
     setSelectedNextBowler('');
     setShowBowlerDialog(true);
+    console.log("Setting showBowlerDialog to true");
 
     // Flash effect for over completion
     toast({ 
