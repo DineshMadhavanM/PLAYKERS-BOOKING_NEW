@@ -307,8 +307,12 @@ export default function CricketScorer({ match, onScoreUpdate, isLive }: CricketS
     if (nextBatsmanName) {
       if (actualDismissedBatter === 'striker') {
         setCurrentStriker(nextBatsmanName);
+        // Initialize batting stats for new batsman
+        updateBattingStats(nextBatsmanName, 0, false, false);
       } else {
         setCurrentNonStriker(nextBatsmanName);
+        // Initialize batting stats for new batsman
+        updateBattingStats(nextBatsmanName, 0, false, false);
       }
     }
 
@@ -1416,18 +1420,60 @@ export default function CricketScorer({ match, onScoreUpdate, isLive }: CricketS
 
             {/* Next Batsman Input */}
             {selectedWicketType && (
-              <div className="space-y-2">
-                <Label htmlFor="next-batsman" className="font-medium">
-                  Next Batsman:
-                </Label>
-                <Input
-                  id="next-batsman"
-                  value={nextBatsman}
-                  onChange={(e) => setNextBatsman(e.target.value)}
-                  placeholder="Enter next batsman's name"
-                  data-testid="input-next-batsman"
-                  className="w-full"
-                />
+              <div className="space-y-3">
+                <div className="bg-amber-50 dark:bg-amber-900/20 p-3 rounded-lg border border-amber-200 dark:border-amber-800">
+                  <p className="text-sm font-medium text-amber-800 dark:text-amber-200 mb-2">
+                    {selectedWicketType === 'run-out' 
+                      ? `${dismissedBatter === 'striker' ? currentStriker : currentNonStriker} is out!`
+                      : `${currentStriker} is out!`
+                    }
+                  </p>
+                  <p className="text-xs text-amber-600 dark:text-amber-400">
+                    Enter the name of the next batsman to replace the dismissed player.
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="next-batsman" className="font-medium">
+                    Next Batsman Name:
+                  </Label>
+                  <div className="flex gap-2">
+                    <Select value={nextBatsman} onValueChange={setNextBatsman}>
+                      <SelectTrigger className="flex-1" data-testid="select-next-batsman">
+                        <SelectValue placeholder="Select next batsman" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {/* Available team players */}
+                        {currentInning === 1 
+                          ? (match.matchData?.team1Roster || []).filter((player: any) => 
+                              player.name !== currentStriker && player.name !== currentNonStriker
+                            ).map((player: any) => (
+                              <SelectItem key={player.id} value={player.name}>
+                                {player.name}
+                              </SelectItem>
+                            ))
+                          : (match.matchData?.team2Roster || []).filter((player: any) => 
+                              player.name !== currentStriker && player.name !== currentNonStriker
+                            ).map((player: any) => (
+                              <SelectItem key={player.id} value={player.name}>
+                                {player.name}
+                              </SelectItem>
+                            ))
+                        }
+                      </SelectContent>
+                    </Select>
+                    <Input
+                      id="next-batsman-manual"
+                      value={nextBatsman}
+                      onChange={(e) => setNextBatsman(e.target.value)}
+                      placeholder="Or type name"
+                      data-testid="input-next-batsman-manual"
+                      className="flex-1"
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Select from dropdown or type manually
+                  </p>
+                </div>
               </div>
             )}
 
@@ -1443,12 +1489,24 @@ export default function CricketScorer({ match, onScoreUpdate, isLive }: CricketS
               </Button>
               {selectedWicketType && (
                 <Button 
-                  onClick={() => addWicket(
-                    selectedWicketType, 
-                    fielderName || undefined, 
-                    nextBatsman || undefined,
-                    selectedWicketType === 'run-out' ? dismissedBatter : undefined
-                  )}
+                  onClick={() => {
+                    if (!nextBatsman.trim()) {
+                      toast({
+                        title: "Next Batsman Required",
+                        description: "Please enter the name of the next batsman before confirming the wicket.",
+                        variant: "destructive",
+                      });
+                      return;
+                    }
+                    addWicket(
+                      selectedWicketType, 
+                      fielderName || undefined, 
+                      nextBatsman.trim(),
+                      selectedWicketType === 'run-out' ? dismissedBatter : undefined
+                    );
+                    // Close dialog after wicket is recorded
+                    setShowWicketDialog(false);
+                  }}
                   variant="destructive"
                   className="flex-1 bg-red-600 hover:bg-red-700"
                   data-testid="button-confirm-wicket"
