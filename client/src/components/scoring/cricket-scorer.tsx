@@ -65,18 +65,24 @@ export default function CricketScorer({ match, onScoreUpdate, isLive }: CricketS
   
   // Live scorecard state
   const [currentStriker, setCurrentStriker] = useState('');
+  const [currentNonStriker, setCurrentNonStriker] = useState('');
   const [currentBowler, setCurrentBowler] = useState('');
   const [battingStats, setBattingStats] = useState<PlayerBattingStats[]>([]);
   const [bowlingStats, setBowlingStats] = useState<PlayerBowlingStats[]>([]);
+  
+  // Separate tracking for each team's balls/overs
+  const [team1Balls, setTeam1Balls] = useState(0);
+  const [team2Balls, setTeam2Balls] = useState(0);
 
   // Initialize current players from match data when match goes live
   useEffect(() => {
     if (isLive && match?.matchData?.currentPlayers) {
-      const { striker, bowler } = match.matchData.currentPlayers;
+      const { striker, nonStriker, bowler } = match.matchData.currentPlayers;
       if (striker && !currentStriker) setCurrentStriker(striker);
+      if (nonStriker && !currentNonStriker) setCurrentNonStriker(nonStriker);
       if (bowler && !currentBowler) setCurrentBowler(bowler);
     }
-  }, [isLive, match?.matchData?.currentPlayers, currentStriker, currentBowler]);
+  }, [isLive, match?.matchData?.currentPlayers, currentStriker, currentNonStriker, currentBowler]);
 
   // Flash effects
   const triggerFlashEffect = (type: 'six' | 'four' | 'wicket') => {
@@ -97,15 +103,15 @@ export default function CricketScorer({ match, onScoreUpdate, isLive }: CricketS
   };
 
   // Update player statistics
-  const updateBattingStats = (playerName: string, runs: number) => {
+  const updateBattingStats = (playerName: string, runs: number, countsAsBall: boolean = true, isDot: boolean = false) => {
     setBattingStats(prev => {
       const existingPlayerIndex = prev.findIndex(p => p.name === playerName);
       if (existingPlayerIndex >= 0) {
         const updated = [...prev];
         const player = updated[existingPlayerIndex];
         player.runs += runs;
-        player.balls += 1;
-        if (runs === 0) player.dots += 1;
+        if (countsAsBall) player.balls += 1;
+        if (isDot) player.dots += 1;
         if (runs === 4) player.fours += 1;
         if (runs === 6) player.sixes += 1;
         player.strikeRate = player.balls > 0 ? (player.runs / player.balls) * 100 : 0;
@@ -114,38 +120,38 @@ export default function CricketScorer({ match, onScoreUpdate, isLive }: CricketS
         const newPlayer: PlayerBattingStats = {
           name: playerName,
           runs,
-          balls: 1,
-          dots: runs === 0 ? 1 : 0,
+          balls: countsAsBall ? 1 : 0,
+          dots: isDot ? 1 : 0,
           fours: runs === 4 ? 1 : 0,
           sixes: runs === 6 ? 1 : 0,
-          strikeRate: runs * 100
+          strikeRate: countsAsBall && runs > 0 ? runs * 100 : 0
         };
         return [...prev, newPlayer];
       }
     });
   };
 
-  const updateBowlingStats = (playerName: string, runs: number, isWicket: boolean = false) => {
+  const updateBowlingStats = (playerName: string, runs: number, isWicket: boolean = false, countsAsBall: boolean = true) => {
     setBowlingStats(prev => {
       const existingPlayerIndex = prev.findIndex(p => p.name === playerName);
       if (existingPlayerIndex >= 0) {
         const updated = [...prev];
         const player = updated[existingPlayerIndex];
         player.runsConceded += runs;
-        player.balls += 1;
+        if (countsAsBall) player.balls += 1;
         if (isWicket) player.wickets += 1;
         player.overs = Math.floor(player.balls / 6) + (player.balls % 6) * 0.1;
-        player.economyRate = player.overs > 0 ? player.runsConceded / player.overs : 0;
+        player.economyRate = player.balls > 0 ? (player.runsConceded / (player.balls / 6)) : 0;
         player.bowlingAverage = player.wickets > 0 ? player.runsConceded / player.wickets : 0;
         return updated;
       } else {
         const newPlayer: PlayerBowlingStats = {
           name: playerName,
           wickets: isWicket ? 1 : 0,
-          overs: 0.1,
-          balls: 1,
+          overs: countsAsBall ? 0.1 : 0,
+          balls: countsAsBall ? 1 : 0,
           runsConceded: runs,
-          economyRate: runs * 10,
+          economyRate: countsAsBall ? runs * 6 : 0,
           bowlingAverage: isWicket ? runs : 0
         };
         return [...prev, newPlayer];
@@ -153,18 +159,38 @@ export default function CricketScorer({ match, onScoreUpdate, isLive }: CricketS
     });
   };
 
+  // Strike rotation logic
+  const rotateStrike = () => {
+    const temp = currentStriker;
+    setCurrentStriker(currentNonStriker);
+    setCurrentNonStriker(temp);
+  };
+
   const addRuns = (runs: number) => {
     if (!isLive) return;
 
+    // Calculate updated values locally
+    const newTeam1Runs = currentInning === 1 ? team1Runs + runs : team1Runs;
+    const newTeam2Runs = currentInning === 2 ? team2Runs + runs : team2Runs;
+    const newTeam1Balls = currentInning === 1 ? team1Balls + 1 : team1Balls;
+    const newTeam2Balls = currentInning === 2 ? team2Balls + 1 : team2Balls;
+    const newBallByBall = [...ballByBall, `${runs} run${runs !== 1 ? 's' : ''}`];
+
+    // Update state
     if (currentInning === 1) {
-      setTeam1Runs(prev => prev + runs);
+      setTeam1Runs(newTeam1Runs);
     } else {
-      setTeam2Runs(prev => prev + runs);
+      setTeam2Runs(newTeam2Runs);
     }
 
     // Update player stats
-    if (currentStriker) updateBattingStats(currentStriker, runs);
-    if (currentBowler) updateBowlingStats(currentBowler, runs);
+    if (currentStriker) updateBattingStats(currentStriker, runs, true, runs === 0);
+    if (currentBowler) updateBowlingStats(currentBowler, runs, false, true);
+
+    // Rotate strike on odd runs
+    if (runs % 2 === 1) {
+      rotateStrike();
+    }
 
     // Trigger flash effects for boundaries
     if (runs === 6) {
@@ -176,10 +202,23 @@ export default function CricketScorer({ match, onScoreUpdate, isLive }: CricketS
     }
 
     // All legal deliveries (including dot balls) advance to next ball
-    nextBall();
+    const endOfOver = nextBall();
+    
+    // Rotate strike at end of over
+    if (endOfOver) {
+      rotateStrike();
+    }
 
-    setBallByBall(prev => [...prev, `${runs} run${runs !== 1 ? 's' : ''}`]);
-    updateScore();
+    setBallByBall(newBallByBall);
+    
+    // Update score with calculated values to avoid staleness
+    updateScore({
+      team1Runs: newTeam1Runs,
+      team2Runs: newTeam2Runs,
+      team1Balls: newTeam1Balls,
+      team2Balls: newTeam2Balls,
+      ballByBall: newBallByBall
+    });
   };
 
   const openWicketDialog = () => {
@@ -193,26 +232,12 @@ export default function CricketScorer({ match, onScoreUpdate, isLive }: CricketS
   const addWicket = (wicketType: 'bowled' | 'caught' | 'run-out' | 'hit-wicket' | 'stump-out', fielder?: string, nextBatsmanName?: string) => {
     if (!isLive) return;
 
-    if (currentInning === 1) {
-      setTeam1Wickets(prev => prev + 1);
-    } else {
-      setTeam2Wickets(prev => prev + 1);
-    }
+    // Calculate updated values locally
+    const newTeam1Wickets = currentInning === 1 ? team1Wickets + 1 : team1Wickets;
+    const newTeam2Wickets = currentInning === 2 ? team2Wickets + 1 : team2Wickets;
+    const newTeam1Balls = currentInning === 1 ? team1Balls + 1 : team1Balls;
+    const newTeam2Balls = currentInning === 2 ? team2Balls + 1 : team2Balls;
 
-    // Update bowling stats for wicket
-    if (currentBowler) updateBowlingStats(currentBowler, 0, true);
-
-    // Update striker to next batsman if provided
-    if (nextBatsmanName) {
-      setCurrentStriker(nextBatsmanName);
-    }
-
-    // Trigger wicket flash effect
-    triggerFlashEffect('wicket');
-    toast({ title: "WICKET!", description: `${wicketType.replace('-', ' ').toUpperCase()}!`, variant: "destructive", duration: 3000 });
-
-    nextBall();
-    
     // Enhanced wicket description
     let wicketDescription = '';
     switch (wicketType) {
@@ -236,10 +261,56 @@ export default function CricketScorer({ match, onScoreUpdate, isLive }: CricketS
     if (nextBatsmanName) {
       wicketDescription += ` | ${nextBatsmanName} in`;
     }
+    
+    const newBallByBall = [...ballByBall, wicketDescription];
 
-    setBallByBall(prev => [...prev, wicketDescription]);
+    // Update state
+    if (currentInning === 1) {
+      setTeam1Wickets(newTeam1Wickets);
+    } else {
+      setTeam2Wickets(newTeam2Wickets);
+    }
+
+    // Update batting stats for dismissed batter (ball faced but 0 runs)
+    if (currentStriker) {
+      updateBattingStats(currentStriker, 0, true, false); // Ball faced, no runs, not a dot
+    }
+
+    // Only credit bowler for applicable wicket types (not run-out)
+    const shouldCreditBowler = wicketType !== 'run-out';
+    if (currentBowler && shouldCreditBowler) {
+      updateBowlingStats(currentBowler, 0, true, true);
+    } else if (currentBowler) {
+      updateBowlingStats(currentBowler, 0, false, true); // Ball faced but no wicket to bowler
+    }
+
+    // Update striker to next batsman if provided
+    if (nextBatsmanName) {
+      setCurrentStriker(nextBatsmanName);
+    }
+
+    // Trigger wicket flash effect
+    triggerFlashEffect('wicket');
+    toast({ title: "WICKET!", description: `${wicketType.replace('-', ' ').toUpperCase()}!`, variant: "destructive", duration: 3000 });
+
+    const endOfOver = nextBall();
+    
+    // Rotate strike at end of over (unless new batsman came in)
+    if (endOfOver && !nextBatsmanName) {
+      rotateStrike();
+    }
+
+    setBallByBall(newBallByBall);
     setShowWicketDialog(false);
-    updateScore();
+    
+    // Update score with calculated values to avoid staleness
+    updateScore({
+      team1Wickets: newTeam1Wickets,
+      team2Wickets: newTeam2Wickets,
+      team1Balls: newTeam1Balls,
+      team2Balls: newTeam2Balls,
+      ballByBall: newBallByBall
+    });
   };
 
   const openExtrasDialog = (type: 'wide' | 'no-ball' | 'bye' | 'leg-bye') => {
@@ -251,49 +322,105 @@ export default function CricketScorer({ match, onScoreUpdate, isLive }: CricketS
   const addExtra = (type: 'wide' | 'no-ball' | 'bye' | 'leg-bye', runs: number = 1) => {
     if (!isLive) return;
 
-    if (currentInning === 1) {
-      setTeam1Runs(prev => prev + runs);
-    } else {
-      setTeam2Runs(prev => prev + runs);
-    }
-
-    // Update bowling stats for extras
-    if (currentBowler) updateBowlingStats(currentBowler, runs);
-
-    // For byes and leg-byes, update batting stats (as batsman faced a ball)
-    if ((type === 'bye' || type === 'leg-bye') && currentStriker) {
-      updateBattingStats(currentStriker, 0); // No runs to batsman for byes/leg-byes
-    }
-
-    if (type !== 'wide' && type !== 'no-ball') {
-      nextBall();
-    }
-
+    // For wides and no-balls, don't count as ball faced by bowler
+    const countsAsBall = type !== 'wide' && type !== 'no-ball';
+    
+    // Calculate updated values locally
+    const newTeam1Runs = currentInning === 1 ? team1Runs + runs : team1Runs;
+    const newTeam2Runs = currentInning === 2 ? team2Runs + runs : team2Runs;
+    const newTeam1Balls = currentInning === 1 && countsAsBall ? team1Balls + 1 : team1Balls;
+    const newTeam2Balls = currentInning === 2 && countsAsBall ? team2Balls + 1 : team2Balls;
+    
     // Enhanced ball by ball description
     let description = '';
     if (type === 'wide') {
       description = runs === 1 ? 'Wide +0' : `Wide +${runs - 1}`;
+      // Rotate strike on wides with runs
+      if (runs > 1 && (runs - 1) % 2 === 1) {
+        rotateStrike();
+      }
     } else if (type === 'no-ball') {
       description = runs === 1 ? 'No Ball +0' : `No Ball +${runs - 1}`;
+      // Handle no-ball bat runs
+      if (runs > 1 && currentStriker) {
+        const batRuns = runs - 1; // Runs off the bat (excluding the no-ball penalty)
+        updateBattingStats(currentStriker, batRuns, false, false); // No ball faced, no dot
+        // Rotate strike based on bat runs
+        if (batRuns % 2 === 1) {
+          rotateStrike();
+        }
+      }
     } else if (type === 'bye') {
       description = `Byes ${runs}`;
     } else if (type === 'leg-bye') {
       description = `Leg Byes ${runs}`;
     }
+    
+    const newBallByBall = [...ballByBall, description];
 
-    setBallByBall(prev => [...prev, description]);
+    // Update state
+    if (currentInning === 1) {
+      setTeam1Runs(newTeam1Runs);
+    } else {
+      setTeam2Runs(newTeam2Runs);
+    }
+    
+    // Update bowling stats for extras
+    if (currentBowler) updateBowlingStats(currentBowler, runs, false, countsAsBall);
+
+    // For byes and leg-byes, update batting stats (as batsman faced a ball)
+    if ((type === 'bye' || type === 'leg-bye') && currentStriker) {
+      const isDot = runs === 0;
+      updateBattingStats(currentStriker, 0, true, isDot); // No runs to batsman for byes/leg-byes
+      
+      // Rotate strike on odd runs for byes/leg-byes
+      if (runs % 2 === 1) {
+        rotateStrike();
+      }
+    }
+
+    let endOfOver = false;
+    if (countsAsBall) {
+      endOfOver = nextBall();
+      // Rotate strike at end of over
+      if (endOfOver) {
+        rotateStrike();
+      }
+    }
+
+    setBallByBall(newBallByBall);
     setShowExtrasDialog(false);
-    updateScore();
+    
+    // Update score with calculated values to avoid staleness
+    updateScore({
+      team1Runs: newTeam1Runs,
+      team2Runs: newTeam2Runs,
+      team1Balls: newTeam1Balls,
+      team2Balls: newTeam2Balls,
+      ballByBall: newBallByBall
+    });
   };
 
-  const nextBall = () => {
+  const nextBall = (): boolean => {
+    let endOfOver = false;
+    
     setCurrentBall(prev => {
       if (prev === 5) {
         setCurrentOver(over => over + 1);
+        endOfOver = true;
         return 0;
       }
       return prev + 1;
     });
+
+    // Update team-specific ball counts
+    if (currentInning === 1) {
+      setTeam1Balls(prev => prev + 1);
+    } else {
+      setTeam2Balls(prev => prev + 1);
+    }
+
+    return endOfOver;
   };
 
   const switchInnings = () => {
@@ -302,24 +429,41 @@ export default function CricketScorer({ match, onScoreUpdate, isLive }: CricketS
     setCurrentOver(0);
     setCurrentBall(0);
     setBallByBall([]);
+    // Team 1 balls are now frozen, Team 2 starts from 0
+    
+    // Notify consumers of innings switch immediately
+    updateScore();
   };
 
-  const updateScore = () => {
+  const updateScore = (overrides: any = {}) => {
+    // Use current state or provided overrides for real-time accuracy
+    const currentTeam1Runs = overrides.team1Runs ?? team1Runs;
+    const currentTeam1Wickets = overrides.team1Wickets ?? team1Wickets;
+    const currentTeam1Balls = overrides.team1Balls ?? team1Balls;
+    const currentTeam2Runs = overrides.team2Runs ?? team2Runs;
+    const currentTeam2Wickets = overrides.team2Wickets ?? team2Wickets;
+    const currentTeam2Balls = overrides.team2Balls ?? team2Balls;
+    const currentBallByBall = overrides.ballByBall ?? ballByBall;
+    
+    // Calculate proper overs from ball counts
+    const team1Overs = `${Math.floor(currentTeam1Balls / 6)}.${currentTeam1Balls % 6}`;
+    const team2Overs = `${Math.floor(currentTeam2Balls / 6)}.${currentTeam2Balls % 6}`;
+    
     const scoreData = {
       team1Score: {
-        runs: team1Runs,
-        wickets: team1Wickets,
-        overs: currentInning === 1 ? `${currentOver}.${currentBall}` : `${currentOver}.0`,
+        runs: currentTeam1Runs,
+        wickets: currentTeam1Wickets,
+        overs: team1Overs,
       },
       team2Score: {
-        runs: team2Runs,
-        wickets: team2Wickets,
-        overs: currentInning === 2 ? `${currentOver}.${currentBall}` : "0.0",
+        runs: currentTeam2Runs,
+        wickets: currentTeam2Wickets,
+        overs: team2Overs,
       },
       matchData: {
         currentInning,
-        ballByBall,
-        lastBall: ballByBall[ballByBall.length - 1],
+        ballByBall: currentBallByBall,
+        lastBall: currentBallByBall[currentBallByBall.length - 1],
       },
     };
     onScoreUpdate(scoreData);
