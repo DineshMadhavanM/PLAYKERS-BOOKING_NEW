@@ -28,8 +28,12 @@ export default function MatchScorer() {
   const queryClient = useQueryClient();
   const [matchStatus, setMatchStatus] = useState<'upcoming' | 'live' | 'completed'>('upcoming');
   const [showTossDialog, setShowTossDialog] = useState(false);
+  const [showPlayerSelectionDialog, setShowPlayerSelectionDialog] = useState(false);
   const [tossWinner, setTossWinner] = useState<string>('');
   const [tossDecision, setTossDecision] = useState<'bat' | 'bowl' | ''>('');
+  const [striker, setStriker] = useState<string>('');
+  const [nonStriker, setNonStriker] = useState<string>('');
+  const [bowler, setBowler] = useState<string>('');
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -54,6 +58,11 @@ export default function MatchScorer() {
   const { data: participants = [] } = useQuery<MatchParticipant[]>({
     queryKey: ["/api/matches", params?.id, "participants"],
     enabled: isAuthenticated && !!params?.id,
+  });
+
+  const { data: rosterPlayers = [] } = useQuery<any[]>({
+    queryKey: ["/api/matches", params?.id, "roster"],
+    enabled: isAuthenticated && !!params?.id && match?.sport === 'cricket',
   });
 
   const updateMatchMutation = useMutation({
@@ -121,7 +130,7 @@ export default function MatchScorer() {
   const startMatchAfterToss = () => {
     const matchData: any = { status: 'live' };
     
-    // Include toss information for cricket matches
+    // Include toss and player information for cricket matches
     if (match?.sport === 'cricket' && tossWinner && tossDecision) {
       matchData.matchData = {
         ...match.matchData,
@@ -129,6 +138,11 @@ export default function MatchScorer() {
           winner: tossWinner,
           decision: tossDecision,
           timestamp: new Date().toISOString()
+        },
+        currentPlayers: {
+          striker: striker,
+          nonStriker: nonStriker,
+          bowler: bowler
         }
       };
     }
@@ -136,9 +150,10 @@ export default function MatchScorer() {
     updateMatchMutation.mutate(matchData);
     setMatchStatus('live');
     setShowTossDialog(false);
+    setShowPlayerSelectionDialog(false);
     
     const description = match?.sport === 'cricket' 
-      ? `${tossWinner} won the toss and chose to ${tossDecision} first. Match is now live!`
+      ? `${tossWinner} won the toss and chose to ${tossDecision} first. ${striker} and ${nonStriker} are opening the batting, ${bowler} will bowl first. Match is now live!`
       : "The match is now live!";
     
     toast({
@@ -152,6 +167,30 @@ export default function MatchScorer() {
       toast({
         title: "Incomplete Toss Information",
         description: "Please select both toss winner and decision.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // After toss, show player selection dialog
+    setShowTossDialog(false);
+    setShowPlayerSelectionDialog(true);
+  };
+
+  const handlePlayerSelectionSubmit = () => {
+    if (!striker || !nonStriker || !bowler) {
+      toast({
+        title: "Incomplete Player Selection",
+        description: "Please select striker, non-striker, and bowler.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (striker === nonStriker) {
+      toast({
+        title: "Invalid Selection",
+        description: "Striker and non-striker must be different players.",
         variant: "destructive",
       });
       return;
@@ -366,6 +405,130 @@ export default function MatchScorer() {
                 disabled={!tossWinner || !tossDecision || updateMatchMutation.isPending}
                 className="flex-1"
                 data-testid="button-confirm-toss"
+              >
+                Continue to Player Selection
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Player Selection Dialog for Cricket Matches */}
+      <Dialog open={showPlayerSelectionDialog} onOpenChange={setShowPlayerSelectionDialog}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              👥 Select Opening Players
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-6 py-4">
+            {(() => {
+              // Determine batting and bowling teams based on toss
+              const tossWinnerIsTeam1 = tossWinner === (match?.team1Name || "Team 1");
+              let battingTeam, bowlingTeam, battingTeamName, bowlingTeamName;
+              
+              if (tossDecision === 'bat') {
+                // Toss winner chose to bat
+                battingTeam = tossWinnerIsTeam1 ? 'team1' : 'team2';
+                bowlingTeam = tossWinnerIsTeam1 ? 'team2' : 'team1';
+                battingTeamName = tossWinner;
+                bowlingTeamName = tossWinnerIsTeam1 ? (match?.team2Name || "Team 2") : (match?.team1Name || "Team 1");
+              } else {
+                // Toss winner chose to bowl
+                battingTeam = tossWinnerIsTeam1 ? 'team2' : 'team1';
+                bowlingTeam = tossWinnerIsTeam1 ? 'team1' : 'team2';
+                battingTeamName = tossWinnerIsTeam1 ? (match?.team2Name || "Team 2") : (match?.team1Name || "Team 1");
+                bowlingTeamName = tossWinner;
+              }
+
+              const battingPlayers = rosterPlayers.filter(p => p.team === battingTeam);
+              const bowlingPlayers = rosterPlayers.filter(p => p.team === bowlingTeam);
+
+              return (
+                <>
+                  <div className="space-y-4">
+                    <h4 className="font-medium text-sm text-muted-foreground">
+                      🏏 {battingTeamName} - Opening Batsmen
+                    </h4>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="striker">Striker</Label>
+                      <Select value={striker} onValueChange={setStriker}>
+                        <SelectTrigger id="striker" data-testid="select-striker">
+                          <SelectValue placeholder="Select striker" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {battingPlayers.map((player: any) => (
+                            <SelectItem key={player.id} value={player.playerName}>
+                              {player.playerName} {player.role === 'captain' ? '(C)' : ''} {player.role === 'wicket-keeper' ? '(WK)' : ''}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="non-striker">Non-Striker</Label>
+                      <Select value={nonStriker} onValueChange={setNonStriker}>
+                        <SelectTrigger id="non-striker" data-testid="select-non-striker">
+                          <SelectValue placeholder="Select non-striker" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {battingPlayers.map((player: any) => (
+                            <SelectItem key={player.id} value={player.playerName}>
+                              {player.playerName} {player.role === 'captain' ? '(C)' : ''} {player.role === 'wicket-keeper' ? '(WK)' : ''}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4 border-t pt-4">
+                    <h4 className="font-medium text-sm text-muted-foreground">
+                      ⚾ {bowlingTeamName} - Opening Bowler
+                    </h4>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="bowler">Opening Bowler</Label>
+                      <Select value={bowler} onValueChange={setBowler}>
+                        <SelectTrigger id="bowler" data-testid="select-bowler">
+                          <SelectValue placeholder="Select opening bowler" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {bowlingPlayers.map((player: any) => (
+                            <SelectItem key={player.id} value={player.playerName}>
+                              {player.playerName} {player.role === 'captain' ? '(C)' : ''} {player.role === 'wicket-keeper' ? '(WK)' : ''}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </>
+              );
+            })()}
+
+            <div className="flex gap-3 pt-4">
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  setShowPlayerSelectionDialog(false);
+                  setShowTossDialog(true);
+                  setStriker('');
+                  setNonStriker('');
+                  setBowler('');
+                }}
+                className="flex-1"
+                data-testid="button-back-to-toss"
+              >
+                Back to Toss
+              </Button>
+              <Button 
+                onClick={handlePlayerSelectionSubmit}
+                disabled={!striker || !nonStriker || !bowler || updateMatchMutation.isPending}
+                className="flex-1"
+                data-testid="button-start-match-final"
               >
                 Start Match
               </Button>
