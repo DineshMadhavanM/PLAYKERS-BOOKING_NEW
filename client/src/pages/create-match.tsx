@@ -157,10 +157,10 @@ export default function CreateMatch() {
   const onSubmit = (data: z.infer<typeof matchSchema>) => {
     // Validate cricket team rosters
     if (selectedSport === "cricket") {
-      if (team1Roster.length < 11 || team2Roster.length < 11) {
+      if (team1Roster.length < 3 || team2Roster.length < 3) {
         toast({
           title: "Incomplete team rosters",
-          description: "Each cricket team must have at least 11 players to create the match.",
+          description: "Each cricket team must have at least 3 players to create the match.",
           variant: "destructive",
         });
         return;
@@ -432,7 +432,7 @@ export default function CreateMatch() {
                         Team Rosters (Required for Cricket)
                       </h3>
                       <p className="text-sm text-muted-foreground mb-6">
-                        Add players to both teams. Each team needs at least 11 players and can have up to 15 players.
+                        Add players to both teams. Each team needs at least 3 players and can have up to 15 players.
                         Assign captain, vice-captain, and wicket-keeper roles.
                       </p>
                       
@@ -453,10 +453,10 @@ export default function CreateMatch() {
                       </div>
 
                       {/* Roster Validation Messages */}
-                      {selectedSport === "cricket" && (team1Roster.length < 11 || team2Roster.length < 11) && (
+                      {selectedSport === "cricket" && (team1Roster.length < 3 || team2Roster.length < 3) && (
                         <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
                           <p className="text-sm text-yellow-800">
-                            ⚠️ Each team needs at least 11 players to start the match. 
+                            ⚠️ Each team needs at least 3 players to start the match. 
                             Team 1 has {team1Roster.length} players, Team 2 has {team2Roster.length} players.
                           </p>
                         </div>
