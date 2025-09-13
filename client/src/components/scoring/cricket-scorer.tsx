@@ -229,6 +229,17 @@ export default function CricketScorer({ match, onScoreUpdate, isLive }: CricketS
         return [...prev, newPlayer];
       }
     });
+
+    // Update balls by bowler by inning for quota tracking
+    if (countsAsBall) {
+      setBallsByBowlerByInning(prev => ({
+        ...prev,
+        [currentInning]: {
+          ...prev[currentInning],
+          [playerName]: (prev[currentInning]?.[playerName] || 0) + 1
+        }
+      }));
+    }
   };
 
   // Strike rotation logic
