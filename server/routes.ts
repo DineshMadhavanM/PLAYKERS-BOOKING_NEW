@@ -265,6 +265,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Match roster routes (for cricket team rosters)
+  app.get('/api/matches/:id/roster', async (req, res) => {
+    try {
+      const match = await storage.getMatch(req.params.id);
+      if (!match) {
+        return res.status(404).json({ message: "Match not found" });
+      }
+      
+      // Extract roster data from matchData if it exists
+      const matchData = match.matchData as any;
+      if (matchData && matchData.team1Roster && matchData.team2Roster) {
+        // Flatten the rosters and add team information
+        const team1Players = matchData.team1Roster.map((player: any) => ({
+          ...player,
+          team: 'team1',
+          matchId: req.params.id
+        }));
+        
+        const team2Players = matchData.team2Roster.map((player: any) => ({
+          ...player,
+          team: 'team2',
+          matchId: req.params.id
+        }));
+        
+        const allPlayers = [...team1Players, ...team2Players];
+        res.json(allPlayers);
+      } else {
+        // Return empty array if no roster data
+        res.json([]);
+      }
+    } catch (error) {
+      console.error("Error fetching match roster:", error);
+      res.status(500).json({ message: "Failed to fetch roster" });
+    }
+  });
+
   app.post('/api/matches/:id/join', requireAuth, async (req: any, res) => {
     try {
       const userId = req.session.user.id;
