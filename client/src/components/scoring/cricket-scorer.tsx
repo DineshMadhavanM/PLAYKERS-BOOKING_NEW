@@ -519,6 +519,44 @@ export default function CricketScorer({ match, onScoreUpdate, isLive }: CricketS
     return endOfOver;
   };
 
+  // Handle over completion - trigger bowler selection dialog
+  const handleOverCompletion = () => {
+    if (!currentBowler) return;
+
+    // Update last over bowler for current inning
+    setLastOverBowlerByInning(prev => ({
+      ...prev,
+      [currentInning]: currentBowler
+    }));
+
+    // Add to bowling history
+    setBowlingHistoryByInning(prev => ({
+      ...prev,
+      [currentInning]: [
+        ...prev[currentInning],
+        { over: currentOver - 1, bowler: currentBowler } // currentOver was already incremented
+      ]
+    }));
+
+    // Compute and set eligible bowlers
+    const eligible = computeEligibleBowlers();
+    setEligibleBowlers(eligible);
+
+    // Add commentary for over completion
+    setBallByBall(prev => [...prev, `Over ${currentOver - 1} completed by ${currentBowler}`]);
+
+    // Show bowler selection dialog
+    setSelectedNextBowler('');
+    setShowBowlerDialog(true);
+
+    // Flash effect for over completion
+    toast({ 
+      title: "Over Completed!", 
+      description: `Select next bowler for Over ${currentOver}`, 
+      duration: 3000 
+    });
+  };
+
   const switchInnings = () => {
     if (!isLive) return;
     setCurrentInning(2);
