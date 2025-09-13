@@ -129,11 +129,11 @@ export class MongoStorage implements IStorage {
       { upsert: true, returnDocument: 'after' }
     );
 
-    if (!result) {
+    if (!result.value) {
       throw new Error('Failed to upsert user');
     }
 
-    return result as User;
+    return result.value as User;
   }
 
   // Admin-specific methods
@@ -152,8 +152,22 @@ export class MongoStorage implements IStorage {
   }
 
   // Venue operations (simplified for admin)
-  async getVenues(): Promise<Venue[]> {
-    const venues = await this.venues.find({}).toArray();
+  async getVenues(filters?: { sport?: string; city?: string; search?: string }): Promise<Venue[]> {
+    let query: any = {};
+    
+    if (filters) {
+      if (filters.sport) {
+        query.sports = { $in: [filters.sport] };
+      }
+      if (filters.city) {
+        query.city = new RegExp(filters.city, 'i');
+      }
+      if (filters.search) {
+        query.name = new RegExp(filters.search, 'i');
+      }
+    }
+    
+    const venues = await this.venues.find(query).sort({ createdAt: -1 }).toArray();
     return venues;
   }
 
@@ -181,7 +195,7 @@ export class MongoStorage implements IStorage {
       { $set: { ...venue, updatedAt: new Date() } },
       { returnDocument: 'after' }
     );
-    return result || undefined;
+    return result.value || undefined;
   }
 
   async deleteVenue(id: string): Promise<boolean> {
@@ -190,8 +204,22 @@ export class MongoStorage implements IStorage {
   }
 
   // Match operations (simplified)
-  async getMatches(): Promise<Match[]> {
-    const matches = await this.matches.find({}).toArray();
+  async getMatches(filters?: { sport?: string; status?: string; isPublic?: boolean }): Promise<Match[]> {
+    let query: any = {};
+    
+    if (filters) {
+      if (filters.sport) {
+        query.sport = filters.sport;
+      }
+      if (filters.status) {
+        query.status = filters.status;
+      }
+      if (filters.isPublic !== undefined) {
+        query.isPublic = filters.isPublic;
+      }
+    }
+    
+    const matches = await this.matches.find(query).sort({ createdAt: -1 }).toArray();
     return matches;
   }
 
@@ -219,7 +247,7 @@ export class MongoStorage implements IStorage {
       { $set: { ...match, updatedAt: new Date() } },
       { returnDocument: 'after' }
     );
-    return result || undefined;
+    return result.value || undefined;
   }
 
   async deleteMatch(id: string): Promise<boolean> {
@@ -383,10 +411,10 @@ export class MongoStorage implements IStorage {
       { upsert: true, returnDocument: 'after' }
     );
 
-    if (!result) {
+    if (!result.value) {
       throw new Error('Failed to update user stats');
     }
 
-    return result as UserStats;
+    return result.value as UserStats;
   }
 }
