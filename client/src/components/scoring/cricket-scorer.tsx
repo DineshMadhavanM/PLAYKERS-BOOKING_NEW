@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import type { Match } from "@shared/schema";
 
@@ -31,6 +32,8 @@ export default function CricketScorer({ match, onScoreUpdate, isLive }: CricketS
   const [showSixFlash, setShowSixFlash] = useState(false);
   const [showFourFlash, setShowFourFlash] = useState(false);
   const [showWicketFlash, setShowWicketFlash] = useState(false);
+  const [showExtrasDialog, setShowExtrasDialog] = useState(false);
+  const [selectedExtraType, setSelectedExtraType] = useState<'wide' | 'no-ball' | 'bye' | 'leg-bye' | null>(null);
 
   // Flash effects
   const triggerFlashEffect = (type: 'six' | 'four' | 'wicket') => {
@@ -93,6 +96,12 @@ export default function CricketScorer({ match, onScoreUpdate, isLive }: CricketS
     updateScore();
   };
 
+  const openExtrasDialog = (type: 'wide' | 'no-ball' | 'bye' | 'leg-bye') => {
+    if (!isLive) return;
+    setSelectedExtraType(type);
+    setShowExtrasDialog(true);
+  };
+
   const addExtra = (type: 'wide' | 'no-ball' | 'bye' | 'leg-bye', runs: number = 1) => {
     if (!isLive) return;
 
@@ -106,7 +115,20 @@ export default function CricketScorer({ match, onScoreUpdate, isLive }: CricketS
       nextBall();
     }
 
-    setBallByBall(prev => [...prev, `${type.charAt(0).toUpperCase() + type.slice(1)} ${runs}`]);
+    // Enhanced ball by ball description
+    let description = '';
+    if (type === 'wide') {
+      description = runs === 1 ? 'Wide +0' : `Wide +${runs - 1}`;
+    } else if (type === 'no-ball') {
+      description = runs === 1 ? 'No Ball +0' : `No Ball +${runs - 1}`;
+    } else if (type === 'bye') {
+      description = `Byes ${runs}`;
+    } else if (type === 'leg-bye') {
+      description = `Leg Byes ${runs}`;
+    }
+
+    setBallByBall(prev => [...prev, description]);
+    setShowExtrasDialog(false);
     updateScore();
   };
 
@@ -290,7 +312,7 @@ export default function CricketScorer({ match, onScoreUpdate, isLive }: CricketS
                   <div className="grid grid-cols-2 gap-3">
                     <Button 
                       variant="outline" 
-                      onClick={() => addExtra('wide')}
+                      onClick={() => openExtrasDialog('wide')}
                       data-testid="button-wide"
                       className="border-orange-300 hover:bg-orange-50"
                     >
@@ -298,7 +320,7 @@ export default function CricketScorer({ match, onScoreUpdate, isLive }: CricketS
                     </Button>
                     <Button 
                       variant="outline" 
-                      onClick={() => addExtra('no-ball')}
+                      onClick={() => openExtrasDialog('no-ball')}
                       data-testid="button-no-ball"
                       className="border-orange-300 hover:bg-orange-50"
                     >
@@ -306,7 +328,7 @@ export default function CricketScorer({ match, onScoreUpdate, isLive }: CricketS
                     </Button>
                     <Button 
                       variant="outline" 
-                      onClick={() => addExtra('bye')}
+                      onClick={() => openExtrasDialog('bye')}
                       data-testid="button-bye"
                       className="border-orange-300 hover:bg-orange-50"
                     >
@@ -314,7 +336,7 @@ export default function CricketScorer({ match, onScoreUpdate, isLive }: CricketS
                     </Button>
                     <Button 
                       variant="outline" 
-                      onClick={() => addExtra('leg-bye')}
+                      onClick={() => openExtrasDialog('leg-bye')}
                       data-testid="button-leg-bye"
                       className="border-orange-300 hover:bg-orange-50"
                     >
@@ -388,6 +410,213 @@ export default function CricketScorer({ match, onScoreUpdate, isLive }: CricketS
           </CardContent>
         </Card>
       )}
+
+      {/* Enhanced Extras Dialog */}
+      <Dialog open={showExtrasDialog} onOpenChange={setShowExtrasDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              ⚡ {selectedExtraType ? selectedExtraType.charAt(0).toUpperCase() + selectedExtraType.slice(1).replace('-', ' ') : 'Extra'} Options
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            {selectedExtraType === 'wide' && (
+              <div className="space-y-3">
+                <p className="text-sm text-muted-foreground">Select wide delivery with additional runs:</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <Button 
+                    onClick={() => addExtra('wide', 1)} 
+                    variant="outline"
+                    data-testid="button-wide-0"
+                    className="bg-orange-50 hover:bg-orange-100"
+                  >
+                    Wide +0 (1 run)
+                  </Button>
+                  <Button 
+                    onClick={() => addExtra('wide', 2)} 
+                    variant="outline"
+                    data-testid="button-wide-1"
+                    className="bg-orange-50 hover:bg-orange-100"
+                  >
+                    Wide +1 (2 runs)
+                  </Button>
+                  <Button 
+                    onClick={() => addExtra('wide', 3)} 
+                    variant="outline"
+                    data-testid="button-wide-2"
+                    className="bg-orange-50 hover:bg-orange-100"
+                  >
+                    Wide +2 (3 runs)
+                  </Button>
+                  <Button 
+                    onClick={() => addExtra('wide', 4)} 
+                    variant="outline"
+                    data-testid="button-wide-3"
+                    className="bg-orange-50 hover:bg-orange-100"
+                  >
+                    Wide +3 (4 runs)
+                  </Button>
+                  <Button 
+                    onClick={() => addExtra('wide', 5)} 
+                    variant="outline"
+                    data-testid="button-wide-4"
+                    className="bg-orange-50 hover:bg-orange-100"
+                  >
+                    Wide +4 (5 runs)
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {selectedExtraType === 'no-ball' && (
+              <div className="space-y-3">
+                <p className="text-sm text-muted-foreground">Select no ball delivery with additional runs:</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <Button 
+                    onClick={() => addExtra('no-ball', 1)} 
+                    variant="outline"
+                    data-testid="button-no-ball-0"
+                    className="bg-red-50 hover:bg-red-100"
+                  >
+                    No Ball +0 (1 run)
+                  </Button>
+                  <Button 
+                    onClick={() => addExtra('no-ball', 2)} 
+                    variant="outline"
+                    data-testid="button-no-ball-1"
+                    className="bg-red-50 hover:bg-red-100"
+                  >
+                    No Ball +1 (2 runs)
+                  </Button>
+                  <Button 
+                    onClick={() => addExtra('no-ball', 3)} 
+                    variant="outline"
+                    data-testid="button-no-ball-2"
+                    className="bg-red-50 hover:bg-red-100"
+                  >
+                    No Ball +2 (3 runs)
+                  </Button>
+                  <Button 
+                    onClick={() => addExtra('no-ball', 4)} 
+                    variant="outline"
+                    data-testid="button-no-ball-3"
+                    className="bg-red-50 hover:bg-red-100"
+                  >
+                    No Ball +3 (4 runs)
+                  </Button>
+                  <Button 
+                    onClick={() => addExtra('no-ball', 5)} 
+                    variant="outline"
+                    data-testid="button-no-ball-4"
+                    className="bg-red-50 hover:bg-red-100"
+                  >
+                    No Ball +4 (5 runs)
+                  </Button>
+                  <Button 
+                    onClick={() => addExtra('no-ball', 7)} 
+                    variant="outline"
+                    data-testid="button-no-ball-6"
+                    className="bg-red-50 hover:bg-red-100"
+                  >
+                    No Ball +6 (7 runs)
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {selectedExtraType === 'bye' && (
+              <div className="space-y-3">
+                <p className="text-sm text-muted-foreground">Select bye runs (ball pitched but batsman missed):</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <Button 
+                    onClick={() => addExtra('bye', 1)} 
+                    variant="outline"
+                    data-testid="button-bye-1"
+                    className="bg-blue-50 hover:bg-blue-100"
+                  >
+                    Byes 1 (1 run)
+                  </Button>
+                  <Button 
+                    onClick={() => addExtra('bye', 2)} 
+                    variant="outline"
+                    data-testid="button-bye-2"
+                    className="bg-blue-50 hover:bg-blue-100"
+                  >
+                    Byes 2 (2 runs)
+                  </Button>
+                  <Button 
+                    onClick={() => addExtra('bye', 3)} 
+                    variant="outline"
+                    data-testid="button-bye-3"
+                    className="bg-blue-50 hover:bg-blue-100"
+                  >
+                    Byes 3 (3 runs)
+                  </Button>
+                  <Button 
+                    onClick={() => addExtra('bye', 4)} 
+                    variant="outline"
+                    data-testid="button-bye-4"
+                    className="bg-blue-50 hover:bg-blue-100"
+                  >
+                    Byes 4 (4 runs)
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {selectedExtraType === 'leg-bye' && (
+              <div className="space-y-3">
+                <p className="text-sm text-muted-foreground">Select leg bye runs (ball hit batsman's body/leg):</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <Button 
+                    onClick={() => addExtra('leg-bye', 1)} 
+                    variant="outline"
+                    data-testid="button-leg-bye-1"
+                    className="bg-green-50 hover:bg-green-100"
+                  >
+                    Leg Byes 1 (1 run)
+                  </Button>
+                  <Button 
+                    onClick={() => addExtra('leg-bye', 2)} 
+                    variant="outline"
+                    data-testid="button-leg-bye-2"
+                    className="bg-green-50 hover:bg-green-100"
+                  >
+                    Leg Byes 2 (2 runs)
+                  </Button>
+                  <Button 
+                    onClick={() => addExtra('leg-bye', 3)} 
+                    variant="outline"
+                    data-testid="button-leg-bye-3"
+                    className="bg-green-50 hover:bg-green-100"
+                  >
+                    Leg Byes 3 (3 runs)
+                  </Button>
+                  <Button 
+                    onClick={() => addExtra('leg-bye', 4)} 
+                    variant="outline"
+                    data-testid="button-leg-bye-4"
+                    className="bg-green-50 hover:bg-green-100"
+                  >
+                    Leg Byes 4 (4 runs)
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            <div className="flex gap-3 pt-4">
+              <Button 
+                variant="outline" 
+                onClick={() => setShowExtrasDialog(false)}
+                className="flex-1"
+                data-testid="button-cancel-extras"
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
