@@ -102,7 +102,7 @@ export class MongoStorage implements IStorage {
       firstName: userData.firstName || null,
       lastName: userData.lastName || null,
       profileImageUrl: userData.profileImageUrl || null,
-      dateOfBirth: userData.dateOfBirth || null,
+      dateOfBirth: userData.dateOfBirth ? new Date(userData.dateOfBirth) : null,
       location: userData.location || null,
       phoneNumber: userData.phoneNumber || null,
       isAdmin: userData.isAdmin || false,
@@ -335,7 +335,8 @@ export class MongoStorage implements IStorage {
   async deleteReview(): Promise<boolean> { return false; }
 
   async getUserStats(): Promise<UserStats[]> { return []; }
-  async updateUserStats(statsData: InsertUserStats): Promise<UserStats> {
+  async updateUserStats(userId: string, sport: string, stats: any): Promise<UserStats> {
+    const statsData = { userId, sport, ...stats };
     // Separate numeric fields (for increment) from non-numeric fields (for set)
     const { matchesPlayed, matchesWon, totalScore, ...nonNumericFields } = statsData;
     
@@ -366,10 +367,10 @@ export class MongoStorage implements IStorage {
       { upsert: true, returnDocument: 'after' }
     );
 
-    if (!result?.value) {
+    if (!result) {
       throw new Error('Failed to update user stats');
     }
 
-    return result.value as UserStats;
+    return result as UserStats;
   }
 }
