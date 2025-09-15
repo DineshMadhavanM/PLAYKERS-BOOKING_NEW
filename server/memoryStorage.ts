@@ -42,31 +42,41 @@ export class MemoryStorage implements IStorage {
     const venue1: Venue = {
       id: uuidv4(),
       name: "Central Sports Complex",
-      sport: "football",
+      description: "Modern sports facility with multiple fields",
       address: "123 Main St",
       city: "New York",
-      country: "USA",
-      description: "Modern sports facility with multiple fields",
-      imageUrl: null,
-      amenities: ["parking", "showers", "equipment rental"],
-      hourlyRate: 50,
-      contactInfo: "info@centralsports.com",
-      isActive: true,
+      state: "NY",
+      latitude: "40.7128",
+      longitude: "-74.0060",
+      sports: ["football", "soccer"],
+      pricePerHour: "50.00",
+      facilities: ["parking", "showers", "equipment rental"],
+      images: [],
+      rating: "4.5",
+      totalReviews: 25,
+      ownerId: "owner1",
+      createdAt: new Date(),
+      updatedAt: new Date(),
     };
 
     const venue2: Venue = {
       id: uuidv4(),
       name: "Tennis Club Elite",
-      sport: "tennis",
+      description: "Premium tennis courts with professional lighting",
       address: "456 Court Ave",
       city: "Los Angeles",
-      country: "USA",
-      description: "Premium tennis courts with professional lighting",
-      imageUrl: null,
-      amenities: ["parking", "pro shop", "coaching"],
-      hourlyRate: 75,
-      contactInfo: "reservations@tennisclub.com",
-      isActive: true,
+      state: "CA",
+      latitude: "34.0522",
+      longitude: "-118.2437",
+      sports: ["tennis"],
+      pricePerHour: "75.00",
+      facilities: ["parking", "pro shop", "coaching"],
+      images: [],
+      rating: "4.8",
+      totalReviews: 45,
+      ownerId: "owner2",
+      createdAt: new Date(),
+      updatedAt: new Date(),
     };
 
     this.venues.set(venue1.id, venue1);
@@ -76,23 +86,39 @@ export class MemoryStorage implements IStorage {
     const product1: Product = {
       id: uuidv4(),
       name: "Professional Football",
-      category: "equipment",
       description: "Official size football for competitive play",
-      price: 29.99,
-      imageUrl: null,
-      stock: 50,
-      isActive: true,
+      category: "equipment",
+      subcategory: "balls",
+      price: "29.99",
+      discountPrice: null,
+      images: [],
+      brand: "SportsPro",
+      specifications: null,
+      inStock: true,
+      stockQuantity: 50,
+      rating: "4.2",
+      totalReviews: 15,
+      createdAt: new Date(),
+      updatedAt: new Date(),
     };
 
     const product2: Product = {
       id: uuidv4(),
       name: "Tennis Racket Pro",
-      category: "equipment",
       description: "High-quality tennis racket for professionals",
-      price: 149.99,
-      imageUrl: null,
-      stock: 25,
-      isActive: true,
+      category: "equipment",
+      subcategory: "rackets",
+      price: "149.99",
+      discountPrice: null,
+      images: [],
+      brand: "TennisPro",
+      specifications: null,
+      inStock: true,
+      stockQuantity: 25,
+      rating: "4.7",
+      totalReviews: 8,
+      createdAt: new Date(),
+      updatedAt: new Date(),
     };
 
     this.products.set(product1.id, product1);
@@ -105,7 +131,7 @@ export class MemoryStorage implements IStorage {
   }
 
   async getUserByEmail(email: string): Promise<User | undefined> {
-    for (const user of this.users.values()) {
+    for (const user of Array.from(this.users.values())) {
       if (user.email === email) {
         return user;
       }
@@ -122,10 +148,12 @@ export class MemoryStorage implements IStorage {
       firstName: userData.firstName || null,
       lastName: userData.lastName || null,
       profileImageUrl: userData.profileImageUrl || null,
-      dateOfBirth: userData.dateOfBirth || null,
+      dateOfBirth: userData.dateOfBirth ? new Date(userData.dateOfBirth) : null,
       location: userData.location || null,
       phoneNumber: userData.phoneNumber || null,
       isAdmin: userData.isAdmin || false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
     };
     this.users.set(user.id, user);
     return user;
@@ -149,6 +177,8 @@ export class MemoryStorage implements IStorage {
         location: userData.location || null,
         phoneNumber: userData.phoneNumber || null,
         isAdmin: userData.isAdmin || false,
+        createdAt: new Date(),
+        updatedAt: new Date(),
       };
       this.users.set(user.id, user);
       return user;
@@ -169,10 +199,10 @@ export class MemoryStorage implements IStorage {
 
   // Venue operations
   async getVenues(filters?: { sport?: string; city?: string; search?: string }): Promise<Venue[]> {
-    let venues = Array.from(this.venues.values()).filter(v => v.isActive);
+    let venues = Array.from(this.venues.values());
     
     if (filters?.sport) {
-      venues = venues.filter(v => v.sport === filters.sport);
+      venues = venues.filter(v => v.sports.includes(filters.sport!));
     }
     if (filters?.city) {
       venues = venues.filter(v => v.city.toLowerCase().includes(filters.city!.toLowerCase()));
@@ -196,6 +226,15 @@ export class MemoryStorage implements IStorage {
     const venue: Venue = {
       id: uuidv4(),
       ...venueData,
+      description: venueData.description || null,
+      latitude: venueData.latitude || null,
+      longitude: venueData.longitude || null,
+      facilities: venueData.facilities || [],
+      images: venueData.images || [],
+      rating: venueData.rating || null,
+      totalReviews: venueData.totalReviews || null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
     };
     this.venues.set(venue.id, venue);
     return venue;
@@ -239,6 +278,18 @@ export class MemoryStorage implements IStorage {
     const match: Match = {
       id: uuidv4(),
       ...matchData,
+      isPublic: matchData.isPublic || false,
+      duration: matchData.duration || null,
+      currentPlayers: matchData.currentPlayers || 0,
+      status: matchData.status || 'scheduled',
+      team1Name: matchData.team1Name || null,
+      team2Name: matchData.team2Name || null,
+      team1Score: matchData.team1Score || null,
+      team2Score: matchData.team2Score || null,
+      matchData: matchData.matchData || null,
+      description: matchData.description || null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
     };
     this.matches.set(match.id, match);
     return match;
@@ -271,13 +322,17 @@ export class MemoryStorage implements IStorage {
     const participant: MatchParticipant = {
       id: uuidv4(),
       ...participantData,
+      team: participantData.team || null,
+      role: participantData.role || 'player',
+      status: participantData.status || 'joined',
+      joinedAt: new Date(),
     };
     this.matchParticipants.set(participant.id, participant);
     return participant;
   }
 
   async removeMatchParticipant(matchId: string, userId: string): Promise<boolean> {
-    for (const [id, participant] of this.matchParticipants.entries()) {
+    for (const [id, participant] of Array.from(this.matchParticipants.entries())) {
       if (participant.matchId === matchId && participant.userId === userId) {
         this.matchParticipants.delete(id);
         return true;
@@ -308,6 +363,11 @@ export class MemoryStorage implements IStorage {
     const booking: Booking = {
       id: uuidv4(),
       ...bookingData,
+      matchId: bookingData.matchId || null,
+      status: bookingData.status || 'confirmed',
+      paymentStatus: bookingData.paymentStatus || 'pending',
+      createdAt: new Date(),
+      updatedAt: new Date(),
     };
     this.bookings.set(booking.id, booking);
     return booking;
@@ -328,7 +388,7 @@ export class MemoryStorage implements IStorage {
 
   // Product operations
   async getProducts(filters?: { category?: string; search?: string }): Promise<Product[]> {
-    let products = Array.from(this.products.values()).filter(p => p.isActive);
+    let products = Array.from(this.products.values());
     
     if (filters?.category) {
       products = products.filter(p => p.category === filters.category);
@@ -352,6 +412,18 @@ export class MemoryStorage implements IStorage {
     const product: Product = {
       id: uuidv4(),
       ...productData,
+      description: productData.description || null,
+      subcategory: productData.subcategory || null,
+      discountPrice: productData.discountPrice || null,
+      images: productData.images || [],
+      brand: productData.brand || null,
+      specifications: productData.specifications || null,
+      inStock: productData.inStock || true,
+      stockQuantity: productData.stockQuantity || 0,
+      rating: productData.rating || null,
+      totalReviews: productData.totalReviews || 0,
+      createdAt: new Date(),
+      updatedAt: new Date(),
     };
     this.products.set(product.id, product);
     return product;
@@ -380,6 +452,8 @@ export class MemoryStorage implements IStorage {
     const item: CartItem = {
       id: uuidv4(),
       ...itemData,
+      quantity: itemData.quantity || 1,
+      createdAt: new Date(),
     };
     this.cartItems.set(item.id, item);
     return item;
@@ -400,7 +474,7 @@ export class MemoryStorage implements IStorage {
 
   async clearCart(userId: string): Promise<boolean> {
     let cleared = false;
-    for (const [id, item] of this.cartItems.entries()) {
+    for (const [id, item] of Array.from(this.cartItems.entries())) {
       if (item.userId === userId) {
         this.cartItems.delete(id);
         cleared = true;
@@ -427,6 +501,13 @@ export class MemoryStorage implements IStorage {
     const review: Review = {
       id: uuidv4(),
       ...reviewData,
+      venueId: reviewData.venueId || null,
+      productId: reviewData.productId || null,
+      comment: reviewData.comment || null,
+      images: reviewData.images || [],
+      isVerified: reviewData.isVerified || false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
     };
     this.reviews.set(review.id, review);
     return review;
@@ -454,7 +535,7 @@ export class MemoryStorage implements IStorage {
   async updateUserStats(userId: string, sport: string, stats: any): Promise<UserStats> {
     // Find existing stats for this user and sport
     let existingStats: UserStats | undefined;
-    for (const [id, userStat] of this.userStats.entries()) {
+    for (const [id, userStat] of Array.from(this.userStats.entries())) {
       if (userStat.userId === userId && userStat.sport === sport) {
         existingStats = userStat;
         break;
@@ -470,7 +551,12 @@ export class MemoryStorage implements IStorage {
         id: uuidv4(),
         userId,
         sport,
-        stats,
+        matchesPlayed: stats.matchesPlayed || 0,
+        matchesWon: stats.matchesWon || 0,
+        totalScore: stats.totalScore || 0,
+        bestPerformance: stats.bestPerformance || null,
+        stats: stats.stats || null,
+        updatedAt: new Date(),
       };
       this.userStats.set(newStats.id, newStats);
       return newStats;
