@@ -25,10 +25,10 @@ Preferred communication style: Simple, everyday language.
 - **Logging**: Custom request/response logging with timing and JSON response capture
 
 ## Data Storage
-- **Database**: PostgreSQL with connection pooling via Neon serverless
-- **ORM**: Drizzle ORM for type-safe database operations and migrations
-- **Schema Management**: Shared schema definitions between client and server
-- **Session Storage**: PostgreSQL-backed session store for authentication persistence
+- **Database**: MongoDB with native MongoDB driver
+- **Storage Layer**: Custom MongoDB storage implementation with type-safe operations
+- **Schema Management**: Shared Zod validation schemas between client and server
+- **Session Storage**: In-memory session store for authentication persistence
 
 ## Authentication & Authorization
 - **Provider**: Replit Auth with OpenID Connect (OIDC) integration
@@ -47,7 +47,7 @@ Preferred communication style: Simple, everyday language.
 - **Client**: React application in `/client` directory with component-based architecture
 - **Server**: Express API in `/server` directory with modular route handling
 - **Shared**: Common TypeScript types and schemas in `/shared` directory
-- **Database**: Drizzle configuration and migrations for schema management
+- **Database**: MongoDB collections and custom storage interface for data management
 
 # External Dependencies
 
@@ -56,8 +56,7 @@ Preferred communication style: Simple, everyday language.
 - **OpenID Client**: Standard OIDC implementation for secure authentication flows
 
 ## Database Services
-- **Neon Database**: Serverless PostgreSQL database with connection pooling
-- **PostgreSQL**: Relational database for structured data storage and complex queries
+- **MongoDB**: NoSQL database for flexible document storage and scalable operations
 
 ## Development Tools
 - **Vite**: Frontend build tool with hot module replacement and development server
