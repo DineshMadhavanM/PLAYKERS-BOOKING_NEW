@@ -103,9 +103,24 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
   const getFieldingRoster = () => {
     // First inning: team2 is fielding, second inning: team1 is fielding
     const fieldingTeam = currentInning === 1 ? 'team2' : 'team1';
-    return rosterPlayers.filter((player: any) => 
+    const filteredPlayers = rosterPlayers.filter((player: any) => 
       player.team === fieldingTeam && player.role !== 'wicket-keeper'
     );
+    
+    // If no roster data is available, provide fallback bowler names
+    if (filteredPlayers.length === 0) {
+      const fallbackBowlers = [
+        { name: 'Bowler 1', team: fieldingTeam, role: 'bowler', id: `${fieldingTeam}-bowler-1` },
+        { name: 'Bowler 2', team: fieldingTeam, role: 'bowler', id: `${fieldingTeam}-bowler-2` },
+        { name: 'Bowler 3', team: fieldingTeam, role: 'bowler', id: `${fieldingTeam}-bowler-3` },
+        { name: 'Bowler 4', team: fieldingTeam, role: 'bowler', id: `${fieldingTeam}-bowler-4` },
+        { name: 'Bowler 5', team: fieldingTeam, role: 'bowler', id: `${fieldingTeam}-bowler-5` },
+        { name: 'Bowler 6', team: fieldingTeam, role: 'bowler', id: `${fieldingTeam}-bowler-6` },
+      ];
+      return fallbackBowlers;
+    }
+    
+    return filteredPlayers;
   };
 
   // Track legal balls separately from total balls (including extras)
@@ -1788,6 +1803,11 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
               <p className="text-xs text-blue-600 dark:text-blue-400">
                 Select next bowler for Over {currentOver}. No bowling quota restrictions.
               </p>
+              {rosterPlayers.length === 0 && (
+                <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                  📝 Using generic bowler names (roster data not available)
+                </p>
+              )}
             </div>
 
             {/* Eligible bowlers dropdown */}
@@ -1829,6 +1849,7 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
               {eligibleBowlers.length === 0 && (
                 <p className="text-xs text-red-600 dark:text-red-400">
                   ⚠️ No eligible bowlers available! Previous bowler cannot bowl consecutive overs.
+                  {rosterPlayers.length === 0 && " (Using fallback bowler names)"}
                 </p>
               )}
             </div>
