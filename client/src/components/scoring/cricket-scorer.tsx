@@ -72,6 +72,7 @@ export default function CricketScorer({ match, onScoreUpdate, isLive }: CricketS
   const [currentBowler, setCurrentBowler] = useState('');
   const [battingStats, setBattingStats] = useState<PlayerBattingStats[]>([]);
   const [bowlingStats, setBowlingStats] = useState<PlayerBowlingStats[]>([]);
+  const [lastLegalBallRuns, setLastLegalBallRuns] = useState(0);
   
   // Separate tracking for each team's balls/overs
   const [team1Balls, setTeam1Balls] = useState(0);
@@ -114,19 +115,21 @@ export default function CricketScorer({ match, onScoreUpdate, isLive }: CricketS
     return playerName === lastOverBowlerByInning[currentInning];
   };
 
-  const computeEligibleBowlers = () => {
+  const computeEligibleBowlers = (excludeBowler?: string) => {
     const fieldingRoster = getFieldingRoster();
+    const bowlerToExclude = excludeBowler || lastOverBowlerByInning[currentInning];
     return fieldingRoster
       .filter((player: any) => {
-        const isNotPreviousBowler = !isPreviousOverBowler(player.name);
+        const isNotPreviousBowler = player.name !== bowlerToExclude;
         const hasNotReachedQuota = !hasReachedQuota(player.name);
         return isNotPreviousBowler && hasNotReachedQuota;
       })
       .map((player: any) => player.name);
   };
 
-  const getBowlerRestrictionReason = (playerName: string) => {
-    if (isPreviousOverBowler(playerName)) {
+  const getBowlerRestrictionReason = (playerName: string, excludeBowler?: string) => {
+    const bowlerToExclude = excludeBowler || lastOverBowlerByInning[currentInning];
+    if (playerName === bowlerToExclude) {
       return "Bowled last over";
     }
     if (hasReachedQuota(playerName)) {
@@ -285,6 +288,9 @@ export default function CricketScorer({ match, onScoreUpdate, isLive }: CricketS
       rotateStrike();
     }
 
+    // Track runs from this legal ball for end-of-over rotation
+    setLastLegalBallRuns(runs);
+
     // Trigger flash effects for boundaries
     if (runs === 6) {
       triggerFlashEffect('six');
@@ -297,9 +303,11 @@ export default function CricketScorer({ match, onScoreUpdate, isLive }: CricketS
     // All legal deliveries (including dot balls) advance to next ball
     const endOfOver = nextBall();
     
-    // Rotate strike at end of over
+    // Rotate strike at end of over only if last ball had even runs
     if (endOfOver) {
-      rotateStrike();
+      if (runs % 2 === 0) {
+        rotateStrike();
+      }
       handleOverCompletion();
     }
 
@@ -410,11 +418,14 @@ export default function CricketScorer({ match, onScoreUpdate, isLive }: CricketS
     triggerFlashEffect('wicket');
     toast({ title: "WICKET!", description: `${wicketType.replace('-', ' ').toUpperCase()}!`, variant: "destructive", duration: 3000 });
 
+    // Track 0 runs for wicket balls for end-of-over rotation
+    setLastLegalBallRuns(0);
+    
     const endOfOver = nextBall();
     
-    // Rotate strike at end of over regardless of new batsman
+    // Rotate strike at end of over only if last legal ball had even runs (0 for wickets)
     if (endOfOver) {
-      rotateStrike();
+      rotateStrike(); // 0 is even, so always rotate on wicket at end of over
       handleOverCompletion();
     }
 
@@ -509,10 +520,14 @@ export default function CricketScorer({ match, onScoreUpdate, isLive }: CricketS
 
     let endOfOver = false;
     if (countsAsBall) {
+      // Track runs from this legal ball for end-of-over rotation
+      setLastLegalBallRuns(runs);
       endOfOver = nextBall();
-      // Rotate strike at end of over
+      // Rotate strike at end of over only if last legal ball had even runs
       if (endOfOver) {
-        rotateStrike();
+        if (runs % 2 === 0) {
+          rotateStrike();
+        }
         handleOverCompletion();
       }
     }
@@ -531,12 +546,12 @@ export default function CricketScorer({ match, onScoreUpdate, isLive }: CricketS
   };
 
   const nextBall = (): boolean => {
-    let endOfOver = false;
+    // Check if this will complete an over BEFORE updating state
+    const willCompleteOver = currentBall === 5;
     
     setCurrentBall(prev => {
       if (prev === 5) {
         setCurrentOver(over => over + 1);
-        endOfOver = true;
         return 0;
       }
       return prev + 1;
@@ -549,7 +564,7 @@ export default function CricketScorer({ match, onScoreUpdate, isLive }: CricketS
       setTeam2Balls(prev => prev + 1);
     }
 
-    return endOfOver;
+    return willCompleteOver;
   };
 
   // Handle over completion - trigger bowler selection dialog
@@ -576,10 +591,11 @@ export default function CricketScorer({ match, onScoreUpdate, isLive }: CricketS
       ]
     }));
 
-    // Compute and set eligible bowlers
-    const eligible = computeEligibleBowlers();
+    // Compute and set eligible bowlers, excluding the current bowler
+    const eligible = computeEligibleBowlers(currentBowler);
     console.log("Eligible bowlers:", eligible);
     console.log("Fielding roster:", getFieldingRoster());
+    console.log("Previous bowler to exclude:", currentBowler);
     setEligibleBowlers(eligible);
 
     // Add commentary for over completion  
@@ -1698,7 +1714,7 @@ export default function CricketScorer({ match, onScoreUpdate, isLive }: CricketS
                 <SelectContent>
                   {getFieldingRoster().map((player: any) => {
                     const isEligible = eligibleBowlers.includes(player.name);
-                    const restrictionReason = getBowlerRestrictionReason(player.name);
+                    const restrictionReason = getBowlerRestrictionReason(player.name, currentBowler);
                     const oversBowled = getOversBowled(player.name);
                     
                     return (
