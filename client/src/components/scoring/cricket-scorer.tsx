@@ -97,7 +97,9 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
   const getFieldingRoster = () => {
     // First inning: team2 is fielding, second inning: team1 is fielding
     const fieldingTeam = currentInning === 1 ? 'team2' : 'team1';
-    return rosterPlayers.filter((player: any) => player.team === fieldingTeam);
+    return rosterPlayers.filter((player: any) => 
+      player.team === fieldingTeam && player.role !== 'wicket-keeper'
+    );
   };
 
   const getBallsBowled = (playerName: string) => {
@@ -131,10 +133,10 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
   const getBowlerRestrictionReason = (playerName: string, excludeBowler?: string) => {
     const bowlerToExclude = excludeBowler || lastOverBowlerByInning[currentInning];
     if (playerName === bowlerToExclude) {
-      return "Bowled last over";
+      return "This bowler cannot bowl consecutive overs. Choose another bowler.";
     }
     if (hasReachedQuota(playerName)) {
-      return `Quota reached (${maxOversPerBowler} overs)`;
+      return "This bowler has reached the maximum overs quota.";
     }
     return null;
   };
@@ -266,6 +268,26 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
       return;
     }
 
+    // Ensure bowler is selected
+    if (!currentBowler) {
+      toast({
+        title: "Bowler Required",
+        description: "Please select a valid bowler from the list.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Prevent 7th legal ball in an over
+    if (currentBall >= 6) {
+      toast({
+        title: "Over Complete",
+        description: "A bowler cannot bowl more than 6 legal balls in an over.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     // Calculate updated values locally
     const newTeam1Runs = currentInning === 1 ? team1Runs + runs : team1Runs;
     const newTeam2Runs = currentInning === 2 ? team2Runs + runs : team2Runs;
@@ -341,6 +363,26 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
       toast({
         title: "Select Next Bowler",
         description: "Please select a bowler for the next over before continuing.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Ensure bowler is selected
+    if (!currentBowler) {
+      toast({
+        title: "Bowler Required",
+        description: "Please select a valid bowler from the list.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Prevent 7th legal ball in an over
+    if (currentBall >= 6) {
+      toast({
+        title: "Over Complete",
+        description: "A bowler cannot bowl more than 6 legal balls in an over.",
         variant: "destructive",
       });
       return;
@@ -464,6 +506,26 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
 
     // For wides and no-balls, don't count as ball faced by bowler
     const countsAsBall = type !== 'wide' && type !== 'no-ball';
+    
+    // Ensure bowler is selected
+    if (!currentBowler) {
+      toast({
+        title: "Bowler Required",
+        description: "Please select a valid bowler from the list.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Prevent 7th legal ball in an over (for byes and leg-byes)
+    if (countsAsBall && currentBall >= 6) {
+      toast({
+        title: "Over Complete",
+        description: "A bowler cannot bowl more than 6 legal balls in an over.",
+        variant: "destructive",
+      });
+      return;
+    }
     
     // Calculate updated values locally
     const newTeam1Runs = currentInning === 1 ? team1Runs + runs : team1Runs;
