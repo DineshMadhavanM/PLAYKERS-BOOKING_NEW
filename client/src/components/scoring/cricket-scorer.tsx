@@ -91,7 +91,7 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
   
   // Match configuration for bowling restrictions
   const totalOvers = parseInt(match.matchType?.replace(/[^\d]/g, '') || '20'); // Extract number from match type like "20 Overs"
-  const maxOversPerBowler = Math.floor(totalOvers / 5);
+  const maxOversPerBowler = Math.max(1, Math.floor(totalOvers / 5)); // Ensure at least 1 over per bowler
 
   // Bowler eligibility helper functions
   const getFieldingRoster = () => {

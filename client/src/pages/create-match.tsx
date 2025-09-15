@@ -96,7 +96,7 @@ export default function CreateMatch() {
   });
 
   const createMatchMutation = useMutation({
-    mutationFn: async (data: z.infer<typeof matchSchema>) => {
+    mutationFn: async (data: any) => {
       const matchData = {
         ...data,
         scheduledAt: new Date(data.scheduledAt), // Send Date object, not ISO string
