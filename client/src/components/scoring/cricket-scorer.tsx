@@ -97,7 +97,7 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
   
   // Match configuration for bowling restrictions
   const totalOvers = parseInt(match.matchType?.replace(/[^\d]/g, '') || '20'); // Extract number from match type like "20 Overs"
-  const maxOversPerBowler = Math.max(1, Math.floor(totalOvers / 5)); // Ensure at least 1 over per bowler
+  // Bowling quota constraint removed - bowlers can bowl unlimited overs
 
   // Bowler eligibility helper functions
   const getFieldingRoster = () => {
@@ -136,7 +136,8 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
 
 
   const hasReachedQuota = (playerName: string) => {
-    return getOversBowled(playerName) >= maxOversPerBowler;
+    // Bowling quota constraint removed - no bowler reaches quota
+    return false;
   };
 
   const isPreviousOverBowler = (playerName: string) => {
@@ -149,8 +150,8 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
     return fieldingRoster
       .filter((player: any) => {
         const isNotPreviousBowler = player.name !== bowlerToExclude;
-        const hasNotReachedQuota = !hasReachedQuota(player.name);
-        return isNotPreviousBowler && hasNotReachedQuota;
+        // Bowling quota constraint removed - only check consecutive overs rule
+        return isNotPreviousBowler;
       })
       .map((player: any) => player.name);
   };
@@ -160,9 +161,7 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
     if (playerName === bowlerToExclude) {
       return "This bowler cannot bowl consecutive overs. Choose another bowler.";
     }
-    if (hasReachedQuota(playerName)) {
-      return "This bowler has reached the maximum overs quota.";
-    }
+    // Bowling quota constraint removed - no quota restrictions
     return null;
   };
 
@@ -1787,7 +1786,7 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
                 Over {currentOver > 1 ? currentOver - 1 : 1} completed by {lastOverBowlerByInning[currentInning]}
               </p>
               <p className="text-xs text-blue-600 dark:text-blue-400">
-                Select next bowler for Over {currentOver}. Max {maxOversPerBowler} overs per bowler.
+                Select next bowler for Over {currentOver}. No bowling quota restrictions.
               </p>
             </div>
 
@@ -1829,7 +1828,7 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
               </Select>
               {eligibleBowlers.length === 0 && (
                 <p className="text-xs text-red-600 dark:text-red-400">
-                  ⚠️ No eligible bowlers available! All have reached quota or bowled last over.
+                  ⚠️ No eligible bowlers available! Previous bowler cannot bowl consecutive overs.
                 </p>
               )}
             </div>
@@ -1841,7 +1840,7 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
                   {selectedNextBowler} - Bowling Stats
                 </p>
                 <div className="text-xs text-gray-600 dark:text-gray-400 space-y-1">
-                  <p>Overs bowled this innings: {getOversBowled(selectedNextBowler)}/{maxOversPerBowler}</p>
+                  <p>Overs bowled this innings: {getOversBowled(selectedNextBowler)} (no limit)</p>
                   <p>Balls bowled: {getBallsBowled(selectedNextBowler)}</p>
                 </div>
               </div>
