@@ -243,7 +243,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put('/api/matches/:id', requireAuth, async (req: any, res) => {
     try {
-      const match = await storage.updateMatch(req.params.id, req.body);
+      // Get the existing match to preserve important data like roster
+      const existingMatch = await storage.getMatch(req.params.id);
+      if (!existingMatch) {
+        return res.status(404).json({ message: "Match not found" });
+      }
+
+      // Merge the update data with existing match data
+      // Always preserve the existing matchData (which contains roster information) while allowing score updates
+      const updateData = { ...req.body };
+      
+      // Get existing and incoming matchData
+      const existingMatchData = (existingMatch.matchData ?? {}) as any;
+      const incomingMatchData = (req.body.matchData ?? {}) as any;
+      
+      // Always preserve roster data, even if the update doesn't include matchData
+      updateData.matchData = {
+        ...existingMatchData,  // Preserve all existing data (including rosters)
+        ...incomingMatchData,  // Apply new updates (like scores)
+        // Explicitly preserve roster data to ensure it's never lost
+        team1Roster: incomingMatchData.team1Roster ?? existingMatchData.team1Roster,
+        team2Roster: incomingMatchData.team2Roster ?? existingMatchData.team2Roster,
+      };
+
+      const match = await storage.updateMatch(req.params.id, updateData);
       if (!match) {
         return res.status(404).json({ message: "Match not found" });
       }
