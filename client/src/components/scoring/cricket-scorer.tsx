@@ -449,8 +449,11 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
       return;
     }
 
-    // Prevent 7th legal ball in an over
-    if (currentBall >= 6) {
+    // Determine if this counts as a legal ball (wide-wicket and no-ball-wicket don't)
+    const countsAsBall = !['wide-wicket', 'no-ball-wicket'].includes(wicketType);
+
+    // For legal ball wickets, prevent 7th legal ball in an over
+    if (countsAsBall && currentBall >= 6) {
       toast({
         title: "Over Complete",
         description: "A bowler cannot bowl more than 6 legal balls in an over.",
@@ -460,16 +463,19 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
     }
 
     // Calculate updated values locally including extra runs for combination wickets
-    const runsFromWicket = extraRunsConceded || 0;
+    // Validate runs for wide/no-ball combos (minimum 1) and bye/leg-bye combos (minimum 0)
+    let runsFromWicket = extraRunsConceded || 0;
+    if (['wide-wicket', 'no-ball-wicket'].includes(wicketType) && runsFromWicket < 1) {
+      runsFromWicket = 1; // Minimum 1 run for wide/no-ball deliveries
+    }
     const newTeam1Runs = currentInning === 1 ? team1Runs + runsFromWicket : team1Runs;
     const newTeam2Runs = currentInning === 2 ? team2Runs + runsFromWicket : team2Runs;
     const newTeam1Wickets = currentInning === 1 ? team1Wickets + 1 : team1Wickets;
     const newTeam2Wickets = currentInning === 2 ? team2Wickets + 1 : team2Wickets;
     
-    // For combination wickets, only certain types count as legal balls
-    const isLegalBall = !['wide-wicket', 'no-ball-wicket'].includes(wicketType);
-    const newTeam1Balls = currentInning === 1 && isLegalBall ? team1Balls + 1 : team1Balls;
-    const newTeam2Balls = currentInning === 2 && isLegalBall ? team2Balls + 1 : team2Balls;
+    // Use the already computed countsAsBall for consistency
+    const newTeam1Balls = currentInning === 1 && countsAsBall ? team1Balls + 1 : team1Balls;
+    const newTeam2Balls = currentInning === 2 && countsAsBall ? team2Balls + 1 : team2Balls;
 
     // Enhanced wicket description
     let wicketDescription = '';
@@ -524,15 +530,17 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
 
     // Update batting stats for dismissed batter (ball faced but 0 runs)
     if (dismissedBatterName) {
-      updateBattingStats(dismissedBatterName, 0, true, false); // Ball faced, no runs, not a dot
+      updateBattingStats(dismissedBatterName, 0, countsAsBall, false); // Ball faced only for legal deliveries
     }
 
     // Only credit bowler for applicable wicket types (not run-out)
-    const shouldCreditBowler = wicketType !== 'run-out';
-    if (currentBowler && shouldCreditBowler) {
-      updateBowlingStats(currentBowler, 0, true, true);
-    } else if (currentBowler) {
-      updateBowlingStats(currentBowler, 0, false, true); // Ball faced but no wicket to bowler
+    // Update bowling stats correctly for combination wickets
+    if (currentBowler) {
+      // For wide/no-ball wickets, bowler concedes the runs; for bye/leg-bye wickets, bowler doesn't concede runs
+      const bowlerRunsConceded = ['wide-wicket', 'no-ball-wicket'].includes(wicketType) ? runsFromWicket : 0;
+      // Only credit bowler with wicket for legal dismissals, not for run-outs, bye/leg-bye wickets, or no-ball wickets
+      const bowlerGetsWicket = wicketType === 'wide-wicket' || ['bowled', 'caught', 'hit-wicket', 'stump-out'].includes(wicketType);
+      updateBowlingStats(currentBowler, bowlerRunsConceded, bowlerGetsWicket, countsAsBall);
     }
 
     // Update batsmen based on who was dismissed
@@ -552,10 +560,12 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
     triggerFlashEffect('wicket');
     toast({ title: "WICKET!", description: `${wicketType.replace('-', ' ').toUpperCase()}!`, variant: "destructive", duration: 3000 });
 
-    // Track 0 runs for wicket balls for end-of-over rotation
-    setLastLegalBallRuns(0);
+    // Track 0 runs for wicket balls for end-of-over rotation (only for legal balls)
+    if (countsAsBall) {
+      setLastLegalBallRuns(0);
+    }
     
-    const endOfOver = nextBall();
+    const endOfOver = countsAsBall ? nextBall() : false;
     
     // Rotate strike at end of over only if last legal ball had even runs (0 for wickets)
     if (endOfOver) {
