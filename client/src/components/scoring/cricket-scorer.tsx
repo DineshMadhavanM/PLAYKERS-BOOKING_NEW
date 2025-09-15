@@ -82,7 +82,13 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
   // Bowling rules and restrictions tracking
   const [lastOverBowlerByInning, setLastOverBowlerByInning] = useState<{[key: number]: string}>({});
   const [bowlingHistoryByInning, setBowlingHistoryByInning] = useState<{[key: number]: Array<{over: number; bowler: string}>}>({1: [], 2: []});
-  const [ballsByBowlerByInning, setBallsByBowlerByInning] = useState<{[key: number]: Record<string, number>}>({1: {}, 2: {}});
+  // Change from simple number to object tracking both legal and total balls
+  const [ballsByBowlerByInning, setBallsByBowlerByInning] = useState<{
+    [key: number]: Record<string, {
+      legalBalls: number;    // Only counts toward overs (no wides/no-balls)
+      totalBalls: number;    // All balls bowled including extras
+    }>
+  }>({1: {}, 2: {}});
   
   // Next bowler selection dialog
   const [showBowlerDialog, setShowBowlerDialog] = useState(false);
@@ -102,13 +108,32 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
     );
   };
 
+  // Track legal balls separately from total balls (including extras)
+  const getLegalBallsBowled = (playerName: string) => {
+    return ballsByBowlerByInning[currentInning]?.[playerName]?.legalBalls || 0;
+  };
+
   const getBallsBowled = (playerName: string) => {
-    return ballsByBowlerByInning[currentInning]?.[playerName] || 0;
+    return ballsByBowlerByInning[currentInning]?.[playerName]?.totalBalls || 0;
   };
 
   const getOversBowled = (playerName: string) => {
-    return Math.floor(getBallsBowled(playerName) / 6);
+    const legalBalls = getLegalBallsBowled(playerName);
+    return Math.floor(legalBalls / 6);
   };
+
+  const getRemainingBallsInCurrentOver = (playerName: string) => {
+    const legalBalls = getLegalBallsBowled(playerName);
+    return legalBalls % 6; // Returns 0-5 balls remaining in current over
+  };
+
+  // Format overs as "5.3" (5 complete overs + 3 balls)
+  const getFormattedOvers = (playerName: string) => {
+    const completeOvers = getOversBowled(playerName);
+    const remainingBalls = getRemainingBallsInCurrentOver(playerName);
+    return remainingBalls > 0 ? `${completeOvers}.${remainingBalls}` : `${completeOvers}`;
+  };
+
 
   const hasReachedQuota = (playerName: string) => {
     return getOversBowled(playerName) >= maxOversPerBowler;
@@ -237,15 +262,16 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
     });
 
     // Update balls by bowler by inning for quota tracking
-    if (countsAsBall) {
-      setBallsByBowlerByInning(prev => ({
-        ...prev,
-        [currentInning]: {
-          ...prev[currentInning],
-          [playerName]: (prev[currentInning]?.[playerName] || 0) + 1
+    setBallsByBowlerByInning(prev => ({
+      ...prev,
+      [currentInning]: {
+        ...prev[currentInning],
+        [playerName]: {
+          legalBalls: (prev[currentInning]?.[playerName]?.legalBalls || 0) + (countsAsBall ? 1 : 0),
+          totalBalls: (prev[currentInning]?.[playerName]?.totalBalls || 0) + 1
         }
-      }));
-    }
+      }
+    }));
   };
 
   // Strike rotation logic
