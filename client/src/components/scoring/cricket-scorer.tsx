@@ -123,6 +123,35 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
     return filteredPlayers;
   };
 
+  // Batting roster helper function (similar to fielding roster)
+  const getBattingRoster = () => {
+    // First inning: team1 is batting, second inning: team2 is batting
+    const battingTeam = currentInning === 1 ? 'team1' : 'team2';
+    const filteredPlayers = rosterPlayers.filter((player: any) => 
+      player.team === battingTeam
+    );
+    
+    // If no roster data is available, provide fallback batsman names
+    if (filteredPlayers.length === 0) {
+      const fallbackBatsmen = [
+        { name: 'Batsman 1', team: battingTeam, role: 'batsman', id: `${battingTeam}-batsman-1` },
+        { name: 'Batsman 2', team: battingTeam, role: 'batsman', id: `${battingTeam}-batsman-2` },
+        { name: 'Batsman 3', team: battingTeam, role: 'batsman', id: `${battingTeam}-batsman-3` },
+        { name: 'Batsman 4', team: battingTeam, role: 'batsman', id: `${battingTeam}-batsman-4` },
+        { name: 'Batsman 5', team: battingTeam, role: 'batsman', id: `${battingTeam}-batsman-5` },
+        { name: 'Batsman 6', team: battingTeam, role: 'batsman', id: `${battingTeam}-batsman-6` },
+        { name: 'Batsman 7', team: battingTeam, role: 'batsman', id: `${battingTeam}-batsman-7` },
+        { name: 'Batsman 8', team: battingTeam, role: 'batsman', id: `${battingTeam}-batsman-8` },
+        { name: 'Batsman 9', team: battingTeam, role: 'batsman', id: `${battingTeam}-batsman-9` },
+        { name: 'Batsman 10', team: battingTeam, role: 'batsman', id: `${battingTeam}-batsman-10` },
+        { name: 'Batsman 11', team: battingTeam, role: 'batsman', id: `${battingTeam}-batsman-11` },
+      ];
+      return fallbackBatsmen;
+    }
+    
+    return filteredPlayers;
+  };
+
   // Track legal balls separately from total balls (including extras)
   const getLegalBallsBowled = (playerName: string) => {
     return ballsByBowlerByInning[currentInning]?.[playerName]?.legalBalls || 0;
@@ -1696,8 +1725,13 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
                     }
                   </p>
                   <p className="text-xs text-amber-600 dark:text-amber-400">
-                    Enter the name of the next batsman to replace the dismissed player.
+                    Select the name of the next batsman to replace the dismissed player.
                   </p>
+                  {rosterPlayers.length === 0 && (
+                    <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                      📝 Using generic batsman names (roster data not available)
+                    </p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="next-batsman" className="font-medium">
@@ -1709,23 +1743,14 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
                         <SelectValue placeholder="Select next batsman" />
                       </SelectTrigger>
                       <SelectContent>
-                        {/* Available team players */}
-                        {currentInning === 1 
-                          ? (match.matchData?.team1Roster || []).filter((player: any) => 
-                              player.name !== currentStriker && player.name !== currentNonStriker
-                            ).map((player: any) => (
-                              <SelectItem key={player.id} value={player.name}>
-                                {player.name}
-                              </SelectItem>
-                            ))
-                          : (match.matchData?.team2Roster || []).filter((player: any) => 
-                              player.name !== currentStriker && player.name !== currentNonStriker
-                            ).map((player: any) => (
-                              <SelectItem key={player.id} value={player.name}>
-                                {player.name}
-                              </SelectItem>
-                            ))
-                        }
+                        {/* Available team players using fallback system */}
+                        {getBattingRoster().filter((player: any) => 
+                          player.name !== currentStriker && player.name !== currentNonStriker
+                        ).map((player: any) => (
+                          <SelectItem key={player.id} value={player.name}>
+                            {player.name}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                     <Input
@@ -1739,6 +1764,7 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
                   </div>
                   <p className="text-xs text-muted-foreground">
                     Select from dropdown or type manually
+                    {rosterPlayers.length === 0 && " (using fallback names)"}
                   </p>
                 </div>
               </div>
