@@ -14,6 +14,7 @@ interface CricketScorerProps {
   match: Match;
   onScoreUpdate: (scoreData: any) => void;
   isLive: boolean;
+  rosterPlayers?: any[];
 }
 
 interface CricketScore {
@@ -45,7 +46,7 @@ interface PlayerBowlingStats {
   oversBowled: string; // "5.3" format
 }
 
-export default function CricketScorer({ match, onScoreUpdate, isLive }: CricketScorerProps) {
+export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlayers = [] }: CricketScorerProps) {
   const { toast } = useToast();
   const [currentInning, setCurrentInning] = useState(1);
   const [currentOver, setCurrentOver] = useState(0);
@@ -94,9 +95,9 @@ export default function CricketScorer({ match, onScoreUpdate, isLive }: CricketS
 
   // Bowler eligibility helper functions
   const getFieldingRoster = () => {
-    return currentInning === 1 
-      ? (match.matchData?.team2Roster || [])
-      : (match.matchData?.team1Roster || []);
+    // First inning: team2 is fielding, second inning: team1 is fielding
+    const fieldingTeam = currentInning === 1 ? 'team2' : 'team1';
+    return rosterPlayers.filter((player: any) => player.team === fieldingTeam);
   };
 
   const getBallsBowled = (playerName: string) => {

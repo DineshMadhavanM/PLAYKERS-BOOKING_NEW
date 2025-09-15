@@ -245,7 +245,7 @@ export default function MatchScorer() {
 
     switch (match.sport) {
       case 'cricket':
-        return <CricketScorer {...scorerProps} />;
+        return <CricketScorer {...scorerProps} rosterPlayers={rosterPlayers} />;
       case 'football':
         return <FootballScorer {...scorerProps} />;
       case 'tennis':
