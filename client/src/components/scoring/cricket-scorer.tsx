@@ -62,10 +62,11 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
   const [showExtrasDialog, setShowExtrasDialog] = useState(false);
   const [selectedExtraType, setSelectedExtraType] = useState<'wide' | 'no-ball' | 'bye' | 'leg-bye' | null>(null);
   const [showWicketDialog, setShowWicketDialog] = useState(false);
-  const [selectedWicketType, setSelectedWicketType] = useState<'bowled' | 'caught' | 'run-out' | 'hit-wicket' | 'stump-out' | null>(null);
+  const [selectedWicketType, setSelectedWicketType] = useState<'bowled' | 'caught' | 'run-out' | 'hit-wicket' | 'stump-out' | 'wide-wicket' | 'no-ball-wicket' | 'leg-bye-wicket' | 'bye-wicket' | null>(null);
   const [fielderName, setFielderName] = useState('');
   const [nextBatsman, setNextBatsman] = useState('');
   const [dismissedBatter, setDismissedBatter] = useState<'striker' | 'non-striker'>('striker');
+  const [extraRuns, setExtraRuns] = useState(0);
   
   // Live scorecard state
   const [currentStriker, setCurrentStriker] = useState('');
@@ -421,10 +422,11 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
     setFielderName('');
     setNextBatsman('');
     setDismissedBatter('striker');
+    setExtraRuns(0);
     setShowWicketDialog(true);
   };
 
-  const addWicket = (wicketType: 'bowled' | 'caught' | 'run-out' | 'hit-wicket' | 'stump-out', fielder?: string, nextBatsmanName?: string, dismissedBatter?: 'striker' | 'non-striker') => {
+  const addWicket = (wicketType: 'bowled' | 'caught' | 'run-out' | 'hit-wicket' | 'stump-out' | 'wide-wicket' | 'no-ball-wicket' | 'leg-bye-wicket' | 'bye-wicket', fielder?: string, nextBatsmanName?: string, dismissedBatter?: 'striker' | 'non-striker', extraRunsConceded?: number) => {
     if (!isLive) return;
     
     // Block scoring while bowler selection is in progress
@@ -457,11 +459,17 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
       return;
     }
 
-    // Calculate updated values locally
+    // Calculate updated values locally including extra runs for combination wickets
+    const runsFromWicket = extraRunsConceded || 0;
+    const newTeam1Runs = currentInning === 1 ? team1Runs + runsFromWicket : team1Runs;
+    const newTeam2Runs = currentInning === 2 ? team2Runs + runsFromWicket : team2Runs;
     const newTeam1Wickets = currentInning === 1 ? team1Wickets + 1 : team1Wickets;
     const newTeam2Wickets = currentInning === 2 ? team2Wickets + 1 : team2Wickets;
-    const newTeam1Balls = currentInning === 1 ? team1Balls + 1 : team1Balls;
-    const newTeam2Balls = currentInning === 2 ? team2Balls + 1 : team2Balls;
+    
+    // For combination wickets, only certain types count as legal balls
+    const isLegalBall = !['wide-wicket', 'no-ball-wicket'].includes(wicketType);
+    const newTeam1Balls = currentInning === 1 && isLegalBall ? team1Balls + 1 : team1Balls;
+    const newTeam2Balls = currentInning === 2 && isLegalBall ? team2Balls + 1 : team2Balls;
 
     // Enhanced wicket description
     let wicketDescription = '';
@@ -481,6 +489,18 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
       case 'stump-out':
         wicketDescription = 'Stumped!';
         break;
+      case 'wide-wicket':
+        wicketDescription = `Wide + Wicket (${runsFromWicket} runs)`;
+        break;
+      case 'no-ball-wicket':
+        wicketDescription = `No Ball + Wicket (${runsFromWicket} runs)`;
+        break;
+      case 'leg-bye-wicket':
+        wicketDescription = `Leg Bye + Wicket (${runsFromWicket} runs)`;
+        break;
+      case 'bye-wicket':
+        wicketDescription = `Bye + Wicket (${runsFromWicket} runs)`;
+        break;
     }
 
     if (nextBatsmanName) {
@@ -491,8 +511,10 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
 
     // Update state
     if (currentInning === 1) {
+      setTeam1Runs(newTeam1Runs);
       setTeam1Wickets(newTeam1Wickets);
     } else {
+      setTeam2Runs(newTeam2Runs);
       setTeam2Wickets(newTeam2Wickets);
     }
 
@@ -546,6 +568,8 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
     
     // Update score with calculated values to avoid staleness
     updateScore({
+      team1Runs: newTeam1Runs,
+      team2Runs: newTeam2Runs,
       team1Wickets: newTeam1Wickets,
       team2Wickets: newTeam2Wickets,
       team1Balls: newTeam1Balls,
@@ -1668,7 +1692,66 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
                   Stump Out
                 </Button>
               </div>
+              
+              {/* Combination Wicket Types */}
+              <div className="border-t pt-4">
+                <Label className="font-medium text-blue-700 mb-3 block">Extras + Wicket Combinations:</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  <Button 
+                    onClick={() => setSelectedWicketType('wide-wicket')} 
+                    variant={selectedWicketType === 'wide-wicket' ? 'default' : 'outline'}
+                    data-testid="button-wide-wicket"
+                    className="bg-blue-50 hover:bg-blue-100 text-xs"
+                  >
+                    Wide + Wicket
+                  </Button>
+                  <Button 
+                    onClick={() => setSelectedWicketType('no-ball-wicket')} 
+                    variant={selectedWicketType === 'no-ball-wicket' ? 'default' : 'outline'}
+                    data-testid="button-no-ball-wicket"
+                    className="bg-blue-50 hover:bg-blue-100 text-xs"
+                  >
+                    No Ball + Wicket
+                  </Button>
+                  <Button 
+                    onClick={() => setSelectedWicketType('leg-bye-wicket')} 
+                    variant={selectedWicketType === 'leg-bye-wicket' ? 'default' : 'outline'}
+                    data-testid="button-leg-bye-wicket"
+                    className="bg-blue-50 hover:bg-blue-100 text-xs"
+                  >
+                    Leg Bye + Wicket
+                  </Button>
+                  <Button 
+                    onClick={() => setSelectedWicketType('bye-wicket')} 
+                    variant={selectedWicketType === 'bye-wicket' ? 'default' : 'outline'}
+                    data-testid="button-bye-wicket"
+                    className="bg-blue-50 hover:bg-blue-100 text-xs"
+                  >
+                    Bye + Wicket
+                  </Button>
+                </div>
+              </div>
             </div>
+
+            {/* Runs Conceded Input (for combination wickets) */}
+            {['wide-wicket', 'no-ball-wicket', 'leg-bye-wicket', 'bye-wicket'].includes(selectedWicketType || '') && (
+              <div className="space-y-2">
+                <Label htmlFor="extra-runs" className="font-medium">
+                  Runs Conceded:
+                </Label>
+                <Input 
+                  type="number" 
+                  min="0" 
+                  max="10"
+                  value={extraRuns} 
+                  onChange={(e) => setExtraRuns(Number(e.target.value))}
+                  placeholder="Enter runs conceded"
+                  data-testid="input-extra-runs"
+                  className="w-full"
+                />
+                <p className="text-xs text-gray-600">Total runs scored from this delivery (including the extra)</p>
+              </div>
+            )}
 
             {/* Fielder Name Input (for caught and run-out) */}
             {(selectedWicketType === 'caught' || selectedWicketType === 'run-out') && (
@@ -1795,7 +1878,8 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
                       selectedWicketType, 
                       fielderName || undefined, 
                       nextBatsman.trim(),
-                      selectedWicketType === 'run-out' ? dismissedBatter : undefined
+                      selectedWicketType === 'run-out' ? dismissedBatter : undefined,
+                      ['wide-wicket', 'no-ball-wicket', 'leg-bye-wicket', 'bye-wicket'].includes(selectedWicketType) ? extraRuns : undefined
                     );
                     // Close dialog after wicket is recorded
                     setShowWicketDialog(false);
