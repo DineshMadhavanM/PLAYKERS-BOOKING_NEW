@@ -86,18 +86,31 @@ export interface IStorage {
 import { MongoStorage } from './mongoStorage';
 
 async function initializeStorage(): Promise<IStorage> {
+  console.log('🔍 Checking for MONGODB_URI environment variable...');
+  console.log('MONGODB_URI exists:', !!process.env.MONGODB_URI);
+  
   if (!process.env.MONGODB_URI) {
+    console.log('Available env vars:', Object.keys(process.env).filter(key => key.includes('MONGO') || key.includes('DB')));
     throw new Error('MONGODB_URI environment variable is required. Please configure your MongoDB connection string.');
   }
 
   console.log('🔍 MongoDB URI found, initializing MongoDB storage...');
+  console.log('URI starts with:', process.env.MONGODB_URI.substring(0, 20) + '...');
+  
   try {
     const mongoStorage = new MongoStorage(process.env.MONGODB_URI);
+    console.log('MongoStorage instance created, attempting connection...');
     await mongoStorage.connect();
+    console.log('✅ MongoDB connection successful!');
     return mongoStorage;
   } catch (error) {
     console.error('❌ Failed to connect to MongoDB:', error);
-    throw new Error('Failed to initialize MongoDB storage. Please check your MONGODB_URI configuration.');
+    console.error('Error details:', {
+      name: error instanceof Error ? error.name : 'Unknown',
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : 'No stack trace'
+    });
+    throw new Error(`Failed to initialize MongoDB storage: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }
 
