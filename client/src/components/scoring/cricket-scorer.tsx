@@ -96,8 +96,17 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
   const [selectedNextBowler, setSelectedNextBowler] = useState('');
   const [eligibleBowlers, setEligibleBowlers] = useState<string[]>([]);
   
+  // Second innings setup dialog
+  const [showSecondInningsDialog, setShowSecondInningsDialog] = useState(false);
+  const [newStriker, setNewStriker] = useState('');
+  const [newNonStriker, setNewNonStriker] = useState('');
+  const [newBowler, setNewBowler] = useState('');
+  const [matchResult, setMatchResult] = useState<string | null>(null);
+  const [isMatchCompleted, setIsMatchCompleted] = useState(false);
+  
   // Match configuration for bowling restrictions
   const totalOvers = parseInt(match.matchType?.replace(/[^\d]/g, '') || '20'); // Extract number from match type like "20 Overs"
+  const maxWickets = 10; // Maximum wickets in an innings
   // Bowling quota constraint removed - bowlers can bowl unlimited overs
 
   // Bowler eligibility helper functions
@@ -326,7 +335,7 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
   };
 
   const addRuns = (runs: number) => {
-    if (!isLive) return;
+    if (!isLive || isMatchCompleted) return;
     
     // Block scoring while bowler selection is in progress
     if (showBowlerDialog) {
@@ -414,6 +423,11 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
       team2Balls: newTeam2Balls,
       ballByBall: newBallByBall
     });
+    
+    // Check for innings completion after scoring runs
+    if (checkInningsCompletion()) {
+      setTimeout(() => handleInningsCompletion(), 100); // Small delay to ensure state updates
+    }
   };
 
   const openWicketDialog = () => {
@@ -427,7 +441,7 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
   };
 
   const addWicket = (wicketType: 'bowled' | 'caught' | 'run-out' | 'hit-wicket' | 'stump-out' | 'wide-wicket' | 'no-ball-wicket' | 'leg-bye-wicket' | 'bye-wicket', fielder?: string, nextBatsmanName?: string, dismissedBatter?: 'striker' | 'non-striker', extraRunsConceded?: number) => {
-    if (!isLive) return;
+    if (!isLive || isMatchCompleted) return;
     
     // Block scoring while bowler selection is in progress
     if (showBowlerDialog) {
@@ -586,16 +600,21 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
       team2Balls: newTeam2Balls,
       ballByBall: newBallByBall
     });
+    
+    // Check for innings completion after wicket (all out)
+    if (checkInningsCompletion()) {
+      setTimeout(() => handleInningsCompletion(), 100); // Small delay to ensure state updates
+    }
   };
 
   const openExtrasDialog = (type: 'wide' | 'no-ball' | 'bye' | 'leg-bye') => {
-    if (!isLive) return;
+    if (!isLive || isMatchCompleted) return;
     setSelectedExtraType(type);
     setShowExtrasDialog(true);
   };
 
   const addExtra = (type: 'wide' | 'no-ball' | 'bye' | 'leg-bye', runs: number = 1) => {
-    if (!isLive) return;
+    if (!isLive || isMatchCompleted) return;
     
     // Block scoring while bowler selection is in progress
     if (showBowlerDialog) {
@@ -709,6 +728,37 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
       team2Balls: newTeam2Balls,
       ballByBall: newBallByBall
     });
+    
+    // Check for innings completion after extras
+    if (checkInningsCompletion()) {
+      setTimeout(() => handleInningsCompletion(), 100); // Small delay to ensure state updates
+    }
+  };
+
+  // Check if innings should end automatically
+  const checkInningsCompletion = () => {
+    const currentTeamWickets = currentInning === 1 ? team1Wickets : team2Wickets;
+    const currentTeamBalls = currentInning === 1 ? team1Balls : team2Balls;
+    const oversCompleted = Math.floor(currentTeamBalls / 6);
+    
+    // End innings if max overs reached or all 10 wickets fall
+    if (oversCompleted >= totalOvers || currentTeamWickets >= maxWickets) {
+      return true;
+    }
+    
+    // For second innings, also check if target is reached or tie
+    if (currentInning === 2) {
+      const target = team1Runs + 1;
+      if (team2Runs >= target) {
+        return true;
+      }
+      // Check for tie when overs completed or all wickets fall
+      if ((oversCompleted >= totalOvers || currentTeamWickets >= maxWickets) && team2Runs === team1Runs) {
+        return true;
+      }
+    }
+    
+    return false;
   };
 
   const nextBall = (): boolean => {
@@ -733,10 +783,73 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
     return willCompleteOver;
   };
 
-  // Handle over completion - trigger bowler selection dialog
+  // Handle automatic innings completion
+  const handleInningsCompletion = () => {
+    const currentTeamWickets = currentInning === 1 ? team1Wickets : team2Wickets;
+    const oversCompleted = Math.floor((currentInning === 1 ? team1Balls : team2Balls) / 6);
+    
+    if (currentInning === 1) {
+      // First innings completed
+      const target = team1Runs + 1;
+      
+      let completionReason = '';
+      if (oversCompleted >= totalOvers) {
+        completionReason = `${totalOvers} overs completed`;
+      } else if (currentTeamWickets >= maxWickets) {
+        completionReason = 'All out';
+      }
+      
+      toast({
+        title: "First Innings Complete!",
+        description: `${match.team1Name || 'Team A'} scored ${team1Runs}/${team1Wickets} (${completionReason})`,
+        duration: 5000
+      });
+      
+      // Set current inning to 2 before showing dialog to get correct rosters
+      setCurrentInning(2);
+      
+      // Show second innings setup dialog
+      setNewStriker('');
+      setNewNonStriker('');
+      setNewBowler('');
+      setShowSecondInningsDialog(true);
+      
+    } else {
+      // Second innings completed - determine match result
+      const target = team1Runs + 1;
+      let result = '';
+      
+      if (team2Runs >= target) {
+        const wicketsRemaining = maxWickets - team2Wickets;
+        result = `${match.team2Name || 'Team B'} won by ${wicketsRemaining} wickets`;
+      } else if (team2Runs === team1Runs) {
+        result = 'Match Tied';
+      } else {
+        const runsShort = (team1Runs + 1) - team2Runs;
+        result = `${match.team1Name || 'Team A'} won by ${runsShort} runs`;
+      }
+      
+      setMatchResult(result);
+      setIsMatchCompleted(true);
+      
+      toast({
+        title: "Match Complete!",
+        description: result,
+        duration: 10000
+      });
+    }
+  };
+
+  // Handle over completion - trigger bowler selection dialog or check innings completion
   const handleOverCompletion = () => {
     if (!currentBowler) {
       console.log("No current bowler set, skipping over completion");
+      return;
+    }
+
+    // Check if innings should end after this over
+    if (checkInningsCompletion()) {
+      handleInningsCompletion();
       return;
     }
 
@@ -782,14 +895,37 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
 
   const switchInnings = () => {
     if (!isLive) return;
-    setCurrentInning(2);
+    
+    // Reset for second innings (currentInning already set to 2 in handleInningsCompletion)
     setCurrentOver(0);
     setCurrentBall(0);
+    setBattingStats([]); // Reset batting stats for new team
+    setBowlingStats([]); // Reset bowling stats for new team
     setBallByBall([]);
-    // Team 1 balls are now frozen, Team 2 starts from 0
     
-    // Notify consumers of innings switch immediately
+    // Set new players
+    setCurrentStriker(newStriker);
+    setCurrentNonStriker(newNonStriker);
+    setCurrentBowler(newBowler);
+    
+    // Initialize batting stats for new batsmen
+    if (newStriker) updateBattingStats(newStriker, 0, false, false);
+    if (newNonStriker) updateBattingStats(newNonStriker, 0, false, false);
+    
+    // Team 2 balls start from 0
+    setTeam2Balls(0);
+    
+    // Close dialog
+    setShowSecondInningsDialog(false);
+    
+    // Notify consumers of innings switch
     updateScore();
+    
+    toast({
+      title: "Second Innings Started!",
+      description: `Target: ${team1Runs + 1} runs in ${totalOvers} overs`,
+      duration: 5000
+    });
   };
 
   const updateScore = (overrides: any = {}) => {
@@ -895,10 +1031,18 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
                 {team2Runs}/{team2Wickets}
               </div>
               {currentInning === 2 && (
-                <div className="mt-2">
+                <div className="mt-2 space-y-2">
                   <Badge variant="default" className="bg-green-600">
                     Overs: {currentOver}.{currentBall}
                   </Badge>
+                  <div className="p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-700">
+                    <p className="text-xs font-medium text-blue-800 dark:text-blue-200">
+                      🎯 Target: {team1Runs + 1}
+                    </p>
+                    <p className="text-xs text-blue-600 dark:text-blue-400">
+                      Need {Math.max(0, team1Runs + 1 - team2Runs)} runs
+                    </p>
+                  </div>
                 </div>
               )}
             </div>
@@ -1066,6 +1210,7 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
                             : ""
                         }
                         onClick={() => addRuns(runs)}
+                        disabled={isMatchCompleted}
                         data-testid={`button-runs-${runs}`}
                         size="lg"
                       >
@@ -1081,6 +1226,7 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
                   <Button 
                     variant="destructive" 
                     onClick={openWicketDialog}
+                    disabled={isMatchCompleted}
                     data-testid="button-wicket"
                     size="lg"
                     className="w-full bg-red-600 hover:bg-red-700"
@@ -1098,6 +1244,7 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
                     <Button 
                       variant="outline" 
                       onClick={() => openExtrasDialog('wide')}
+                      disabled={isMatchCompleted}
                       data-testid="button-wide"
                       className="border-orange-300 hover:bg-orange-50"
                     >
@@ -1106,6 +1253,7 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
                     <Button 
                       variant="outline" 
                       onClick={() => openExtrasDialog('no-ball')}
+                      disabled={isMatchCompleted}
                       data-testid="button-no-ball"
                       className="border-orange-300 hover:bg-orange-50"
                     >
@@ -1114,6 +1262,7 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
                     <Button 
                       variant="outline" 
                       onClick={() => openExtrasDialog('bye')}
+                      disabled={isMatchCompleted}
                       data-testid="button-bye"
                       className="border-orange-300 hover:bg-orange-50"
                     >
@@ -1122,6 +1271,7 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
                     <Button 
                       variant="outline" 
                       onClick={() => openExtrasDialog('leg-bye')}
+                      disabled={isMatchCompleted}
                       data-testid="button-leg-bye"
                       className="border-orange-300 hover:bg-orange-50"
                     >
@@ -2043,6 +2193,199 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Second Innings Setup Dialog */}
+      <Dialog open={showSecondInningsDialog} onOpenChange={setShowSecondInningsDialog}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              🏆 Second Innings Setup
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-6 py-4">
+            {/* First innings summary */}
+            <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg border border-blue-200 dark:border-blue-800">
+              <p className="text-sm font-medium text-blue-800 dark:text-blue-200 mb-2">
+                First Innings Complete: {match.team1Name || 'Team A'} scored {team1Runs}/{team1Wickets}
+              </p>
+              <p className="text-lg font-bold text-blue-900 dark:text-blue-100">
+                🎯 Target: {team1Runs + 1} runs in {totalOvers} overs
+              </p>
+              <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                {match.team2Name || 'Team B'} needs {team1Runs + 1} runs to win
+              </p>
+            </div>
+
+            {/* Player selections */}
+            <div className="space-y-4">
+              <p className="font-medium text-gray-800 dark:text-gray-200">
+                Select opening batsmen and bowler for {match.team2Name || 'Team B'}:
+              </p>
+              
+              {/* Striker selection */}
+              <div className="space-y-2">
+                <Label htmlFor="new-striker" className="font-medium">Opening Striker:</Label>
+                <div className="flex gap-2">
+                  <Select value={newStriker} onValueChange={setNewStriker}>
+                    <SelectTrigger className="flex-1" data-testid="select-new-striker">
+                      <SelectValue placeholder="Select opening striker" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {getBattingRoster().map((player: any) => (
+                        <SelectItem key={player.id} value={player.name}>
+                          {player.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Input
+                    value={newStriker}
+                    onChange={(e) => setNewStriker(e.target.value)}
+                    placeholder="Or type name"
+                    data-testid="input-new-striker"
+                    className="flex-1"
+                  />
+                </div>
+              </div>
+
+              {/* Non-striker selection */}
+              <div className="space-y-2">
+                <Label htmlFor="new-non-striker" className="font-medium">Opening Non-Striker:</Label>
+                <div className="flex gap-2">
+                  <Select value={newNonStriker} onValueChange={setNewNonStriker}>
+                    <SelectTrigger className="flex-1" data-testid="select-new-non-striker">
+                      <SelectValue placeholder="Select opening non-striker" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {getBattingRoster().filter((player: any) => player.name !== newStriker).map((player: any) => (
+                        <SelectItem key={player.id} value={player.name}>
+                          {player.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Input
+                    value={newNonStriker}
+                    onChange={(e) => setNewNonStriker(e.target.value)}
+                    placeholder="Or type name"
+                    data-testid="input-new-non-striker"
+                    className="flex-1"
+                  />
+                </div>
+              </div>
+
+              {/* Bowler selection */}
+              <div className="space-y-2">
+                <Label htmlFor="new-bowler" className="font-medium">First Bowler ({match.team1Name || 'Team A'}):</Label>
+                <div className="flex gap-2">
+                  <Select value={newBowler} onValueChange={setNewBowler}>
+                    <SelectTrigger className="flex-1" data-testid="select-new-bowler">
+                      <SelectValue placeholder="Select opening bowler" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {getFieldingRoster().map((player: any) => (
+                        <SelectItem key={player.id} value={player.name}>
+                          {player.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Input
+                    value={newBowler}
+                    onChange={(e) => setNewBowler(e.target.value)}
+                    placeholder="Or type name"
+                    data-testid="input-new-bowler"
+                    className="flex-1"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex gap-3 pt-4">
+              <Button 
+                variant="outline" 
+                onClick={() => setShowSecondInningsDialog(false)}
+                className="flex-1"
+                data-testid="button-cancel-second-innings"
+              >
+                Cancel
+              </Button>
+              <Button 
+                onClick={() => {
+                  if (!newStriker.trim() || !newNonStriker.trim() || !newBowler.trim()) {
+                    toast({
+                      title: "All Players Required",
+                      description: "Please select all players before starting second innings.",
+                      variant: "destructive",
+                    });
+                    return;
+                  }
+                  
+                  if (newStriker.trim() === newNonStriker.trim()) {
+                    toast({
+                      title: "Invalid Selection",
+                      description: "Striker and non-striker must be different players.",
+                      variant: "destructive",
+                    });
+                    return;
+                  }
+                  
+                  switchInnings();
+                }}
+                disabled={!newStriker.trim() || !newNonStriker.trim() || !newBowler.trim()}
+                className="flex-1 bg-green-600 hover:bg-green-700"
+                data-testid="button-start-second-innings"
+              >
+                Start Second Innings
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Match Result Display */}
+      {isMatchCompleted && matchResult && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <Card className="w-full max-w-md mx-4 bg-gradient-to-br from-yellow-50 to-yellow-100 dark:from-yellow-900/20 dark:to-yellow-800/20 border-2 border-yellow-300 dark:border-yellow-700">
+            <CardHeader className="text-center">
+              <CardTitle className="text-2xl font-bold text-yellow-800 dark:text-yellow-200">
+                🏆 Match Complete!
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="text-center space-y-4">
+              <p className="text-xl font-semibold text-gray-800 dark:text-gray-200">
+                {matchResult}
+              </p>
+              <div className="bg-white dark:bg-gray-800 p-4 rounded-lg border">
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Final Scores:</p>
+                <div className="grid grid-cols-2 gap-4 text-center">
+                  <div>
+                    <p className="font-semibold">{match.team1Name || 'Team A'}</p>
+                    <p className="text-lg">{team1Runs}/{team1Wickets}</p>
+                    <p className="text-xs text-gray-500">({Math.floor(team1Balls / 6)}.{team1Balls % 6} overs)</p>
+                  </div>
+                  <div>
+                    <p className="font-semibold">{match.team2Name || 'Team B'}</p>
+                    <p className="text-lg">{team2Runs}/{team2Wickets}</p>
+                    <p className="text-xs text-gray-500">({Math.floor(team2Balls / 6)}.{team2Balls % 6} overs)</p>
+                  </div>
+                </div>
+              </div>
+              <Button 
+                onClick={() => {
+                  setIsMatchCompleted(false);
+                  setMatchResult(null);
+                }}
+                className="w-full"
+                data-testid="button-close-result"
+              >
+                Close
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }
