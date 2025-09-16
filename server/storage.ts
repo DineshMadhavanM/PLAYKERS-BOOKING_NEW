@@ -22,7 +22,7 @@ export interface IStorage {
   // User operations (mandatory for authentication)
   getUser(id: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
-  createUser(user: { email: string; password: string; firstName?: string | null; lastName?: string | null; profileImageUrl?: string | null; dateOfBirth?: string | null; location?: string | null; phoneNumber?: string | null; isAdmin?: boolean }): Promise<User>;
+  createUser(user: { email: string; password: string; username?: string | null; firstName?: string | null; lastName?: string | null; profileImageUrl?: string | null; dateOfBirth?: string | null; location?: string | null; phoneNumber?: string | null; isAdmin?: boolean }): Promise<User>;
   upsertUser(user: UpsertUser): Promise<User>;
   
   // Admin operations

@@ -86,6 +86,7 @@ export class MongoStorage implements IStorage {
   async createUser(userData: { 
     email: string; 
     password: string; 
+    username?: string | null;
     firstName?: string | null; 
     lastName?: string | null; 
     profileImageUrl?: string | null; 
@@ -99,6 +100,7 @@ export class MongoStorage implements IStorage {
       id,
       email: userData.email,
       password: userData.password,
+      username: userData.username || null,
       firstName: userData.firstName || null,
       lastName: userData.lastName || null,
       profileImageUrl: userData.profileImageUrl || null,
