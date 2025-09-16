@@ -24,6 +24,7 @@ const profileSchema = z.object({
   firstName: z.string().min(1, "First name is required"),
   lastName: z.string().min(1, "Last name is required"),
   email: z.string().email("Invalid email address"),
+  username: z.string().min(3, "Username must be at least 3 characters").max(30, "Username must be at most 30 characters").regex(/^[a-zA-Z0-9_-]+$/, "Username can only contain letters, numbers, underscores, and hyphens").optional().or(z.literal("")),
   dateOfBirth: z.string().optional(),
   location: z.string().optional(),
   phoneNumber: z.string().optional(),
@@ -58,6 +59,7 @@ export default function Profile() {
       firstName: user?.firstName || "",
       lastName: user?.lastName || "",
       email: user?.email || "",
+      username: user?.username || "",
       dateOfBirth: user?.dateOfBirth ? new Date(user.dateOfBirth).toISOString().split('T')[0] : "",
       location: user?.location || "",
       phoneNumber: user?.phoneNumber || "",
@@ -287,6 +289,19 @@ export default function Profile() {
                             <FormLabel>Email</FormLabel>
                             <FormControl>
                               <Input {...field} type="email" data-testid="input-email" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="username"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Username</FormLabel>
+                            <FormControl>
+                              <Input {...field} placeholder="Enter unique username" data-testid="input-username" />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
