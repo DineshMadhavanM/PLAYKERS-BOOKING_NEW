@@ -32,6 +32,8 @@ interface PlayerBattingStats {
   fours: number;
   sixes: number;
   strikeRate: number;
+  isDismissed: boolean;
+  dismissalType?: string;
 }
 
 interface PlayerBowlingStats {
@@ -103,6 +105,9 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
   const [newBowler, setNewBowler] = useState('');
   const [matchResult, setMatchResult] = useState<string | null>(null);
   const [isMatchCompleted, setIsMatchCompleted] = useState(false);
+  
+  // Wicket tracking
+  const [dismissedPlayers, setDismissedPlayers] = useState<Set<string>>(new Set());
   
   // Match configuration for bowling restrictions
   const totalOvers = parseInt(match.matchType?.replace(/[^\d]/g, '') || '20'); // Extract number from match type like "20 Overs"
@@ -248,7 +253,7 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
   };
 
   // Update player statistics
-  const updateBattingStats = (playerName: string, runs: number, countsAsBall: boolean = true, isDot: boolean = false) => {
+  const updateBattingStats = (playerName: string, runs: number, countsAsBall: boolean = true, isDot: boolean = false, dismissalType?: string) => {
     setBattingStats(prev => {
       const existingPlayerIndex = prev.findIndex(p => p.name === playerName);
       if (existingPlayerIndex >= 0) {
@@ -260,6 +265,10 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
         if (runs === 4) player.fours += 1;
         if (runs === 6) player.sixes += 1;
         player.strikeRate = player.balls > 0 ? (player.runs / player.balls) * 100 : 0;
+        if (dismissalType) {
+          player.isDismissed = true;
+          player.dismissalType = dismissalType;
+        }
         return updated;
       } else {
         const newPlayer: PlayerBattingStats = {
@@ -269,7 +278,8 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
           dots: isDot ? 1 : 0,
           fours: runs === 4 ? 1 : 0,
           sixes: runs === 6 ? 1 : 0,
-          strikeRate: countsAsBall && runs > 0 ? runs * 100 : 0
+          strikeRate: countsAsBall && runs > 0 ? runs * 100 : 0,
+          isDismissed: false
         };
         return [...prev, newPlayer];
       }
@@ -347,11 +357,31 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
       return;
     }
 
+    // Block scoring while wicket dialog is open
+    if (showWicketDialog) {
+      toast({
+        title: "Wicket Dialog Open",
+        description: "Please complete the wicket entry before continuing.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     // Ensure bowler is selected
     if (!currentBowler) {
       toast({
         title: "Bowler Required",
         description: "Please select a valid bowler from the list.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Check if the current striker is dismissed - prevent scoring
+    if (dismissedPlayers.has(currentStriker)) {
+      toast({
+        title: "Player is Out",
+        description: `${currentStriker} is already dismissed and cannot score runs. Please select a new batsman.`,
         variant: "destructive",
       });
       return;
@@ -542,9 +572,25 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
     const actualDismissedBatter = wicketType === 'run-out' ? (dismissedBatter || 'striker') : 'striker';
     const dismissedBatterName = actualDismissedBatter === 'striker' ? currentStriker : currentNonStriker;
 
-    // Update batting stats for dismissed batter (ball faced but 0 runs)
+    // Mark player as dismissed and handle ball attribution correctly
     if (dismissedBatterName) {
-      updateBattingStats(dismissedBatterName, 0, countsAsBall, false); // Ball faced only for legal deliveries
+      // Add to dismissed players set
+      setDismissedPlayers(prev => new Set(Array.from(prev).concat(dismissedBatterName)));
+      
+      // For legal deliveries: striker always faces the ball, regardless of who gets out
+      if (countsAsBall) {
+        if (actualDismissedBatter === 'striker') {
+          // Striker gets out - they face the ball and get dismissed
+          updateBattingStats(dismissedBatterName, 0, true, false, wicketDescription);
+        } else {
+          // Non-striker gets out - striker faces the ball, non-striker gets dismissed without ball faced
+          updateBattingStats(currentStriker, 0, true, false); // Striker faces the ball
+          updateBattingStats(dismissedBatterName, 0, false, false, wicketDescription); // Non-striker dismissed, no ball faced
+        }
+      } else {
+        // Extra delivery wickets (wide-wicket, no-ball-wicket) - no ball faced by anyone
+        updateBattingStats(dismissedBatterName, 0, false, false, wicketDescription);
+      }
     }
 
     // Only credit bowler for applicable wicket types (not run-out)
@@ -626,6 +672,16 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
       return;
     }
 
+    // Block scoring while wicket dialog is open
+    if (showWicketDialog) {
+      toast({
+        title: "Wicket Dialog Open",
+        description: "Please complete the wicket entry before continuing.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     // For wides and no-balls, don't count as ball faced by bowler
     const countsAsBall = type !== 'wide' && type !== 'no-ball';
     
@@ -634,6 +690,16 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
       toast({
         title: "Bowler Required",
         description: "Please select a valid bowler from the list.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Check if current striker is dismissed for byes/leg-byes (they need to face the ball)
+    if ((type === 'bye' || type === 'leg-bye') && dismissedPlayers.has(currentStriker)) {
+      toast({
+        title: "Player is Out",
+        description: `${currentStriker} is already dismissed and cannot face the ball. Please select a new batsman.`,
         variant: "destructive",
       });
       return;
@@ -902,6 +968,7 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
     setBattingStats([]); // Reset batting stats for new team
     setBowlingStats([]); // Reset bowling stats for new team
     setBallByBall([]);
+    setDismissedPlayers(new Set()); // Reset dismissed players for new innings
     
     // Set new players
     setCurrentStriker(newStriker);
@@ -1099,14 +1166,30 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
                     {battingStats.map((player, index) => (
                       <TableRow 
                         key={index} 
-                        className={currentStriker === player.name ? "bg-blue-50 dark:bg-blue-900/20" : ""}
+                        className={
+                          player.isDismissed 
+                            ? "bg-red-50 dark:bg-red-900/20 opacity-75" 
+                            : currentStriker === player.name 
+                            ? "bg-blue-50 dark:bg-blue-900/20" 
+                            : ""
+                        }
                         data-testid={`batting-row-${player.name.replace(/\s+/g, '-').toLowerCase()}`}
                       >
                         <TableCell className="font-medium">
                           {player.name}
-                          {currentStriker === player.name && (
+                          {player.isDismissed && (
+                            <Badge variant="destructive" className="ml-2 text-xs">
+                              Out
+                            </Badge>
+                          )}
+                          {currentStriker === player.name && !player.isDismissed && (
                             <Badge variant="default" className="ml-2 text-xs bg-blue-600">
                               Striker
+                            </Badge>
+                          )}
+                          {currentNonStriker === player.name && !player.isDismissed && (
+                            <Badge variant="outline" className="ml-2 text-xs">
+                              Non-Striker
                             </Badge>
                           )}
                         </TableCell>
@@ -1377,17 +1460,28 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
                     battingStats.map((player, index) => (
                       <TableRow 
                         key={index} 
-                        className={currentStriker === player.name ? "bg-blue-100 dark:bg-blue-900/30" : ""}
+                        className={
+                          player.isDismissed 
+                            ? "bg-red-50 dark:bg-red-900/20 opacity-75" 
+                            : currentStriker === player.name 
+                            ? "bg-blue-100 dark:bg-blue-900/30" 
+                            : ""
+                        }
                         data-testid={`team1-batting-row-${player.name.replace(/\s+/g, '-').toLowerCase()}`}
                       >
                         <TableCell className="font-medium">
                           {player.name}
-                          {currentStriker === player.name && (
+                          {player.isDismissed && (
+                            <Badge variant="destructive" className="ml-2 text-xs">
+                              Out
+                            </Badge>
+                          )}
+                          {currentStriker === player.name && !player.isDismissed && (
                             <Badge variant="default" className="ml-2 text-xs bg-blue-600">
                               Striker
                             </Badge>
                           )}
-                          {currentNonStriker === player.name && (
+                          {currentNonStriker === player.name && !player.isDismissed && (
                             <Badge variant="outline" className="ml-2 text-xs">
                               Non-Striker
                             </Badge>
@@ -1441,17 +1535,28 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
                     battingStats.map((player, index) => (
                       <TableRow 
                         key={index} 
-                        className={currentStriker === player.name ? "bg-green-100 dark:bg-green-900/30" : ""}
+                        className={
+                          player.isDismissed 
+                            ? "bg-red-50 dark:bg-red-900/20 opacity-75" 
+                            : currentStriker === player.name 
+                            ? "bg-green-100 dark:bg-green-900/30" 
+                            : ""
+                        }
                         data-testid={`team2-batting-row-${player.name.replace(/\s+/g, '-').toLowerCase()}`}
                       >
                         <TableCell className="font-medium">
                           {player.name}
-                          {currentStriker === player.name && (
+                          {player.isDismissed && (
+                            <Badge variant="destructive" className="ml-2 text-xs">
+                              Out
+                            </Badge>
+                          )}
+                          {currentStriker === player.name && !player.isDismissed && (
                             <Badge variant="default" className="ml-2 text-xs bg-green-600">
                               Striker
                             </Badge>
                           )}
-                          {currentNonStriker === player.name && (
+                          {currentNonStriker === player.name && !player.isDismissed && (
                             <Badge variant="outline" className="ml-2 text-xs">
                               Non-Striker
                             </Badge>
