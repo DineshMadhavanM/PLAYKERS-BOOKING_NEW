@@ -83,6 +83,11 @@ export class MongoStorage implements IStorage {
     return user || undefined;
   }
 
+  async getUserByUsername(username: string): Promise<User | undefined> {
+    const user = await this.users.findOne({ username } as any);
+    return user || undefined;
+  }
+
   async createUser(userData: { 
     email: string; 
     password: string; 

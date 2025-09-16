@@ -152,6 +152,65 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Profile update schema
+  const profileUpdateSchema = z.object({
+    firstName: z.string().min(1, "First name is required"),
+    lastName: z.string().min(1, "Last name is required"),
+    email: z.string().email("Invalid email address"),
+    username: z.string().min(3, "Username must be at least 3 characters").max(30, "Username must be at most 30 characters").regex(/^[a-zA-Z0-9_-]+$/, "Username can only contain letters, numbers, underscores, and hyphens").optional().or(z.literal("")),
+    dateOfBirth: z.string().optional(),
+    location: z.string().optional(),
+    phoneNumber: z.string().optional(),
+  });
+
+  app.put('/api/auth/user', requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.session.user.id;
+      const updateData = profileUpdateSchema.parse(req.body);
+      
+      // Convert empty string username to null for database
+      const processedData = {
+        ...updateData,
+        username: updateData.username === "" ? null : updateData.username,
+        dateOfBirth: updateData.dateOfBirth ? updateData.dateOfBirth : null,
+        location: updateData.location || null,
+        phoneNumber: updateData.phoneNumber || null,
+      };
+      
+      // Get current user to preserve existing data
+      const currentUser = await storage.getUser(userId);
+      if (!currentUser) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      // Use upsertUser to update the profile
+      const updatedUser = await storage.upsertUser({
+        id: userId,
+        email: processedData.email,
+        username: processedData.username || null,
+        firstName: processedData.firstName || null,
+        lastName: processedData.lastName || null,
+        profileImageUrl: currentUser.profileImageUrl, // Preserve existing image
+        dateOfBirth: processedData.dateOfBirth ? new Date(processedData.dateOfBirth) : null,
+        location: processedData.location || null,
+        phoneNumber: processedData.phoneNumber || null,
+        isAdmin: currentUser.isAdmin || false, // Preserve existing admin status
+      });
+
+      // Remove password from response
+      const { password, ...userWithoutPassword } = updatedUser;
+      res.json({ message: "Profile updated successfully", user: userWithoutPassword });
+    } catch (error: any) {
+      console.error("Error updating user profile:", error);
+      
+      if (error.code === 'ER_DUP_ENTRY' || error.message.includes('duplicate')) {
+        return res.status(400).json({ message: "Username already exists. Please choose a different username." });
+      }
+      
+      res.status(400).json({ message: error.message || "Failed to update profile" });
+    }
+  });
+
   // Venue routes
   app.get('/api/venues', async (req, res) => {
     try {

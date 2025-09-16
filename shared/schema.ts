@@ -16,6 +16,17 @@ export const insertUserSchema = z.object({
   isAdmin: z.boolean().optional(),
 });
 
+// Profile update validation schema
+export const profileUpdateSchema = z.object({
+  firstName: z.string().min(1, "First name is required"),
+  lastName: z.string().min(1, "Last name is required"),
+  email: z.string().email("Invalid email address"),
+  username: z.string().min(3, "Username must be at least 3 characters").max(30, "Username must be at most 30 characters").regex(/^[a-zA-Z0-9_-]+$/, "Username can only contain letters, numbers, underscores, and hyphens").optional().or(z.literal("")),
+  dateOfBirth: z.string().optional(),
+  location: z.string().optional(),
+  phoneNumber: z.string().optional(),
+});
+
 // Venue validation schemas
 export const insertVenueSchema = z.object({
   name: z.string(),
