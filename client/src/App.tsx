@@ -9,6 +9,9 @@ import Landing from "@/pages/landing";
 import Home from "@/pages/home";
 import Venues from "@/pages/venues";
 import Matches from "@/pages/matches";
+import Teams from "@/pages/teams";
+import CreateTeam from "@/pages/create-team";
+import TeamDetail from "@/pages/team-detail";
 import Profile from "@/pages/profile";
 import Shop from "@/pages/shop";
 import CreateMatch from "@/pages/create-match";
@@ -28,6 +31,9 @@ function Router() {
       <Route path="/" component={Home} />
       <Route path="/venues" component={Venues} />
       <Route path="/matches" component={Matches} />
+      <Route path="/teams" component={Teams} />
+      <Route path="/teams/create" component={CreateTeam} />
+      <Route path="/teams/:id" component={TeamDetail} />
       <Route path="/profile" component={Profile} />
       <Route path="/shop" component={Shop} />
       <Route path="/create-match" component={CreateMatch} />
