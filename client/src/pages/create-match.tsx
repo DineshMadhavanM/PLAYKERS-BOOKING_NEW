@@ -144,16 +144,40 @@ export default function CreateMatch() {
   }, [prefilledSport, selectedSport, form]);
 
   useEffect(() => {
-    if (prefilledTeam1?.name && prefilledTeam2?.name) {
+    if (prefilledTeam1?.name) {
       form.setValue('team1Name', prefilledTeam1.name);
+    }
+    if (prefilledTeam2?.name) {
       form.setValue('team2Name', prefilledTeam2.name);
-      // Generate a default title with team names
+      setSelectedTeam(prefilledTeam2.id); // Sync selectedTeam state
+    }
+    
+    // Generate a default title with available team names
+    if (prefilledTeam1?.name && prefilledTeam2?.name) {
       const defaultTitle = `${prefilledTeam1.name} vs ${prefilledTeam2.name}`;
       if (!form.getValues('title')) {
         form.setValue('title', defaultTitle);
       }
     }
   }, [prefilledTeam1, prefilledTeam2, form]);
+
+  // Handle opponent selection changes
+  useEffect(() => {
+    if (selectedTeam && allTeams.length > 0) {
+      const selectedTeamData = allTeams.find(team => team.id === selectedTeam);
+      if (selectedTeamData) {
+        form.setValue('team2Name', selectedTeamData.name);
+        
+        // Update title if we have both teams
+        if (prefilledTeam1?.name) {
+          const defaultTitle = `${prefilledTeam1.name} vs ${selectedTeamData.name}`;
+          if (!form.getValues('title') || form.getValues('title') === '') {
+            form.setValue('title', defaultTitle);
+          }
+        }
+      }
+    }
+  }, [selectedTeam, allTeams, prefilledTeam1, form]);
 
   const createMatchMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -278,22 +302,43 @@ export default function CreateMatch() {
           </p>
         </div>
 
-        {/* Team Selection Dropdown */}
+        {/* Team Selection Section */}
         <Card className="mb-6">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Users className="h-5 w-5" />
-              Select Team
+              {prefilledTeam1 ? 'Select Opponent Team' : 'Select Teams'}
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
+            <div className="space-y-6">
+              {/* Team 1 Display (when pre-filled) */}
+              {prefilledTeam1 && (
+                <div>
+                  <Label className="text-base font-medium">Team 1</Label>
+                  <div className="mt-2 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                      <div>
+                        <p className="font-medium text-blue-700 dark:text-blue-300">
+                          {prefilledTeam1.name}
+                        </p>
+                        <p className="text-sm text-blue-600 dark:text-blue-400">
+                          {prefilledTeam1.city ? `Located in ${prefilledTeam1.city}` : 'No city specified'} • {prefilledTeam1.totalMatches || 0} matches played
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Opponent Team Selection */}
               <div>
-                <Label htmlFor="team-select" className="text-base font-medium">
-                  Choose from Available Teams
+                <Label htmlFor="opponent-select" className="text-base font-medium">
+                  {prefilledTeam1 ? 'Choose Opponent (Team 2)' : 'Choose from Available Teams'}
                 </Label>
                 <p className="text-sm text-muted-foreground mb-3">
-                  Select a team from all available teams in the system
+                  {prefilledTeam1 ? 'Select the opposing team for this match' : 'Select a team from all available teams in the system'}
                 </p>
                 <Select 
                   onValueChange={setSelectedTeam} 
@@ -301,25 +346,27 @@ export default function CreateMatch() {
                   disabled={teamsLoading}
                 >
                   <SelectTrigger 
-                    id="team-select" 
+                    id="opponent-select" 
                     className="w-full"
-                    data-testid="select-team"
+                    data-testid="select-opponent-team"
                   >
-                    <SelectValue placeholder={teamsLoading ? "Loading teams..." : "Select a team"} />
+                    <SelectValue placeholder={teamsLoading ? "Loading teams..." : (prefilledTeam1 ? "Select opponent team" : "Select a team")} />
                   </SelectTrigger>
                   <SelectContent>
-                    {allTeams.map((team) => (
-                      <SelectItem key={team.id} value={team.id}>
-                        <div className="flex items-center justify-between w-full">
-                          <span className="font-medium">{team.name}</span>
-                          {team.city && (
-                            <span className="text-sm text-muted-foreground ml-2">
-                              {team.city}
-                            </span>
-                          )}
-                        </div>
-                      </SelectItem>
-                    ))}
+                    {allTeams
+                      .filter(team => !prefilledTeam1 || team.id !== prefilledTeam1.id) // Filter out Team 1 if pre-filled
+                      .map((team) => (
+                        <SelectItem key={team.id} value={team.id}>
+                          <div className="flex items-center justify-between w-full">
+                            <span className="font-medium">{team.name}</span>
+                            {team.city && (
+                              <span className="text-sm text-muted-foreground ml-2">
+                                {team.city}
+                              </span>
+                            )}
+                          </div>
+                        </SelectItem>
+                      ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -333,7 +380,7 @@ export default function CreateMatch() {
                         <div className="w-3 h-3 bg-green-500 rounded-full"></div>
                         <div>
                           <p className="font-medium text-green-700 dark:text-green-300">
-                            {team.name}
+                            {team.name} {prefilledTeam1 ? '(Opponent)' : ''}
                           </p>
                           <p className="text-sm text-green-600 dark:text-green-400">
                             {team.city ? `Located in ${team.city}` : 'No city specified'} • {team.totalMatches || 0} matches played
