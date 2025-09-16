@@ -161,10 +161,12 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
         { name: 'Batsman 10', team: battingTeam, role: 'batsman', id: `${battingTeam}-batsman-10` },
         { name: 'Batsman 11', team: battingTeam, role: 'batsman', id: `${battingTeam}-batsman-11` },
       ];
-      return fallbackBatsmen;
+      // Filter out dismissed players from fallback names too
+      return fallbackBatsmen.filter(player => !dismissedPlayers.has(player.name));
     }
     
-    return filteredPlayers;
+    // Filter out dismissed players from actual roster
+    return filteredPlayers.filter((player: any) => !dismissedPlayers.has(player.name));
   };
 
   // Track legal balls separately from total balls (including extras)
