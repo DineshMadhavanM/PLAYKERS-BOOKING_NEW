@@ -19,6 +19,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { Calendar, MapPin, Users, Clock, Trophy } from "lucide-react";
 import { useLocation } from "wouter";
 import CricketTeamRoster, { Player } from "@/components/cricket-team-roster";
+import type { Team } from "@shared/schema";
 
 const matchSchema = z.object({
   title: z.string().min(1, "Match title is required"),
@@ -57,6 +58,7 @@ export default function CreateMatch() {
   const [selectedSport, setSelectedSport] = useState("");
   const [team1Roster, setTeam1Roster] = useState<Player[]>([]);
   const [team2Roster, setTeam2Roster] = useState<Player[]>([]);
+  const [selectedTeam, setSelectedTeam] = useState<string>("");
   
   // URL parameters for pre-filled data
   const urlParams = new URLSearchParams(window.location.search);
@@ -98,6 +100,17 @@ export default function CreateMatch() {
 
   const { data: venues = [] } = useQuery({
     queryKey: ["/api/venues"],
+    enabled: isAuthenticated,
+  });
+
+  // Fetch all teams for dropdown
+  const { data: allTeams = [], isLoading: teamsLoading } = useQuery({
+    queryKey: ['/api/teams'],
+    queryFn: async (): Promise<Team[]> => {
+      const response = await fetch('/api/teams');
+      if (!response.ok) throw new Error('Failed to fetch teams');
+      return response.json();
+    },
     enabled: isAuthenticated,
   });
 
@@ -264,6 +277,76 @@ export default function CreateMatch() {
             Set up a new match and invite players to join your game.
           </p>
         </div>
+
+        {/* Team Selection Dropdown */}
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5" />
+              Select Team
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="team-select" className="text-base font-medium">
+                  Choose from Available Teams
+                </Label>
+                <p className="text-sm text-muted-foreground mb-3">
+                  Select a team from all available teams in the system
+                </p>
+                <Select 
+                  onValueChange={setSelectedTeam} 
+                  value={selectedTeam}
+                  disabled={teamsLoading}
+                >
+                  <SelectTrigger 
+                    id="team-select" 
+                    className="w-full"
+                    data-testid="select-team"
+                  >
+                    <SelectValue placeholder={teamsLoading ? "Loading teams..." : "Select a team"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {allTeams.map((team) => (
+                      <SelectItem key={team.id} value={team.id}>
+                        <div className="flex items-center justify-between w-full">
+                          <span className="font-medium">{team.name}</span>
+                          {team.city && (
+                            <span className="text-sm text-muted-foreground ml-2">
+                              {team.city}
+                            </span>
+                          )}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              {selectedTeam && (
+                <div className="mt-4 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+                  {(() => {
+                    const team = allTeams.find(t => t.id === selectedTeam);
+                    return team ? (
+                      <div className="flex items-center gap-3">
+                        <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                        <div>
+                          <p className="font-medium text-green-700 dark:text-green-300">
+                            {team.name}
+                          </p>
+                          <p className="text-sm text-green-600 dark:text-green-400">
+                            {team.city ? `Located in ${team.city}` : 'No city specified'} • {team.totalMatches || 0} matches played
+                          </p>
+                        </div>
+                      </div>
+                    ) : null;
+                  })()}
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
 
         <Card>
           <CardHeader>
