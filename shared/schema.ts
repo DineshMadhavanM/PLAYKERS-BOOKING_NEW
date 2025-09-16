@@ -295,6 +295,159 @@ export const insertMatchRosterPlayerSchema = z.object({
   userId: z.string().optional(),
 });
 
+// Scorecard update validation schema (extracted from insertCricketMatchSchema)
+export const scorecardUpdateSchema = z.object({
+  team1Innings: z.array(z.object({
+    inningsNumber: z.number(),
+    battingTeamId: z.string(),
+    totalRuns: z.number(),
+    totalWickets: z.number(),
+    totalOvers: z.number(),
+    runRate: z.number(),
+    extras: z.object({
+      wides: z.number(),
+      noBalls: z.number(),
+      byes: z.number(),
+      legByes: z.number(),
+      penalties: z.number(),
+    }),
+    batsmen: z.array(z.object({
+      playerId: z.string(),
+      runsScored: z.number(),
+      ballsFaced: z.number(),
+      fours: z.number(),
+      sixes: z.number(),
+      strikeRate: z.number(),
+      dismissalType: z.enum(["not-out", "bowled", "caught", "lbw", "run-out", "stumped", "hit-wicket", "retired", "timed-out"]).optional(),
+      bowlerOut: z.string().optional(), // Bowler who got the wicket
+      fielderOut: z.string().optional(), // Fielder who took catch/run out
+    })),
+    bowlers: z.array(z.object({
+      playerId: z.string(),
+      overs: z.number(),
+      maidens: z.number(),
+      runsGiven: z.number(),
+      wickets: z.number(),
+      economy: z.number(),
+      wides: z.number(),
+      noBalls: z.number(),
+    })),
+    ballByBall: z.array(z.object({
+      overNumber: z.number(),
+      ballNumber: z.number(),
+      bowlerId: z.string(),
+      batsmanId: z.string(),
+      runs: z.number(),
+      extras: z.number(),
+      extraType: z.enum(["wide", "no-ball", "bye", "leg-bye", "penalty"]).optional(),
+      wicket: z.boolean(),
+      wicketType: z.enum(["bowled", "caught", "lbw", "run-out", "stumped", "hit-wicket"]).optional(),
+      fielderOut: z.string().optional(),
+    })).optional(),
+  })),
+  team2Innings: z.array(z.object({
+    inningsNumber: z.number(),
+    battingTeamId: z.string(),
+    totalRuns: z.number(),
+    totalWickets: z.number(),
+    totalOvers: z.number(),
+    runRate: z.number(),
+    extras: z.object({
+      wides: z.number(),
+      noBalls: z.number(),
+      byes: z.number(),
+      legByes: z.number(),
+      penalties: z.number(),
+    }),
+    batsmen: z.array(z.object({
+      playerId: z.string(),
+      runsScored: z.number(),
+      ballsFaced: z.number(),
+      fours: z.number(),
+      sixes: z.number(),
+      strikeRate: z.number(),
+      dismissalType: z.enum(["not-out", "bowled", "caught", "lbw", "run-out", "stumped", "hit-wicket", "retired", "timed-out"]).optional(),
+      bowlerOut: z.string().optional(),
+      fielderOut: z.string().optional(),
+    })),
+    bowlers: z.array(z.object({
+      playerId: z.string(),
+      overs: z.number(),
+      maidens: z.number(),
+      runsGiven: z.number(),
+      wickets: z.number(),
+      economy: z.number(),
+      wides: z.number(),
+      noBalls: z.number(),
+    })),
+    ballByBall: z.array(z.object({
+      overNumber: z.number(),
+      ballNumber: z.number(),
+      bowlerId: z.string(),
+      batsmanId: z.string(),
+      runs: z.number(),
+      extras: z.number(),
+      extraType: z.enum(["wide", "no-ball", "bye", "leg-bye", "penalty"]).optional(),
+      wicket: z.boolean(),
+      wicketType: z.enum(["bowled", "caught", "lbw", "run-out", "stumped", "hit-wicket"]).optional(),
+      fielderOut: z.string().optional(),
+    })).optional(),
+  })),
+});
+
+// Player stats update validation schema for match performance
+export const playerStatsUpdateSchema = z.object({
+  // Batting performance
+  runsScored: z.number().min(0).optional(),
+  ballsFaced: z.number().min(0).optional(),
+  fours: z.number().min(0).optional(),
+  sixes: z.number().min(0).optional(),
+  strikeRate: z.number().min(0).optional(),
+  dismissalType: z.enum(["not-out", "bowled", "caught", "lbw", "run-out", "stumped", "hit-wicket", "retired", "timed-out"]).optional(),
+  
+  // Bowling performance
+  overs: z.number().min(0).optional(),
+  maidens: z.number().min(0).optional(),
+  runsGiven: z.number().min(0).optional(),
+  wickets: z.number().min(0).optional(),
+  economy: z.number().min(0).optional(),
+  wides: z.number().min(0).optional(),
+  noBalls: z.number().min(0).optional(),
+  
+  // Fielding performance
+  catches: z.number().min(0).optional(),
+  runOuts: z.number().min(0).optional(),
+  stumpings: z.number().min(0).optional(),
+  
+  // Match result
+  isWinner: z.boolean().optional(),
+  manOfTheMatch: z.boolean().optional(),
+  bestBatsman: z.boolean().optional(),
+  bestBowler: z.boolean().optional(),
+  bestFielder: z.boolean().optional(),
+});
+
+// Team stats update validation schema for match performance
+export const teamStatsUpdateSchema = z.object({
+  // Match result
+  matchResult: z.enum(["won", "lost", "drawn", "no-result", "abandoned"]),
+  
+  // Team performance
+  totalRuns: z.number().min(0),
+  totalWickets: z.number().min(0),
+  totalOvers: z.number().min(0),
+  runRate: z.number().min(0).optional(),
+  
+  // Opposition team performance (for calculating net run rate)
+  oppositionRuns: z.number().min(0).optional(),
+  oppositionWickets: z.number().min(0).optional(),
+  oppositionOvers: z.number().min(0).optional(),
+  
+  // Match details
+  tournamentPoints: z.number().min(0).optional(),
+  netRunRateChange: z.number().optional(),
+});
+
 // TypeScript types for MongoDB documents
 export type User = {
   id: string;

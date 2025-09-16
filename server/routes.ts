@@ -5,11 +5,14 @@ import { initializeEmailAuth, requireAuth, registerUser, loginUser } from "./ema
 import {
   insertVenueSchema,
   insertMatchSchema,
+  insertCricketMatchSchema,
   insertBookingSchema,
   insertProductSchema,
   insertReviewSchema,
   insertMatchParticipantSchema,
   insertCartItemSchema,
+  insertTeamSchema,
+  insertPlayerSchema,
 } from "@shared/schema";
 import { z } from "zod";
 
@@ -646,6 +649,254 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error deleting user:", error);
       res.status(500).json({ message: "Failed to delete user" });
+    }
+  });
+
+  // Team routes
+  app.get('/api/teams', async (req, res) => {
+    try {
+      const { search } = req.query;
+      const teams = await storage.getTeams({
+        search: search as string,
+      });
+      res.json(teams);
+    } catch (error) {
+      console.error("Error fetching teams:", error);
+      res.status(500).json({ message: "Failed to fetch teams" });
+    }
+  });
+
+  app.get('/api/teams/:id', async (req, res) => {
+    try {
+      const team = await storage.getTeam(req.params.id);
+      if (!team) {
+        return res.status(404).json({ message: "Team not found" });
+      }
+      res.json(team);
+    } catch (error) {
+      console.error("Error fetching team:", error);
+      res.status(500).json({ message: "Failed to fetch team" });
+    }
+  });
+
+  app.post('/api/teams', requireAuth, async (req: any, res) => {
+    try {
+      const teamData = insertTeamSchema.parse(req.body);
+      const team = await storage.createTeam(teamData);
+      res.status(201).json(team);
+    } catch (error: any) {
+      console.error("Error creating team:", error);
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ message: "Validation error", issues: error.issues });
+      }
+      res.status(500).json({ message: "Failed to create team" });
+    }
+  });
+
+  app.put('/api/teams/:id', requireAuth, async (req, res) => {
+    try {
+      const teamData = insertTeamSchema.partial().parse(req.body);
+      const team = await storage.updateTeam(req.params.id, teamData);
+      if (!team) {
+        return res.status(404).json({ message: "Team not found" });
+      }
+      res.json(team);
+    } catch (error: any) {
+      console.error("Error updating team:", error);
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ message: "Validation error", issues: error.issues });
+      }
+      res.status(500).json({ message: "Failed to update team" });
+    }
+  });
+
+  app.delete('/api/teams/:id', requireAuth, async (req, res) => {
+    try {
+      const success = await storage.deleteTeam(req.params.id);
+      if (!success) {
+        return res.status(404).json({ message: "Team not found" });
+      }
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting team:", error);
+      res.status(500).json({ message: "Failed to delete team" });
+    }
+  });
+
+  // Get team match history
+  app.get('/api/teams/:id/matches', async (req, res) => {
+    try {
+      const matches = await storage.getTeamMatchHistory(req.params.id);
+      res.json(matches);
+    } catch (error) {
+      console.error("Error fetching team match history:", error);
+      res.status(500).json({ message: "Failed to fetch team match history" });
+    }
+  });
+
+  // Player routes
+  app.get('/api/players', async (req, res) => {
+    try {
+      const { teamId, role, search } = req.query;
+      const players = await storage.getPlayers({
+        teamId: teamId as string,
+        role: role as string,
+        search: search as string,
+      });
+      res.json(players);
+    } catch (error) {
+      console.error("Error fetching players:", error);
+      res.status(500).json({ message: "Failed to fetch players" });
+    }
+  });
+
+  app.get('/api/players/:id', async (req, res) => {
+    try {
+      const player = await storage.getPlayer(req.params.id);
+      if (!player) {
+        return res.status(404).json({ message: "Player not found" });
+      }
+      res.json(player);
+    } catch (error) {
+      console.error("Error fetching player:", error);
+      res.status(500).json({ message: "Failed to fetch player" });
+    }
+  });
+
+  app.post('/api/players', requireAuth, async (req: any, res) => {
+    try {
+      const playerData = insertPlayerSchema.parse(req.body);
+      const player = await storage.createPlayer(playerData);
+      res.status(201).json(player);
+    } catch (error: any) {
+      console.error("Error creating player:", error);
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ message: "Validation error", issues: error.issues });
+      }
+      res.status(500).json({ message: "Failed to create player" });
+    }
+  });
+
+  app.put('/api/players/:id', requireAuth, async (req, res) => {
+    try {
+      const playerData = insertPlayerSchema.partial().parse(req.body);
+      const player = await storage.updatePlayer(req.params.id, playerData);
+      if (!player) {
+        return res.status(404).json({ message: "Player not found" });
+      }
+      res.json(player);
+    } catch (error: any) {
+      console.error("Error updating player:", error);
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ message: "Validation error", issues: error.issues });
+      }
+      res.status(500).json({ message: "Failed to update player" });
+    }
+  });
+
+  app.delete('/api/players/:id', requireAuth, async (req, res) => {
+    try {
+      const success = await storage.deletePlayer(req.params.id);
+      if (!success) {
+        return res.status(404).json({ message: "Player not found" });
+      }
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting player:", error);
+      res.status(500).json({ message: "Failed to delete player" });
+    }
+  });
+
+  // Get player match history
+  app.get('/api/players/:id/matches', async (req, res) => {
+    try {
+      const matches = await storage.getPlayerMatchHistory(req.params.id);
+      res.json(matches);
+    } catch (error) {
+      console.error("Error fetching player match history:", error);
+      res.status(500).json({ message: "Failed to fetch player match history" });
+    }
+  });
+
+  // Get player by user ID
+  app.get('/api/users/:userId/player', async (req, res) => {
+    try {
+      const player = await storage.getPlayerByUserId(req.params.userId);
+      if (!player) {
+        return res.status(404).json({ message: "Player profile not found" });
+      }
+      res.json(player);
+    } catch (error) {
+      console.error("Error fetching player by user ID:", error);
+      res.status(500).json({ message: "Failed to fetch player profile" });
+    }
+  });
+
+  // Enhanced cricket match routes
+  app.post('/api/matches/cricket', requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.session.user.id;
+      const requestBody = { ...req.body, organizerId: userId };
+      
+      // Convert scheduledAt string to Date object if it's a string
+      if (requestBody.scheduledAt && typeof requestBody.scheduledAt === 'string') {
+        requestBody.scheduledAt = new Date(requestBody.scheduledAt);
+      }
+      
+      const cricketMatchData = insertCricketMatchSchema.parse(requestBody);
+      const match = await storage.createCricketMatch(cricketMatchData);
+      res.status(201).json(match);
+    } catch (error: any) {
+      console.error("Error creating cricket match:", error);
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ message: "Validation error", issues: error.issues });
+      }
+      res.status(500).json({ message: "Failed to create cricket match" });
+    }
+  });
+
+  // Update match scorecard
+  app.put('/api/matches/:id/scorecard', requireAuth, async (req, res) => {
+    try {
+      const { scorecard } = req.body;
+      const match = await storage.updateMatchScorecard(req.params.id, scorecard);
+      if (!match) {
+        return res.status(404).json({ message: "Match not found" });
+      }
+      res.json(match);
+    } catch (error) {
+      console.error("Error updating match scorecard:", error);
+      res.status(500).json({ message: "Failed to update match scorecard" });
+    }
+  });
+
+  // Player stats update route (for post-match statistics)
+  app.put('/api/players/:id/stats', requireAuth, async (req, res) => {
+    try {
+      const { matchStats } = req.body;
+      const player = await storage.updatePlayerStats(req.params.id, matchStats);
+      if (!player) {
+        return res.status(404).json({ message: "Player not found" });
+      }
+      res.json(player);
+    } catch (error) {
+      console.error("Error updating player stats:", error);
+      res.status(500).json({ message: "Failed to update player stats" });
+    }
+  });
+
+  // Team stats update route (for post-match statistics)
+  app.put('/api/teams/:id/stats', requireAuth, async (req, res) => {
+    try {
+      const { stats } = req.body;
+      const team = await storage.updateTeamStats(req.params.id, stats);
+      if (!team) {
+        return res.status(404).json({ message: "Team not found" });
+      }
+      res.json(team);
+    } catch (error) {
+      console.error("Error updating team stats:", error);
+      res.status(500).json({ message: "Failed to update team stats" });
     }
   });
 
