@@ -46,6 +46,11 @@ export default function Matches() {
 
   const { data: userMatches = [] } = useQuery({
     queryKey: ["/api/user/matches"],
+    queryFn: async () => {
+      const response = await fetch("/api/user/matches");
+      if (!response.ok) throw new Error("Failed to fetch user matches");
+      return response.json();
+    },
     enabled: isAuthenticated,
   });
 
