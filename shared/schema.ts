@@ -133,6 +133,156 @@ export const insertUserStatsSchema = z.object({
   stats: z.any().nullable().optional(), // JSON
 });
 
+// Team validation schemas
+export const insertTeamSchema = z.object({
+  name: z.string().min(1, "Team name is required"),
+  shortName: z.string().max(4, "Short name must be 4 characters or less").optional(),
+  description: z.string().optional(),
+  captainId: z.string().optional(),
+  viceCaptainId: z.string().optional(),
+  logo: z.string().optional(),
+  homeVenueId: z.string().optional(),
+});
+
+// Player validation schemas
+export const insertPlayerSchema = z.object({
+  name: z.string().min(1, "Player name is required"),
+  email: z.string().email().optional(),
+  userId: z.string().optional(), // Link to registered user if available
+  teamId: z.string().optional(),
+  role: z.enum(["batsman", "bowler", "all-rounder", "wicket-keeper"]).optional(),
+  battingStyle: z.enum(["right-handed", "left-handed"]).optional(),
+  bowlingStyle: z.enum(["right-arm-fast", "left-arm-fast", "right-arm-medium", "left-arm-medium", "right-arm-spin", "left-arm-spin", "leg-spin", "off-spin"]).optional(),
+  jerseyNumber: z.number().optional(),
+});
+
+// Enhanced match schema for cricket scorecards
+export const insertCricketMatchSchema = insertMatchSchema.extend({
+  tossWinnerId: z.string().optional(),
+  tossDecision: z.enum(["bat", "bowl"]).optional(),
+  overs: z.number().optional(),
+  matchFormat: z.enum(["T20", "ODI", "Test", "T10"]).optional(),
+  umpire1: z.string().optional(),
+  umpire2: z.string().optional(),
+  thirdUmpire: z.string().optional(),
+  referee: z.string().optional(),
+  weather: z.string().optional(),
+  pitchCondition: z.string().optional(),
+  team1Players: z.array(z.string()).optional(), // Player IDs
+  team2Players: z.array(z.string()).optional(), // Player IDs
+  scorecard: z.object({
+    team1Innings: z.array(z.object({
+      inningsNumber: z.number(),
+      battingTeamId: z.string(),
+      totalRuns: z.number(),
+      totalWickets: z.number(),
+      totalOvers: z.number(),
+      runRate: z.number(),
+      extras: z.object({
+        wides: z.number(),
+        noBalls: z.number(),
+        byes: z.number(),
+        legByes: z.number(),
+        penalties: z.number(),
+      }),
+      batsmen: z.array(z.object({
+        playerId: z.string(),
+        runsScored: z.number(),
+        ballsFaced: z.number(),
+        fours: z.number(),
+        sixes: z.number(),
+        strikeRate: z.number(),
+        dismissalType: z.enum(["not-out", "bowled", "caught", "lbw", "run-out", "stumped", "hit-wicket", "retired", "timed-out"]).optional(),
+        bowlerOut: z.string().optional(), // Bowler who got the wicket
+        fielderOut: z.string().optional(), // Fielder who took catch/run out
+      })),
+      bowlers: z.array(z.object({
+        playerId: z.string(),
+        overs: z.number(),
+        maidens: z.number(),
+        runsGiven: z.number(),
+        wickets: z.number(),
+        economy: z.number(),
+        wides: z.number(),
+        noBalls: z.number(),
+      })),
+      ballByBall: z.array(z.object({
+        overNumber: z.number(),
+        ballNumber: z.number(),
+        bowlerId: z.string(),
+        batsmanId: z.string(),
+        runs: z.number(),
+        extras: z.number(),
+        extraType: z.enum(["wide", "no-ball", "bye", "leg-bye", "penalty"]).optional(),
+        wicket: z.boolean(),
+        wicketType: z.enum(["bowled", "caught", "lbw", "run-out", "stumped", "hit-wicket"]).optional(),
+        fielderOut: z.string().optional(),
+      })).optional(),
+    })),
+    team2Innings: z.array(z.object({
+      inningsNumber: z.number(),
+      battingTeamId: z.string(),
+      totalRuns: z.number(),
+      totalWickets: z.number(),
+      totalOvers: z.number(),
+      runRate: z.number(),
+      extras: z.object({
+        wides: z.number(),
+        noBalls: z.number(),
+        byes: z.number(),
+        legByes: z.number(),
+        penalties: z.number(),
+      }),
+      batsmen: z.array(z.object({
+        playerId: z.string(),
+        runsScored: z.number(),
+        ballsFaced: z.number(),
+        fours: z.number(),
+        sixes: z.number(),
+        strikeRate: z.number(),
+        dismissalType: z.enum(["not-out", "bowled", "caught", "lbw", "run-out", "stumped", "hit-wicket", "retired", "timed-out"]).optional(),
+        bowlerOut: z.string().optional(),
+        fielderOut: z.string().optional(),
+      })),
+      bowlers: z.array(z.object({
+        playerId: z.string(),
+        overs: z.number(),
+        maidens: z.number(),
+        runsGiven: z.number(),
+        wickets: z.number(),
+        economy: z.number(),
+        wides: z.number(),
+        noBalls: z.number(),
+      })),
+      ballByBall: z.array(z.object({
+        overNumber: z.number(),
+        ballNumber: z.number(),
+        bowlerId: z.string(),
+        batsmanId: z.string(),
+        runs: z.number(),
+        extras: z.number(),
+        extraType: z.enum(["wide", "no-ball", "bye", "leg-bye", "penalty"]).optional(),
+        wicket: z.boolean(),
+        wicketType: z.enum(["bowled", "caught", "lbw", "run-out", "stumped", "hit-wicket"]).optional(),
+        fielderOut: z.string().optional(),
+      })).optional(),
+    })),
+  }).optional(),
+  awards: z.object({
+    manOfTheMatch: z.string().optional(), // Player ID
+    bestBatsman: z.string().optional(),
+    bestBowler: z.string().optional(),
+    bestFielder: z.string().optional(),
+  }).optional(),
+  resultSummary: z.object({
+    winnerId: z.string().optional(), // Team ID
+    resultType: z.enum(["won-by-runs", "won-by-wickets", "tied", "no-result", "abandoned"]).optional(),
+    marginRuns: z.number().optional(),
+    marginWickets: z.number().optional(),
+    marginBalls: z.number().optional(),
+  }).optional(),
+});
+
 // Match roster player validation schemas
 export const insertMatchRosterPlayerSchema = z.object({
   matchId: z.string(),
@@ -281,6 +431,84 @@ export type UserStats = {
   updatedAt: Date | null;
 };
 
+// Team type for MongoDB documents
+export type Team = {
+  id: string;
+  name: string;
+  shortName: string | null;
+  description: string | null;
+  captainId: string | null;
+  viceCaptainId: string | null;
+  logo: string | null;
+  homeVenueId: string | null;
+  // Team Statistics
+  totalMatches: number | null;
+  matchesWon: number | null;
+  matchesLost: number | null;
+  matchesDrawn: number | null;
+  totalRunsScored: number | null;
+  totalWicketsTaken: number | null;
+  tournamentPoints: number | null;
+  netRunRate: number | null;
+  createdAt: Date | null;
+  updatedAt: Date | null;
+};
+
+// Player type for MongoDB documents
+export type Player = {
+  id: string;
+  name: string;
+  email: string | null;
+  userId: string | null; // Link to registered user if available
+  teamId: string | null;
+  role: string | null; // batsman, bowler, all-rounder, wicket-keeper
+  battingStyle: string | null; // right-handed, left-handed
+  bowlingStyle: string | null; // right-arm-fast, left-arm-fast, etc.
+  jerseyNumber: number | null;
+  
+  // Career Statistics
+  careerStats: {
+    // Batting Stats
+    totalRuns: number;
+    totalBallsFaced: number;
+    totalFours: number;
+    totalSixes: number;
+    highestScore: number;
+    centuries: number;
+    halfCenturies: number;
+    battingAverage: number;
+    strikeRate: number;
+    
+    // Bowling Stats
+    totalOvers: number;
+    totalRunsGiven: number;
+    totalWickets: number;
+    totalMaidens: number;
+    bestBowlingFigures: string | null; // e.g., "4/25"
+    fiveWicketHauls: number;
+    bowlingAverage: number;
+    economy: number;
+    
+    // Fielding Stats
+    catches: number;
+    runOuts: number;
+    stumpings: number;
+    
+    // Match Records
+    totalMatches: number;
+    matchesWon: number;
+    
+    // Awards
+    manOfTheMatchAwards: number;
+    bestBatsmanAwards: number;
+    bestBowlerAwards: number;
+    bestFielderAwards: number;
+  };
+  
+  createdAt: Date | null;
+  updatedAt: Date | null;
+};
+
 export type MatchRosterPlayer = {
   id: string;
   matchId: string;
@@ -299,6 +527,7 @@ export type InsertUser = z.infer<typeof insertUserSchema>;
 export type UpsertUser = Omit<User, 'createdAt' | 'updatedAt' | 'password'> & { password?: string }; // Storage handles timestamps, password optional for OAuth users
 export type InsertVenue = z.infer<typeof insertVenueSchema>;
 export type InsertMatch = z.infer<typeof insertMatchSchema>;
+export type InsertCricketMatch = z.infer<typeof insertCricketMatchSchema>;
 export type InsertMatchParticipant = z.infer<typeof insertMatchParticipantSchema>;
 export type InsertBooking = z.infer<typeof insertBookingSchema>;
 export type InsertProduct = z.infer<typeof insertProductSchema>;
@@ -306,3 +535,5 @@ export type InsertReview = z.infer<typeof insertReviewSchema>;
 export type InsertCartItem = z.infer<typeof insertCartItemSchema>;
 export type InsertUserStats = z.infer<typeof insertUserStatsSchema>;
 export type InsertMatchRosterPlayer = z.infer<typeof insertMatchRosterPlayerSchema>;
+export type InsertTeam = z.infer<typeof insertTeamSchema>;
+export type InsertPlayer = z.infer<typeof insertPlayerSchema>;
