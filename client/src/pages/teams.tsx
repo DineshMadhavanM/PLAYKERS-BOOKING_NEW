@@ -263,7 +263,7 @@ function TeamCard({ team }: { team: Team }) {
         <Button 
           onClick={(e) => {
             e.stopPropagation();
-            navigate('/matches?team=' + team.id);
+            navigate('/matches?mode=opponent-selection&team=' + team.id);
           }}
           className="w-full flex items-center gap-2"
           variant="default"
