@@ -32,7 +32,7 @@ Preferred communication style: Simple, everyday language.
 
 ## Authentication & Authorization
 - **Provider**: Replit Auth with OpenID Connect (OIDC) integration
-- **Session Management**: Express session middleware with PostgreSQL storage
+- **Session Management**: Express session middleware with in-memory session storage
 - **Security**: HTTP-only cookies with secure flags and CSRF protection
 - **User Management**: Automatic user creation and profile management
 
