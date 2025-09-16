@@ -470,6 +470,7 @@ export class MongoStorage implements IStorage {
     const team: Team = {
       id,
       ...teamData,
+      city: teamData.city || null,
       shortName: teamData.shortName || null,
       description: teamData.description || null,
       captainId: teamData.captainId || null,
