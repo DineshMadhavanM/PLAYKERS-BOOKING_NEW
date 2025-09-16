@@ -18,22 +18,21 @@ import Admin from "@/pages/admin";
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
 
+  // If not authenticated, redirect all routes to landing page
+  if (isLoading || !isAuthenticated) {
+    return <Landing />;
+  }
+
   return (
     <Switch>
-      {isLoading || !isAuthenticated ? (
-        <Route path="/" component={Landing} />
-      ) : (
-        <>
-          <Route path="/" component={Home} />
-          <Route path="/venues" component={Venues} />
-          <Route path="/matches" component={Matches} />
-          <Route path="/profile" component={Profile} />
-          <Route path="/shop" component={Shop} />
-          <Route path="/create-match" component={CreateMatch} />
-          <Route path="/match/:id/score" component={MatchScorer} />
-          <Route path="/admin" component={Admin} />
-        </>
-      )}
+      <Route path="/" component={Home} />
+      <Route path="/venues" component={Venues} />
+      <Route path="/matches" component={Matches} />
+      <Route path="/profile" component={Profile} />
+      <Route path="/shop" component={Shop} />
+      <Route path="/create-match" component={CreateMatch} />
+      <Route path="/match/:id/score" component={MatchScorer} />
+      <Route path="/admin" component={Admin} />
       <Route component={NotFound} />
     </Switch>
   );
