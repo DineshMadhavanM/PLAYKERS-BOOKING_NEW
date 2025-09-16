@@ -59,6 +59,8 @@ export default function CreateMatch() {
   const [team1Roster, setTeam1Roster] = useState<Player[]>([]);
   const [team2Roster, setTeam2Roster] = useState<Player[]>([]);
   const [selectedTeam, setSelectedTeam] = useState<string>("");
+  const [team1Id, setTeam1Id] = useState<string>("");
+  const [team2Id, setTeam2Id] = useState<string>("");
   
   // URL parameters for pre-filled data
   const urlParams = new URLSearchParams(window.location.search);
@@ -135,6 +137,37 @@ export default function CreateMatch() {
     enabled: isAuthenticated && !!prefilledTeam2Id,
   });
 
+  // Fetch players for Team 1
+  const { data: team1Players = [], isLoading: team1PlayersLoading } = useQuery({
+    queryKey: ['/api/players', team1Id],
+    queryFn: async (): Promise<any[]> => {
+      const response = await fetch(`/api/players?teamId=${team1Id}`);
+      if (!response.ok) throw new Error('Failed to fetch team 1 players');
+      return response.json();
+    },
+    enabled: isAuthenticated && !!team1Id,
+  });
+
+  // Fetch players for Team 2  
+  const { data: team2Players = [], isLoading: team2PlayersLoading } = useQuery({
+    queryKey: ['/api/players', team2Id],
+    queryFn: async (): Promise<any[]> => {
+      const response = await fetch(`/api/players?teamId=${team2Id}`);
+      if (!response.ok) throw new Error('Failed to fetch team 2 players');
+      return response.json();
+    },
+    enabled: isAuthenticated && !!team2Id,
+  });
+
+  // Helper function to map database Player to CricketTeamRoster Player
+  const mapDatabasePlayerToRosterPlayer = (dbPlayer: any): Player => ({
+    id: dbPlayer.id,
+    name: dbPlayer.name,
+    email: dbPlayer.email || '',
+    role: 'player', // Default role, can be changed in roster
+    position: 0, // Will be set by roster component
+  });
+
   // Set form defaults with pre-filled data
   useEffect(() => {
     if (prefilledSport && prefilledSport !== selectedSport) {
@@ -146,10 +179,12 @@ export default function CreateMatch() {
   useEffect(() => {
     if (prefilledTeam1?.name) {
       form.setValue('team1Name', prefilledTeam1.name);
+      setTeam1Id(prefilledTeam1.id); // Track team1 ID
     }
     if (prefilledTeam2?.name) {
       form.setValue('team2Name', prefilledTeam2.name);
       setSelectedTeam(prefilledTeam2.id); // Sync selectedTeam state
+      setTeam2Id(prefilledTeam2.id); // Track team2 ID
     }
     
     // Generate a default title with available team names
@@ -167,6 +202,7 @@ export default function CreateMatch() {
       const selectedTeamData = allTeams.find(team => team.id === selectedTeam);
       if (selectedTeamData) {
         form.setValue('team2Name', selectedTeamData.name);
+        setTeam2Id(selectedTeamData.id); // Track team2 ID
         
         // Update title if we have both teams
         if (prefilledTeam1?.name) {
@@ -178,6 +214,31 @@ export default function CreateMatch() {
       }
     }
   }, [selectedTeam, allTeams, prefilledTeam1, form]);
+
+  // Initialize team rosters with available players when players are fetched
+  // Reset and reinitialize when team1Id changes or when team1Players are loaded
+  useEffect(() => {
+    if (team1Id && team1Players.length > 0) {
+      const mappedPlayers = team1Players.map((player, index) => 
+        mapDatabasePlayerToRosterPlayer({ ...player, position: index + 1 })
+      );
+      setTeam1Roster(mappedPlayers.slice(0, 15)); // Limit to 15 players
+    } else if (!team1Id) {
+      setTeam1Roster([]); // Clear roster when no team selected
+    }
+  }, [team1Id, team1Players]);
+
+  // Reset and reinitialize when team2Id changes or when team2Players are loaded  
+  useEffect(() => {
+    if (team2Id && team2Players.length > 0) {
+      const mappedPlayers = team2Players.map((player, index) => 
+        mapDatabasePlayerToRosterPlayer({ ...player, position: index + 1 })
+      );
+      setTeam2Roster(mappedPlayers.slice(0, 15)); // Limit to 15 players
+    } else if (!team2Id) {
+      setTeam2Roster([]); // Clear roster when no team selected
+    }
+  }, [team2Id, team2Players]);
 
   const createMatchMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -245,6 +306,15 @@ export default function CreateMatch() {
         toast({
           title: "Incomplete team rosters",
           description: "Each cricket team must have at least 3 players to create the match.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (team1Roster.length > 15 || team2Roster.length > 15) {
+        toast({
+          title: "Too many players",
+          description: "Each cricket team can have a maximum of 15 players.",
           variant: "destructive",
         });
         return;
@@ -590,73 +660,151 @@ export default function CreateMatch() {
                   />
                 </div>
 
-                {/* Team Names (Optional) */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <FormField
-                    control={form.control}
-                    name="team1Name"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Team 1 Name (Optional)</FormLabel>
-                        <FormControl>
-                          <Input 
-                            {...field} 
-                            placeholder="Team Warriors"
-                            data-testid="input-team1-name"
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                {/* Team Names - Show selected teams or input fields */}
+                {prefilledTeam1 || selectedTeam ? (
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                      <Users className="h-5 w-5" />
+                      Selected Teams for Match
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {/* Team 1 Display */}
+                      {prefilledTeam1 && (
+                        <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                          <div className="flex items-center gap-3">
+                            <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                            <div>
+                              <p className="font-medium text-blue-700 dark:text-blue-300">
+                                Team 1: {prefilledTeam1.name}
+                              </p>
+                              <p className="text-sm text-blue-600 dark:text-blue-400">
+                                {prefilledTeam1.city ? `${prefilledTeam1.city}` : 'No city specified'} • {team1Players.length} available players
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Team 2 Display */}
+                      {selectedTeam && (
+                        <div className="p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+                          {(() => {
+                            const team = allTeams.find(t => t.id === selectedTeam);
+                            return team ? (
+                              <div className="flex items-center gap-3">
+                                <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                                <div>
+                                  <p className="font-medium text-green-700 dark:text-green-300">
+                                    Team 2: {team.name}
+                                  </p>
+                                  <p className="text-sm text-green-600 dark:text-green-400">
+                                    {team.city ? `${team.city}` : 'No city specified'} • {team2Players.length} available players
+                                  </p>
+                                </div>
+                              </div>
+                            ) : null;
+                          })()}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  /* Fallback to manual team name inputs */
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <FormField
+                      control={form.control}
+                      name="team1Name"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Team 1 Name (Optional)</FormLabel>
+                          <FormControl>
+                            <Input 
+                              {...field} 
+                              placeholder="Team Warriors"
+                              data-testid="input-team1-name"
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
 
-                  <FormField
-                    control={form.control}
-                    name="team2Name"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Team 2 Name (Optional)</FormLabel>
-                        <FormControl>
-                          <Input 
-                            {...field} 
-                            placeholder="Team Champions"
-                            data-testid="input-team2-name"
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
+                    <FormField
+                      control={form.control}
+                      name="team2Name"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Team 2 Name (Optional)</FormLabel>
+                          <FormControl>
+                            <Input 
+                              {...field} 
+                              placeholder="Team Champions"
+                              data-testid="input-team2-name"
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                )}
 
-                {/* Cricket Team Rosters - Only show for cricket matches */}
-                {selectedSport === "cricket" && (
+                {/* Cricket Team Rosters - Only show when both teams are selected */}
+                {selectedSport === "cricket" && team1Id && team2Id && (
                   <div className="space-y-6">
                     <div className="border-t pt-6">
                       <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
                         <Users className="h-5 w-5" />
-                        Team Rosters (Required for Cricket)
+                        Team Player Selection (Required for Cricket)
                       </h3>
                       <p className="text-sm text-muted-foreground mb-6">
-                        Add players to both teams. Each team needs at least 3 players and can have up to 15 players.
-                        Assign captain, vice-captain, and wicket-keeper roles.
+                        Select players from each team for this match. Each team needs at least 3 players and can have up to 15 players.
+                        Available players are loaded from each team's roster.
                       </p>
                       
-                      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-                        <CricketTeamRoster
-                          teamName={form.watch("team1Name") || "Team 1"}
-                          teamNumber={1}
-                          players={team1Roster}
-                          onPlayersChange={setTeam1Roster}
-                        />
-                        
-                        <CricketTeamRoster
-                          teamName={form.watch("team2Name") || "Team 2"}
-                          teamNumber={2}
-                          players={team2Roster}
-                          onPlayersChange={setTeam2Roster}
-                        />
-                      </div>
+                      {/* Show loading state while fetching players */}
+                      {(team1PlayersLoading || team2PlayersLoading) && (
+                        <div className="text-center py-8">
+                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
+                          <p>Loading team players...</p>
+                        </div>
+                      )}
+                      
+                      {/* Show rosters when players are loaded */}
+                      {!team1PlayersLoading && !team2PlayersLoading && (
+                        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                          <CricketTeamRoster
+                            teamName={prefilledTeam1?.name || form.watch("team1Name") || "Team 1"}
+                            teamNumber={1}
+                            players={team1Roster}
+                            onPlayersChange={setTeam1Roster}
+                          />
+                          
+                          <CricketTeamRoster
+                            teamName={allTeams.find(t => t.id === selectedTeam)?.name || form.watch("team2Name") || "Team 2"}
+                            teamNumber={2}
+                            players={team2Roster}
+                            onPlayersChange={setTeam2Roster}
+                          />
+                        </div>
+                      )}
+
+                      {/* Show available players info */}
+                      {!team1PlayersLoading && !team2PlayersLoading && (
+                        <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                          <h4 className="font-medium text-blue-700 dark:text-blue-300 mb-2">Available Players</h4>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                            <div>
+                              <span className="font-medium">Team 1 ({prefilledTeam1?.name}):</span>
+                              <span className="ml-2 text-blue-600 dark:text-blue-400">{team1Players.length} players available</span>
+                            </div>
+                            <div>
+                              <span className="font-medium">Team 2 ({allTeams.find(t => t.id === selectedTeam)?.name}):</span>
+                              <span className="ml-2 text-blue-600 dark:text-blue-400">{team2Players.length} players available</span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
 
                       {/* Roster Validation Messages */}
                       {selectedSport === "cricket" && (team1Roster.length < 3 || team2Roster.length < 3) && (
