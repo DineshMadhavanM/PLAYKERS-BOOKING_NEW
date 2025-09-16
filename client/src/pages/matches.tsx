@@ -265,12 +265,22 @@ export default function Matches() {
           <>
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-3xl font-bold">Matches</h1>
-          <Link href="/create-match">
-            <Button data-testid="button-create-match-header">
-              <Plus className="h-4 w-4 mr-2" />
-              Create Match
+          <div className="flex gap-2">
+            <Button 
+              onClick={() => navigate('/matches?mode=team-selection')}
+              variant="default"
+              data-testid="button-start-match-flow"
+            >
+              <Users className="h-4 w-4 mr-2" />
+              Start Match (Select Teams)
             </Button>
-          </Link>
+            <Link href="/create-match">
+              <Button variant="outline" data-testid="button-create-match-header">
+                <Plus className="h-4 w-4 mr-2" />
+                Create Match
+              </Button>
+            </Link>
+          </div>
         </div>
 
         {/* Sport Filter */}

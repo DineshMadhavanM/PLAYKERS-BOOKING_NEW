@@ -57,6 +57,12 @@ export default function CreateMatch() {
   const [selectedSport, setSelectedSport] = useState("");
   const [team1Roster, setTeam1Roster] = useState<Player[]>([]);
   const [team2Roster, setTeam2Roster] = useState<Player[]>([]);
+  
+  // URL parameters for pre-filled data
+  const urlParams = new URLSearchParams(window.location.search);
+  const prefilledSport = urlParams.get('sport');
+  const prefilledTeam1Id = urlParams.get('team1');
+  const prefilledTeam2Id = urlParams.get('team2');
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -94,6 +100,47 @@ export default function CreateMatch() {
     queryKey: ["/api/venues"],
     enabled: isAuthenticated,
   });
+
+  // Fetch pre-filled teams if provided in URL
+  const { data: prefilledTeam1 } = useQuery({
+    queryKey: ['/api/teams', prefilledTeam1Id],
+    queryFn: async () => {
+      const response = await fetch(`/api/teams/${prefilledTeam1Id}`);
+      if (!response.ok) throw new Error('Failed to fetch team 1');
+      return response.json();
+    },
+    enabled: isAuthenticated && !!prefilledTeam1Id,
+  });
+
+  const { data: prefilledTeam2 } = useQuery({
+    queryKey: ['/api/teams', prefilledTeam2Id],
+    queryFn: async () => {
+      const response = await fetch(`/api/teams/${prefilledTeam2Id}`);
+      if (!response.ok) throw new Error('Failed to fetch team 2');
+      return response.json();
+    },
+    enabled: isAuthenticated && !!prefilledTeam2Id,
+  });
+
+  // Set form defaults with pre-filled data
+  useEffect(() => {
+    if (prefilledSport && prefilledSport !== selectedSport) {
+      setSelectedSport(prefilledSport);
+      form.setValue('sport', prefilledSport);
+    }
+  }, [prefilledSport, selectedSport, form]);
+
+  useEffect(() => {
+    if (prefilledTeam1?.name && prefilledTeam2?.name) {
+      form.setValue('team1Name', prefilledTeam1.name);
+      form.setValue('team2Name', prefilledTeam2.name);
+      // Generate a default title with team names
+      const defaultTitle = `${prefilledTeam1.name} vs ${prefilledTeam2.name}`;
+      if (!form.getValues('title')) {
+        form.setValue('title', defaultTitle);
+      }
+    }
+  }, [prefilledTeam1, prefilledTeam2, form]);
 
   const createMatchMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -228,6 +275,35 @@ export default function CreateMatch() {
           <CardContent>
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                {/* Pre-filled Teams Confirmation */}
+                {prefilledTeam1 && prefilledTeam2 && (
+                  <div className="mb-6">
+                    <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                      <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-100 mb-2 flex items-center gap-2">
+                        <Users className="h-4 w-4" />
+                        Selected Teams for Match
+                      </h3>
+                      <div className="flex items-center justify-center gap-4 text-sm">
+                        <div className="flex items-center gap-2 bg-white dark:bg-gray-800 px-3 py-2 rounded-md border">
+                          <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                          <span className="font-medium text-green-700 dark:text-green-300">{prefilledTeam1.name}</span>
+                          {prefilledTeam1.city && (
+                            <span className="text-gray-500">({prefilledTeam1.city})</span>
+                          )}
+                        </div>
+                        <span className="text-lg font-bold text-blue-600 dark:text-blue-400">VS</span>
+                        <div className="flex items-center gap-2 bg-white dark:bg-gray-800 px-3 py-2 rounded-md border">
+                          <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                          <span className="font-medium text-blue-700 dark:text-blue-300">{prefilledTeam2.name}</span>
+                          {prefilledTeam2.city && (
+                            <span className="text-gray-500">({prefilledTeam2.city})</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
                 {/* Basic Match Info */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <FormField
@@ -260,7 +336,7 @@ export default function CreateMatch() {
                             setSelectedSport(value);
                             form.setValue("matchType", "");
                           }} 
-                          defaultValue={field.value}
+                          value={field.value || selectedSport}
                         >
                           <FormControl>
                             <SelectTrigger data-testid="select-sport">
