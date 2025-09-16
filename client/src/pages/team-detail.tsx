@@ -1,0 +1,365 @@
+import { useState } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { useLocation, useParams } from "wouter";
+import { ArrowLeft, Users, Edit, UserPlus, Trophy, Target, Calendar, Settings, Trash2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Skeleton } from "@/components/ui/skeleton";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import type { Team, Player } from "@shared/schema";
+import PlayerManagement from "@/components/player-management";
+
+export default function TeamDetail() {
+  const params = useParams();
+  const teamId = params.id!;
+  const [, navigate] = useLocation();
+  const { toast } = useToast();
+
+  // Fetch team data
+  const { data: team, isLoading: teamLoading, error: teamError } = useQuery({
+    queryKey: ['/api/teams', teamId],
+    queryFn: async (): Promise<Team> => {
+      const response = await fetch(`/api/teams/${teamId}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch team');
+      }
+      return response.json();
+    },
+  });
+
+  // Fetch team players
+  const { data: players = [], isLoading: playersLoading } = useQuery({
+    queryKey: ['/api/players', { teamId }],
+    queryFn: async (): Promise<Player[]> => {
+      const response = await fetch(`/api/players?teamId=${teamId}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch players');
+      }
+      return response.json();
+    },
+    enabled: !!teamId,
+  });
+
+  // Delete team mutation
+  const deleteTeamMutation = useMutation({
+    mutationFn: async (): Promise<void> => {
+      await apiRequest('DELETE', `/api/teams/${teamId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/teams'] });
+      toast({
+        title: "Team deleted",
+        description: "The team has been successfully deleted.",
+      });
+      navigate('/teams');
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error deleting team",
+        description: error.message || "Failed to delete team. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  if (teamLoading) {
+    return <TeamDetailSkeleton />;
+  }
+
+  if (teamError || !team) {
+    return (
+      <div className="container mx-auto p-6 max-w-4xl">
+        <div className="text-center py-12">
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+            Team not found
+          </h2>
+          <p className="text-gray-600 dark:text-gray-300 mb-4">
+            The team you're looking for doesn't exist or has been deleted.
+          </p>
+          <Button onClick={() => navigate('/teams')}>
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Teams
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  const winPercentage = team.totalMatches 
+    ? Math.round(((team.matchesWon || 0) / team.totalMatches) * 100)
+    : 0;
+
+  return (
+    <div className="container mx-auto p-6 max-w-7xl">
+      {/* Header */}
+      <div className="flex items-start justify-between mb-6">
+        <div className="flex items-center gap-4">
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={() => navigate('/teams')}
+            className="flex items-center gap-2"
+            data-testid="button-back-to-teams"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back
+          </Button>
+          
+          <div>
+            <div className="flex items-center gap-3 mb-2">
+              <h1 className="text-3xl font-bold text-gray-900 dark:text-white" data-testid={`text-team-name-${team.id}`}>
+                {team.name}
+              </h1>
+              {team.shortName && (
+                <Badge variant="outline" className="text-lg px-3 py-1">
+                  {team.shortName}
+                </Badge>
+              )}
+            </div>
+            {team.description && (
+              <p className="text-gray-600 dark:text-gray-300 max-w-2xl">
+                {team.description}
+              </p>
+            )}
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Button 
+            variant="outline" 
+            onClick={() => navigate(`/teams/${teamId}/edit`)}
+            className="flex items-center gap-2"
+            data-testid="button-edit-team"
+          >
+            <Edit className="h-4 w-4" />
+            Edit Team
+          </Button>
+          
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="outline" className="text-red-600 hover:text-red-700">
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete Team</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Are you sure you want to delete "{team.name}"? This action cannot be undone.
+                  All team data and statistics will be permanently deleted.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  className="bg-red-600 hover:bg-red-700"
+                  onClick={() => deleteTeamMutation.mutate()}
+                >
+                  Delete Team
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
+      </div>
+
+      {/* Team Stats Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 mb-8">
+        <Card>
+          <CardContent className="p-4 text-center">
+            <div className="text-2xl font-bold text-green-600">{team.matchesWon || 0}</div>
+            <div className="text-sm text-gray-600 dark:text-gray-400">Wins</div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardContent className="p-4 text-center">
+            <div className="text-2xl font-bold text-red-600">{team.matchesLost || 0}</div>
+            <div className="text-sm text-gray-600 dark:text-gray-400">Losses</div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardContent className="p-4 text-center">
+            <div className="text-2xl font-bold text-blue-600">{team.matchesDrawn || 0}</div>
+            <div className="text-sm text-gray-600 dark:text-gray-400">Draws</div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardContent className="p-4 text-center">
+            <div className="text-2xl font-bold text-purple-600">{team.totalMatches || 0}</div>
+            <div className="text-sm text-gray-600 dark:text-gray-400">Total</div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardContent className="p-4 text-center">
+            <div className={`text-2xl font-bold ${winPercentage >= 50 ? 'text-green-600' : 'text-red-600'}`}>
+              {winPercentage}%
+            </div>
+            <div className="text-sm text-gray-600 dark:text-gray-400">Win Rate</div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardContent className="p-4 text-center">
+            <div className="text-2xl font-bold text-yellow-600">{team.tournamentPoints || 0}</div>
+            <div className="text-sm text-gray-600 dark:text-gray-400">Points</div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Main Content */}
+      <Tabs defaultValue="players" className="space-y-6">
+        <TabsList>
+          <TabsTrigger value="players" className="flex items-center gap-2">
+            <Users className="h-4 w-4" />
+            Players ({players.length})
+          </TabsTrigger>
+          <TabsTrigger value="matches" className="flex items-center gap-2">
+            <Target className="h-4 w-4" />
+            Match History
+          </TabsTrigger>
+          <TabsTrigger value="stats" className="flex items-center gap-2">
+            <Trophy className="h-4 w-4" />
+            Statistics
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="players">
+          <PlayerManagement 
+            teamId={teamId} 
+            teamName={team.name}
+            players={players}
+            isLoading={playersLoading}
+          />
+        </TabsContent>
+
+        <TabsContent value="matches">
+          <Card>
+            <CardHeader>
+              <CardTitle>Match History</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-center py-8 text-gray-500">
+                <Calendar className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p>Match history feature coming soon!</p>
+                <p className="text-sm mt-1">Track your team's performance across all matches</p>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="stats">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Performance Overview</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="flex justify-between">
+                    <span>Total Runs Scored:</span>
+                    <span className="font-semibold">{team.totalRunsScored || 0}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Total Wickets Taken:</span>
+                    <span className="font-semibold">{team.totalWicketsTaken || 0}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Net Run Rate:</span>
+                    <span className="font-semibold">
+                      {team.netRunRate ? team.netRunRate.toFixed(2) : '0.00'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Tournament Points:</span>
+                    <span className="font-semibold text-yellow-600">
+                      {team.tournamentPoints || 0}
+                    </span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Team Information</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="flex justify-between">
+                    <span>Squad Size:</span>
+                    <span className="font-semibold">{players.length} players</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Created:</span>
+                    <span className="font-semibold">
+                      {new Date(team.createdAt!).toLocaleDateString()}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Last Updated:</span>
+                    <span className="font-semibold">
+                      {new Date(team.updatedAt!).toLocaleDateString()}
+                    </span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
+
+// Loading skeleton component
+function TeamDetailSkeleton() {
+  return (
+    <div className="container mx-auto p-6 max-w-7xl">
+      <div className="flex items-start justify-between mb-6">
+        <div className="flex items-center gap-4">
+          <Skeleton className="h-8 w-16" />
+          <div>
+            <Skeleton className="h-8 w-64 mb-2" />
+            <Skeleton className="h-4 w-96" />
+          </div>
+        </div>
+        <div className="flex gap-2">
+          <Skeleton className="h-9 w-24" />
+          <Skeleton className="h-9 w-9" />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 mb-8">
+        {[...Array(6)].map((_, i) => (
+          <Card key={i}>
+            <CardContent className="p-4 text-center">
+              <Skeleton className="h-8 w-12 mx-auto mb-2" />
+              <Skeleton className="h-4 w-16 mx-auto" />
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      <div className="space-y-6">
+        <Skeleton className="h-10 w-64" />
+        <Card>
+          <CardContent className="p-6">
+            <div className="space-y-4">
+              {[...Array(5)].map((_, i) => (
+                <Skeleton key={i} className="h-16 w-full" />
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
