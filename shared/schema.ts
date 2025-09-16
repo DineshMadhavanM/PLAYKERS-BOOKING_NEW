@@ -138,6 +138,7 @@ export const insertTeamSchema = z.object({
   name: z.string().min(1, "Team name is required"),
   shortName: z.string().max(4, "Short name must be 4 characters or less").optional(),
   description: z.string().optional(),
+  city: z.string().optional(),
   captainId: z.string().optional(),
   viceCaptainId: z.string().optional(),
   logo: z.string().optional(),
@@ -590,6 +591,7 @@ export type Team = {
   name: string;
   shortName: string | null;
   description: string | null;
+  city: string | null;
   captainId: string | null;
   viceCaptainId: string | null;
   logo: string | null;

@@ -38,6 +38,7 @@ export default function EditTeam() {
       name: "",
       shortName: "",
       description: "",
+      city: "",
     },
   });
 
@@ -47,6 +48,7 @@ export default function EditTeam() {
       name: team.name,
       shortName: team.shortName || "",
       description: team.description || "",
+      city: team.city || "",
     });
   }
 
@@ -178,6 +180,25 @@ export default function EditTeam() {
                   )}
                 />
               </div>
+
+              {/* City */}
+              <FormField
+                control={form.control}
+                name="city"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>City (optional)</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="e.g., New York, Mumbai, London"
+                        data-testid="input-team-city"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
               {/* Description */}
               <FormField
