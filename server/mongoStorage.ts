@@ -9,14 +9,19 @@ import type {
   Review,
   CartItem,
   UserStats,
+  Team,
+  Player,
   InsertVenue,
   InsertMatch,
+  InsertCricketMatch,
   InsertMatchParticipant,
   InsertBooking,
   InsertProduct,
   InsertReview,
   InsertCartItem,
   InsertUserStats,
+  InsertTeam,
+  InsertPlayer,
   UpsertUser,
 } from "@shared/schema";
 import type { IStorage } from "./storage";
@@ -33,6 +38,8 @@ export class MongoStorage implements IStorage {
   private reviews: Collection<Review>;
   private cartItems: Collection<CartItem>;
   private userStats: Collection<UserStats>;
+  private teams: Collection<Team>;
+  private players: Collection<Player>;
 
   constructor(uri: string) {
     // Configure MongoDB client options for Replit compatibility
@@ -56,6 +63,8 @@ export class MongoStorage implements IStorage {
     this.reviews = this.db.collection<Review>('reviews');
     this.cartItems = this.db.collection<CartItem>('cartItems');
     this.userStats = this.db.collection<UserStats>('userStats');
+    this.teams = this.db.collection<Team>('teams');
+    this.players = this.db.collection<Player>('players');
   }
 
   async connect(): Promise<void> {
@@ -214,7 +223,7 @@ export class MongoStorage implements IStorage {
       { $set: { ...venue, updatedAt: new Date() } },
       { returnDocument: 'after' }
     );
-    return result || undefined;
+    return result as Venue || undefined;
   }
 
   async deleteVenue(id: string): Promise<boolean> {
@@ -266,7 +275,7 @@ export class MongoStorage implements IStorage {
       { $set: { ...match, updatedAt: new Date() } },
       { returnDocument: 'after' }
     );
-    return result || undefined;
+    return result as Match || undefined;
   }
 
   async deleteMatch(id: string): Promise<boolean> {
@@ -435,5 +444,636 @@ export class MongoStorage implements IStorage {
     }
 
     return result as UserStats;
+  }
+
+  // Team operations
+  async getTeams(filters?: { search?: string }): Promise<Team[]> {
+    let query: any = {};
+    
+    if (filters) {
+      if (filters.search) {
+        query.name = new RegExp(filters.search, 'i');
+      }
+    }
+    
+    const teams = await this.teams.find(query).sort({ createdAt: -1 }).toArray();
+    return teams;
+  }
+
+  async getTeam(id: string): Promise<Team | undefined> {
+    const team = await this.teams.findOne({ id } as any);
+    return team || undefined;
+  }
+
+  async createTeam(teamData: InsertTeam): Promise<Team> {
+    const id = `team-${this.generateId()}`;
+    const team: Team = {
+      id,
+      ...teamData,
+      shortName: teamData.shortName || null,
+      description: teamData.description || null,
+      captainId: teamData.captainId || null,
+      viceCaptainId: teamData.viceCaptainId || null,
+      logo: teamData.logo || null,
+      homeVenueId: teamData.homeVenueId || null,
+      totalMatches: 0,
+      matchesWon: 0,
+      matchesLost: 0,
+      matchesDrawn: 0,
+      totalRunsScored: 0,
+      totalWicketsTaken: 0,
+      tournamentPoints: 0,
+      netRunRate: 0.0,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    await this.teams.insertOne(team as any);
+    return team;
+  }
+
+  async updateTeam(id: string, teamData: Partial<InsertTeam>): Promise<Team | undefined> {
+    const result = await this.teams.findOneAndUpdate(
+      { id } as any,
+      { $set: { ...teamData, updatedAt: new Date() } },
+      { returnDocument: 'after' }
+    );
+    return result as Team || undefined;
+  }
+
+  async deleteTeam(id: string): Promise<boolean> {
+    const result = await this.teams.deleteOne({ id } as any);
+    return result.deletedCount > 0;
+  }
+
+  async updateTeamStats(id: string, stats: { 
+    matchesWon?: number; 
+    matchesLost?: number; 
+    matchesDrawn?: number; 
+    runsScored?: number; 
+    wicketsTaken?: number; 
+    tournamentPoints?: number;
+  }): Promise<Team | undefined> {
+    const updateFields: any = { updatedAt: new Date() };
+    const incrementFields: any = {};
+
+    // Increment team statistics
+    if (stats.matchesWon !== undefined) incrementFields.matchesWon = stats.matchesWon;
+    if (stats.matchesLost !== undefined) incrementFields.matchesLost = stats.matchesLost;
+    if (stats.matchesDrawn !== undefined) incrementFields.matchesDrawn = stats.matchesDrawn;
+    if (stats.runsScored !== undefined) incrementFields.totalRunsScored = stats.runsScored;
+    if (stats.wicketsTaken !== undefined) incrementFields.totalWicketsTaken = stats.wicketsTaken;
+    if (stats.tournamentPoints !== undefined) incrementFields.tournamentPoints = stats.tournamentPoints;
+
+    // Calculate total matches increment
+    const totalMatchesIncrement = (stats.matchesWon || 0) + (stats.matchesLost || 0) + (stats.matchesDrawn || 0);
+    if (totalMatchesIncrement > 0) {
+      incrementFields.totalMatches = totalMatchesIncrement;
+    }
+
+    const update: any = { $set: updateFields };
+    if (Object.keys(incrementFields).length > 0) {
+      update.$inc = incrementFields;
+    }
+
+    const result = await this.teams.findOneAndUpdate(
+      { id } as any,
+      update,
+      { returnDocument: 'after' }
+    );
+    
+    // After updating, recalculate derived metrics like net run rate
+    if (result) {
+      await this.recalculateTeamStats(id);
+      return await this.getTeam(id);
+    }
+    return undefined;
+  }
+
+  // Player operations
+  async getPlayers(filters?: { teamId?: string; role?: string; search?: string }): Promise<Player[]> {
+    let query: any = {};
+    
+    if (filters) {
+      if (filters.teamId) {
+        query.teamId = filters.teamId;
+      }
+      if (filters.role) {
+        query.role = filters.role;
+      }
+      if (filters.search) {
+        query.name = new RegExp(filters.search, 'i');
+      }
+    }
+    
+    const players = await this.players.find(query).sort({ createdAt: -1 }).toArray();
+    return players;
+  }
+
+  async getPlayer(id: string): Promise<Player | undefined> {
+    const player = await this.players.findOne({ id } as any);
+    return player || undefined;
+  }
+
+  async getPlayerByUserId(userId: string): Promise<Player | undefined> {
+    const player = await this.players.findOne({ userId } as any);
+    return player || undefined;
+  }
+
+  async createPlayer(playerData: InsertPlayer): Promise<Player> {
+    const id = `player-${this.generateId()}`;
+    const player: Player = {
+      id,
+      ...playerData,
+      email: playerData.email || null,
+      userId: playerData.userId || null,
+      teamId: playerData.teamId || null,
+      role: playerData.role || null,
+      battingStyle: playerData.battingStyle || null,
+      bowlingStyle: playerData.bowlingStyle || null,
+      jerseyNumber: playerData.jerseyNumber || null,
+      careerStats: {
+        // Batting Stats
+        totalRuns: 0,
+        totalBallsFaced: 0,
+        totalFours: 0,
+        totalSixes: 0,
+        highestScore: 0,
+        centuries: 0,
+        halfCenturies: 0,
+        battingAverage: 0.0,
+        strikeRate: 0.0,
+        
+        // Bowling Stats
+        totalOvers: 0,
+        totalRunsGiven: 0,
+        totalWickets: 0,
+        totalMaidens: 0,
+        bestBowlingFigures: null,
+        fiveWicketHauls: 0,
+        bowlingAverage: 0.0,
+        economy: 0.0,
+        
+        // Fielding Stats
+        catches: 0,
+        runOuts: 0,
+        stumpings: 0,
+        
+        // Match Records
+        totalMatches: 0,
+        matchesWon: 0,
+        
+        // Awards
+        manOfTheMatchAwards: 0,
+        bestBatsmanAwards: 0,
+        bestBowlerAwards: 0,
+        bestFielderAwards: 0,
+      },
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    await this.players.insertOne(player as any);
+    return player;
+  }
+
+  async updatePlayer(id: string, playerData: Partial<InsertPlayer>): Promise<Player | undefined> {
+    const result = await this.players.findOneAndUpdate(
+      { id } as any,
+      { $set: { ...playerData, updatedAt: new Date() } },
+      { returnDocument: 'after' }
+    );
+    return result as Player || undefined;
+  }
+
+  async deletePlayer(id: string): Promise<boolean> {
+    const result = await this.players.deleteOne({ id } as any);
+    return result.deletedCount > 0;
+  }
+
+  async updatePlayerStats(playerId: string, matchStats: {
+    runsScored?: number;
+    ballsFaced?: number;
+    fours?: number;
+    sixes?: number;
+    isOut?: boolean;
+    oversBowled?: number;
+    runsGiven?: number;
+    wicketsTaken?: number;
+    maidens?: number;
+    catches?: number;
+    runOuts?: number;
+    stumpings?: number;
+    manOfMatch?: boolean;
+    bestBatsman?: boolean;
+    bestBowler?: boolean;
+    bestFielder?: boolean;
+    matchWon?: boolean;
+  }): Promise<Player | undefined> {
+    
+    const incrementFields: any = {};
+    const updateFields: any = { updatedAt: new Date() };
+
+    // Batting stats increments
+    if (matchStats.runsScored !== undefined) incrementFields['careerStats.totalRuns'] = matchStats.runsScored;
+    if (matchStats.ballsFaced !== undefined) incrementFields['careerStats.totalBallsFaced'] = matchStats.ballsFaced;
+    if (matchStats.fours !== undefined) incrementFields['careerStats.totalFours'] = matchStats.fours;
+    if (matchStats.sixes !== undefined) incrementFields['careerStats.totalSixes'] = matchStats.sixes;
+
+    // Check for centuries/half-centuries
+    if (matchStats.runsScored !== undefined) {
+      if (matchStats.runsScored >= 100) {
+        incrementFields['careerStats.centuries'] = 1;
+      } else if (matchStats.runsScored >= 50) {
+        incrementFields['careerStats.halfCenturies'] = 1;
+      }
+    }
+
+    // Bowling stats increments
+    if (matchStats.oversBowled !== undefined) incrementFields['careerStats.totalOvers'] = matchStats.oversBowled;
+    if (matchStats.runsGiven !== undefined) incrementFields['careerStats.totalRunsGiven'] = matchStats.runsGiven;
+    if (matchStats.wicketsTaken !== undefined) incrementFields['careerStats.totalWickets'] = matchStats.wicketsTaken;
+    if (matchStats.maidens !== undefined) incrementFields['careerStats.totalMaidens'] = matchStats.maidens;
+
+    // Check for five wicket hauls
+    if (matchStats.wicketsTaken !== undefined && matchStats.wicketsTaken >= 5) {
+      incrementFields['careerStats.fiveWicketHauls'] = 1;
+    }
+
+    // Fielding stats increments
+    if (matchStats.catches !== undefined) incrementFields['careerStats.catches'] = matchStats.catches;
+    if (matchStats.runOuts !== undefined) incrementFields['careerStats.runOuts'] = matchStats.runOuts;
+    if (matchStats.stumpings !== undefined) incrementFields['careerStats.stumpings'] = matchStats.stumpings;
+
+    // Awards increments
+    if (matchStats.manOfMatch === true) incrementFields['careerStats.manOfTheMatchAwards'] = 1;
+    if (matchStats.bestBatsman === true) incrementFields['careerStats.bestBatsmanAwards'] = 1;
+    if (matchStats.bestBowler === true) incrementFields['careerStats.bestBowlerAwards'] = 1;
+    if (matchStats.bestFielder === true) incrementFields['careerStats.bestFielderAwards'] = 1;
+
+    // Match stats increments
+    incrementFields['careerStats.totalMatches'] = 1;
+    if (matchStats.matchWon === true) incrementFields['careerStats.matchesWon'] = 1;
+
+    // Update highest score if this is higher
+    if (matchStats.runsScored !== undefined) {
+      const currentPlayer = await this.getPlayer(playerId);
+      if (currentPlayer && matchStats.runsScored > currentPlayer.careerStats.highestScore) {
+        updateFields['careerStats.highestScore'] = matchStats.runsScored;
+      }
+    }
+
+    const update: any = { $set: updateFields };
+    if (Object.keys(incrementFields).length > 0) {
+      update.$inc = incrementFields;
+    }
+
+    const result = await this.players.findOneAndUpdate(
+      { id: playerId },
+      update,
+      { returnDocument: 'after' }
+    );
+
+    // After update, recalculate averages and rates
+    if (result) {
+      await this.recalculatePlayerAverages(playerId);
+      return await this.getPlayer(playerId);
+    }
+    return undefined;
+  }
+
+  // Helper method to recalculate team statistics including net run rate
+  private async recalculateTeamStats(teamId: string): Promise<void> {
+    const team = await this.getTeam(teamId);
+    if (!team) return;
+
+    const updateFields: any = {};
+
+    // Calculate net run rate (NRR = (Runs Scored/Overs Faced) - (Runs Conceded/Overs Bowled))
+    // For simplified calculation, we'll use: NRR = (Total Runs Scored - Total Runs Given) / Total Overs
+    const totalMatches = team.totalMatches || 0;
+    const totalRunsScored = team.totalRunsScored || 0;
+    
+    if (totalMatches > 0) {
+      // Simplified NRR calculation - in real implementation, should track overs separately
+      const estimatedOvers = totalMatches * 20; // Assume T20 format for calculation
+      const netRunRate = (totalRunsScored - (totalRunsScored * 0.8)) / estimatedOvers;
+      updateFields.netRunRate = Math.round(netRunRate * 100) / 100;
+    }
+
+    if (Object.keys(updateFields).length > 0) {
+      await this.teams.updateOne(
+        { id: teamId },
+        { $set: updateFields }
+      );
+    }
+  }
+
+  // Helper method to recalculate averages and rates
+  private async recalculatePlayerAverages(playerId: string): Promise<void> {
+    const player = await this.getPlayer(playerId);
+    if (!player) return;
+
+    const stats = player.careerStats;
+    const updateFields: any = {};
+
+    // Calculate batting average (runs / times out)
+    if (stats.totalMatches > 0) {
+      // Simplified calculation - in real implementation, track times out separately
+      const battingAverage = stats.totalRuns / Math.max(stats.totalMatches, 1);
+      updateFields['careerStats.battingAverage'] = Math.round(battingAverage * 100) / 100;
+    }
+
+    // Calculate strike rate (runs per 100 balls)
+    if (stats.totalBallsFaced > 0) {
+      const strikeRate = (stats.totalRuns / stats.totalBallsFaced) * 100;
+      updateFields['careerStats.strikeRate'] = Math.round(strikeRate * 100) / 100;
+    }
+
+    // Calculate bowling average (runs given / wickets taken)
+    if (stats.totalWickets > 0) {
+      const bowlingAverage = stats.totalRunsGiven / stats.totalWickets;
+      updateFields['careerStats.bowlingAverage'] = Math.round(bowlingAverage * 100) / 100;
+    }
+
+    // Calculate economy rate (runs per over)
+    if (stats.totalOvers > 0) {
+      const economy = stats.totalRunsGiven / stats.totalOvers;
+      updateFields['careerStats.economy'] = Math.round(economy * 100) / 100;
+    }
+
+    if (Object.keys(updateFields).length > 0) {
+      await this.players.updateOne(
+        { id: playerId },
+        { $set: updateFields }
+      );
+    }
+  }
+
+  // Cricket match operations (enhanced)
+  async createCricketMatch(matchData: InsertCricketMatch): Promise<Match> {
+    const id = `match-${this.generateId()}`;
+    const match: Match = {
+      id,
+      title: matchData.title,
+      sport: matchData.sport,
+      matchType: matchData.matchType,
+      isPublic: matchData.isPublic || null,
+      venueId: matchData.venueId,
+      organizerId: matchData.organizerId,
+      scheduledAt: matchData.scheduledAt,
+      duration: matchData.duration || null,
+      maxPlayers: matchData.maxPlayers,
+      currentPlayers: matchData.currentPlayers || null,
+      status: matchData.status || 'scheduled',
+      team1Name: matchData.team1Name || null,
+      team2Name: matchData.team2Name || null,
+      team1Score: matchData.team1Score || null,
+      team2Score: matchData.team2Score || null,
+      matchData: {
+        ...matchData,
+        scorecard: matchData.scorecard || null,
+        awards: matchData.awards || null,
+        resultSummary: matchData.resultSummary || null,
+      },
+      description: matchData.description || null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    await this.matches.insertOne(match as any);
+    return match;
+  }
+
+  async updateMatchScorecard(matchId: string, scorecard: any): Promise<Match | undefined> {
+    const result = await this.matches.findOneAndUpdate(
+      { id: matchId } as any,
+      { 
+        $set: { 
+          'matchData.scorecard': scorecard,
+          updatedAt: new Date()
+        }
+      },
+      { returnDocument: 'after' }
+    );
+    return result as Match || undefined;
+  }
+
+  // Atomic post-match update method to update teams and players in one operation
+  async applyMatchResults(matchData: {
+    matchId: string;
+    status: string;
+    team1Id?: string;
+    team2Id?: string;
+    winnerTeamId?: string;
+    scorecard?: any;
+    playerStats: Array<{
+      playerId: string;
+      teamId: string;
+      runsScored?: number;
+      ballsFaced?: number;
+      fours?: number;
+      sixes?: number;
+      isOut?: boolean;
+      oversBowled?: number;
+      runsGiven?: number;
+      wicketsTaken?: number;
+      maidens?: number;
+      catches?: number;
+      runOuts?: number;
+      stumpings?: number;
+      manOfMatch?: boolean;
+      bestBatsman?: boolean;
+      bestBowler?: boolean;
+      bestFielder?: boolean;
+    }>;
+  }): Promise<{ success: boolean; updatedMatch?: Match; errors?: string[] }> {
+    const session = this.client.startSession();
+    
+    try {
+      let updatedMatch: Match | undefined;
+      const errors: string[] = [];
+
+      await session.withTransaction(async () => {
+        // Update match status and scorecard
+        const matchResult = await this.matches.findOneAndUpdate(
+          { id: matchData.matchId } as any,
+          {
+            $set: {
+              status: matchData.status,
+              'matchData.scorecard': matchData.scorecard,
+              updatedAt: new Date()
+            }
+          },
+          { returnDocument: 'after', session }
+        );
+        
+        if (matchResult) {
+          updatedMatch = matchResult as Match;
+        } else {
+          throw new Error(`Match ${matchData.matchId} not found`);
+        }
+
+        // Update team stats
+        if (matchData.team1Id && matchData.team2Id && matchData.winnerTeamId) {
+          const team1Stats = {
+            matchesWon: matchData.winnerTeamId === matchData.team1Id ? 1 : 0,
+            matchesLost: matchData.winnerTeamId !== matchData.team1Id ? 1 : 0,
+            runsScored: 0,
+            wicketsTaken: 0
+          };
+
+          const team2Stats = {
+            matchesWon: matchData.winnerTeamId === matchData.team2Id ? 1 : 0,
+            matchesLost: matchData.winnerTeamId !== matchData.team2Id ? 1 : 0,
+            runsScored: 0,
+            wicketsTaken: 0
+          };
+
+          // Calculate team runs and wickets from player stats
+          matchData.playerStats.forEach(playerStat => {
+            if (playerStat.teamId === matchData.team1Id) {
+              team1Stats.runsScored += playerStat.runsScored || 0;
+              team1Stats.wicketsTaken += playerStat.wicketsTaken || 0;
+            } else if (playerStat.teamId === matchData.team2Id) {
+              team2Stats.runsScored += playerStat.runsScored || 0;
+              team2Stats.wicketsTaken += playerStat.wicketsTaken || 0;
+            }
+          });
+
+          // Update both teams atomically
+          await Promise.all([
+            this.teams.updateOne(
+              { id: matchData.team1Id },
+              {
+                $inc: {
+                  totalMatches: 1,
+                  matchesWon: team1Stats.matchesWon,
+                  matchesLost: team1Stats.matchesLost,
+                  totalRunsScored: team1Stats.runsScored,
+                  totalWicketsTaken: team1Stats.wicketsTaken
+                },
+                $set: { updatedAt: new Date() }
+              },
+              { session }
+            ),
+            this.teams.updateOne(
+              { id: matchData.team2Id },
+              {
+                $inc: {
+                  totalMatches: 1,
+                  matchesWon: team2Stats.matchesWon,
+                  matchesLost: team2Stats.matchesLost,
+                  totalRunsScored: team2Stats.runsScored,
+                  totalWicketsTaken: team2Stats.wicketsTaken
+                },
+                $set: { updatedAt: new Date() }
+              },
+              { session }
+            )
+          ]);
+        }
+
+        // Update all player stats atomically
+        for (const playerStat of matchData.playerStats) {
+          const isWinner = playerStat.teamId === matchData.winnerTeamId;
+          
+          const incrementFields: any = {
+            'careerStats.totalMatches': 1
+          };
+
+          if (isWinner) incrementFields['careerStats.matchesWon'] = 1;
+          if (playerStat.runsScored) incrementFields['careerStats.totalRuns'] = playerStat.runsScored;
+          if (playerStat.ballsFaced) incrementFields['careerStats.totalBallsFaced'] = playerStat.ballsFaced;
+          if (playerStat.fours) incrementFields['careerStats.totalFours'] = playerStat.fours;
+          if (playerStat.sixes) incrementFields['careerStats.totalSixes'] = playerStat.sixes;
+          if (playerStat.oversBowled) incrementFields['careerStats.totalOvers'] = playerStat.oversBowled;
+          if (playerStat.runsGiven) incrementFields['careerStats.totalRunsGiven'] = playerStat.runsGiven;
+          if (playerStat.wicketsTaken) incrementFields['careerStats.totalWickets'] = playerStat.wicketsTaken;
+          if (playerStat.maidens) incrementFields['careerStats.totalMaidens'] = playerStat.maidens;
+          if (playerStat.catches) incrementFields['careerStats.catches'] = playerStat.catches;
+          if (playerStat.runOuts) incrementFields['careerStats.runOuts'] = playerStat.runOuts;
+          if (playerStat.stumpings) incrementFields['careerStats.stumpings'] = playerStat.stumpings;
+          if (playerStat.manOfMatch) incrementFields['careerStats.manOfTheMatchAwards'] = 1;
+          if (playerStat.bestBatsman) incrementFields['careerStats.bestBatsmanAwards'] = 1;
+          if (playerStat.bestBowler) incrementFields['careerStats.bestBowlerAwards'] = 1;
+          if (playerStat.bestFielder) incrementFields['careerStats.bestFielderAwards'] = 1;
+
+          // Check for centuries/half-centuries
+          if (playerStat.runsScored) {
+            if (playerStat.runsScored >= 100) {
+              incrementFields['careerStats.centuries'] = 1;
+            } else if (playerStat.runsScored >= 50) {
+              incrementFields['careerStats.halfCenturies'] = 1;
+            }
+          }
+
+          // Check for five wicket hauls
+          if (playerStat.wicketsTaken && playerStat.wicketsTaken >= 5) {
+            incrementFields['careerStats.fiveWicketHauls'] = 1;
+          }
+
+          // Update highest score if needed
+          const updateFields: any = { updatedAt: new Date() };
+          if (playerStat.runsScored) {
+            const currentPlayer = await this.getPlayer(playerStat.playerId);
+            if (currentPlayer && playerStat.runsScored > currentPlayer.careerStats.highestScore) {
+              updateFields['careerStats.highestScore'] = playerStat.runsScored;
+            }
+          }
+
+          await this.players.updateOne(
+            { id: playerStat.playerId },
+            {
+              $inc: incrementFields,
+              $set: updateFields
+            },
+            { session }
+          );
+        }
+      });
+
+      // After transaction, recalculate derived metrics for all affected teams and players
+      if (matchData.team1Id) await this.recalculateTeamStats(matchData.team1Id);
+      if (matchData.team2Id) await this.recalculateTeamStats(matchData.team2Id);
+      
+      for (const playerStat of matchData.playerStats) {
+        await this.recalculatePlayerAverages(playerStat.playerId);
+      }
+
+      return { success: true, updatedMatch, errors };
+
+    } catch (error) {
+      return { 
+        success: false, 
+        errors: [`Failed to apply match results: ${error instanceof Error ? error.message : 'Unknown error'}`] 
+      };
+    } finally {
+      await session.endSession();
+    }
+  }
+
+  async getPlayerMatchHistory(playerId: string): Promise<Match[]> {
+    // Find matches where player participated
+    const matches = await this.matches.find({
+      $or: [
+        { 'matchData.team1Players': playerId },
+        { 'matchData.team2Players': playerId }
+      ]
+    } as any).sort({ createdAt: -1 }).toArray();
+    
+    return matches;
+  }
+
+  async getTeamMatchHistory(teamId: string): Promise<Match[]> {
+    // Find matches where team participated
+    const matches = await this.matches.find({
+      $or: [
+        { 'matchData.team1Id': teamId },
+        { 'matchData.team2Id': teamId }
+      ]
+    } as any).sort({ createdAt: -1 }).toArray();
+    
+    return matches;
   }
 }
