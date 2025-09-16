@@ -349,9 +349,31 @@ export default function CreateMatch() {
     const matchData = selectedSport === "cricket" 
       ? {
           ...data,
+          team1Name: allTeams.find(t => t.id === team1Id)?.name || data.team1Name,
+          team2Name: allTeams.find(t => t.id === team2Id)?.name || data.team2Name,
           matchData: {
-            team1Roster,
-            team2Roster,
+            team1Id,
+            team2Id,
+            team1Roster: team1Roster.map(player => ({
+              playerId: player.id,
+              name: player.name,
+              role: player.role,
+              battingStyle: player.battingStyle,
+              bowlingStyle: player.bowlingStyle,
+              position: player.position,
+              isRegisteredUser: player.isRegisteredUser,
+              userId: player.userId,
+            })),
+            team2Roster: team2Roster.map(player => ({
+              playerId: player.id,
+              name: player.name,
+              role: player.role,
+              battingStyle: player.battingStyle,
+              bowlingStyle: player.bowlingStyle,
+              position: player.position,
+              isRegisteredUser: player.isRegisteredUser,
+              userId: player.userId,
+            })),
             sport: "cricket"
           }
         }
