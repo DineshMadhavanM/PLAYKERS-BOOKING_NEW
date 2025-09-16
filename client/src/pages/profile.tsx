@@ -197,9 +197,27 @@ export default function Profile() {
                       {isEditing ? "Cancel" : "Edit"}
                     </Button>
                   </div>
-                  <p className="text-muted-foreground mb-4" data-testid="text-user-email">
+                  <p className="text-muted-foreground mb-2" data-testid="text-user-email">
                     {user?.email}
                   </p>
+                  <div className="flex flex-wrap gap-4 mb-4 text-sm text-muted-foreground">
+                    {user?.dateOfBirth && (
+                      <div className="flex items-center gap-1" data-testid="text-user-dob">
+                        <Calendar className="h-4 w-4" />
+                        Born {new Date(user.dateOfBirth).toLocaleDateString('en-US', {
+                          month: 'long',
+                          day: 'numeric',
+                          year: 'numeric'
+                        })}
+                      </div>
+                    )}
+                    {user?.location && (
+                      <div className="flex items-center gap-1" data-testid="text-user-location">
+                        <MapPin className="h-4 w-4" />
+                        {user.location}
+                      </div>
+                    )}
+                  </div>
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <div className="text-center" data-testid="stat-total-matches">
                       <div className="text-2xl font-bold text-primary">{totalMatches}</div>
