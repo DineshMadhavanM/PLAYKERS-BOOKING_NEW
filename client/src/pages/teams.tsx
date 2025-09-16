@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useLocation } from "wouter";
-import { Plus, Search, Users, Trophy, Target, Calendar } from "lucide-react";
+import { Plus, Search, Users, Trophy, Target, Calendar, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -248,7 +248,7 @@ function TeamCard({ team }: { team: Team }) {
         </div>
       </CardContent>
 
-      <CardFooter>
+      <CardFooter className="flex flex-col gap-3">
         <div className="flex items-center justify-between w-full text-xs text-gray-500">
           <div className="flex items-center gap-1">
             <Calendar className="h-3 w-3" />
@@ -259,6 +259,20 @@ function TeamCard({ team }: { team: Team }) {
             {team.totalMatches || 0} matches
           </div>
         </div>
+        
+        <Button 
+          onClick={(e) => {
+            e.stopPropagation();
+            navigate('/venues?mode=create-match&team=' + team.id);
+          }}
+          className="w-full flex items-center gap-2"
+          variant="default"
+          size="sm"
+          data-testid={`button-start-match-${team.id}`}
+        >
+          <Play className="h-4 w-4" />
+          Start a Match
+        </Button>
       </CardFooter>
     </Card>
   );

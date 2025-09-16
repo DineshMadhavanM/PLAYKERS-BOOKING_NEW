@@ -1,17 +1,33 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { MapPin, Star } from "lucide-react";
+import { MapPin, Star, Play } from "lucide-react";
+import { useLocation } from "wouter";
 import type { Venue } from "@shared/schema";
 
 interface VenueCardProps {
   venue: Venue;
+  isMatchCreationMode?: boolean;
+  selectedTeamId?: string | null;
 }
 
-export default function VenueCard({ venue }: VenueCardProps) {
+export default function VenueCard({ venue, isMatchCreationMode = false, selectedTeamId }: VenueCardProps) {
+  const [, navigate] = useLocation();
+
   const handleBookNow = () => {
     // TODO: Implement booking flow
     console.log("Book venue:", venue.id);
+  };
+
+  const handleStartMatch = () => {
+    // Navigate to create match page with cricket pre-selected and venue/team info
+    const params = new URLSearchParams();
+    params.set('sport', 'cricket');
+    params.set('venue', venue.id);
+    if (selectedTeamId) {
+      params.set('team', selectedTeamId);
+    }
+    navigate(`/create-match?${params.toString()}`);
   };
 
   return (
@@ -57,9 +73,20 @@ export default function VenueCard({ venue }: VenueCardProps) {
             </span>
             <span className="text-muted-foreground">/hour</span>
           </div>
-          <Button onClick={handleBookNow} data-testid={`button-book-venue-${venue.id}`}>
-            Book Now
-          </Button>
+          {isMatchCreationMode ? (
+            <Button 
+              onClick={handleStartMatch} 
+              data-testid={`button-start-match-venue-${venue.id}`}
+              className="flex items-center gap-2"
+            >
+              <Play className="h-4 w-4" />
+              Start a Match
+            </Button>
+          ) : (
+            <Button onClick={handleBookNow} data-testid={`button-book-venue-${venue.id}`}>
+              Book Now
+            </Button>
+          )}
         </div>
       </CardContent>
     </Card>

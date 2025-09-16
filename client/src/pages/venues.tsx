@@ -16,6 +16,11 @@ export default function Venues() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedSport, setSelectedSport] = useState("all");
   const [selectedCity, setSelectedCity] = useState("all");
+  
+  // Check if we're in match creation mode
+  const urlParams = new URLSearchParams(window.location.search);
+  const isMatchCreationMode = urlParams.get('mode') === 'create-match';
+  const selectedTeamId = urlParams.get('team');
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -165,7 +170,12 @@ export default function Venues() {
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {venues.map((venue: any) => (
-                  <VenueCard key={venue.id} venue={venue} />
+                  <VenueCard 
+                    key={venue.id} 
+                    venue={venue} 
+                    isMatchCreationMode={isMatchCreationMode}
+                    selectedTeamId={selectedTeamId}
+                  />
                 ))}
               </div>
             )}
