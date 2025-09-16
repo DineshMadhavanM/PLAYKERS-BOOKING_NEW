@@ -148,7 +148,7 @@ export default function Matches() {
           <div className="text-6xl mb-4">🏆</div>
           <h3 className="text-xl font-semibold mb-2">No matches found</h3>
           <p className="text-muted-foreground mb-4">{emptyMessage}</p>
-          <Link href="/create-match">
+          <Link href={selectedTeamId ? `/create-match?sport=cricket&team1=${selectedTeamId}` : '/create-match'}>
             <Button data-testid="button-create-first-match">
               <Plus className="h-4 w-4 mr-2" />
               Create Your First Match
@@ -274,7 +274,7 @@ export default function Matches() {
               <Users className="h-4 w-4 mr-2" />
               Start Match (Select Teams)
             </Button>
-            <Link href="/create-match">
+            <Link href={selectedTeamId ? `/create-match?sport=cricket&team1=${selectedTeamId}` : '/create-match'}>
               <Button variant="outline" data-testid="button-create-match-header">
                 <Plus className="h-4 w-4 mr-2" />
                 Create Match
