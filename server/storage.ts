@@ -5,6 +5,7 @@ import type {
   InsertVenue,
   Match,
   InsertMatch,
+  InsertCricketMatch,
   MatchParticipant,
   InsertMatchParticipant,
   Booking,
@@ -16,6 +17,10 @@ import type {
   CartItem,
   InsertCartItem,
   UserStats,
+  Team,
+  InsertTeam,
+  Player,
+  InsertPlayer,
 } from "@shared/schema";
 
 export interface IStorage {
@@ -81,6 +86,59 @@ export interface IStorage {
   // User stats operations
   getUserStats(userId: string): Promise<UserStats[]>;
   updateUserStats(userId: string, sport: string, stats: any): Promise<UserStats>;
+
+  // Team operations
+  getTeams(filters?: { search?: string }): Promise<Team[]>;
+  getTeam(id: string): Promise<Team | undefined>;
+  createTeam(team: InsertTeam): Promise<Team>;
+  updateTeam(id: string, team: Partial<InsertTeam>): Promise<Team | undefined>;
+  deleteTeam(id: string): Promise<boolean>;
+  updateTeamStats(id: string, stats: { 
+    matchesWon?: number; 
+    matchesLost?: number; 
+    matchesDrawn?: number; 
+    runsScored?: number; 
+    wicketsTaken?: number; 
+    tournamentPoints?: number;
+  }): Promise<Team | undefined>;
+
+  // Player operations
+  getPlayers(filters?: { teamId?: string; role?: string; search?: string }): Promise<Player[]>;
+  getPlayer(id: string): Promise<Player | undefined>;
+  getPlayerByUserId(userId: string): Promise<Player | undefined>;
+  createPlayer(player: InsertPlayer): Promise<Player>;
+  updatePlayer(id: string, player: Partial<InsertPlayer>): Promise<Player | undefined>;
+  deletePlayer(id: string): Promise<boolean>;
+  updatePlayerStats(playerId: string, matchStats: {
+    // Batting stats
+    runsScored?: number;
+    ballsFaced?: number;
+    fours?: number;
+    sixes?: number;
+    isOut?: boolean;
+    // Bowling stats
+    oversBowled?: number;
+    runsGiven?: number;
+    wicketsTaken?: number;
+    maidens?: number;
+    // Fielding stats
+    catches?: number;
+    runOuts?: number;
+    stumpings?: number;
+    // Awards
+    manOfMatch?: boolean;
+    bestBatsman?: boolean;
+    bestBowler?: boolean;
+    bestFielder?: boolean;
+    // Match result
+    matchWon?: boolean;
+  }): Promise<Player | undefined>;
+
+  // Cricket match operations (enhanced)
+  createCricketMatch(match: InsertCricketMatch): Promise<Match>;
+  updateMatchScorecard(matchId: string, scorecard: any): Promise<Match | undefined>;
+  getPlayerMatchHistory(playerId: string): Promise<Match[]>;
+  getTeamMatchHistory(teamId: string): Promise<Match[]>;
 }
 
 // MongoDB Storage Implementation
