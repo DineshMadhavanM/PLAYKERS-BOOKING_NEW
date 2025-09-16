@@ -6,6 +6,7 @@ import { z } from "zod";
 export const insertUserSchema = z.object({
   email: z.string().email(),
   password: z.string().min(6),
+  username: z.string().min(3, "Username must be at least 3 characters").max(30, "Username must be at most 30 characters").regex(/^[a-zA-Z0-9_-]+$/, "Username can only contain letters, numbers, underscores, and hyphens").nullable().optional(),
   firstName: z.string().nullable().optional(),
   lastName: z.string().nullable().optional(),
   profileImageUrl: z.string().nullable().optional(),
@@ -138,6 +139,7 @@ export type User = {
   id: string;
   email: string;
   password: string;
+  username: string | null;
   firstName: string | null;
   lastName: string | null;
   profileImageUrl: string | null;
