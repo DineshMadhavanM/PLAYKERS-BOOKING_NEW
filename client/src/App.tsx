@@ -11,6 +11,7 @@ import Venues from "@/pages/venues";
 import Matches from "@/pages/matches";
 import Teams from "@/pages/teams";
 import CreateTeam from "@/pages/create-team";
+import EditTeam from "@/pages/edit-team";
 import TeamDetail from "@/pages/team-detail";
 import Profile from "@/pages/profile";
 import Shop from "@/pages/shop";
@@ -33,6 +34,7 @@ function Router() {
       <Route path="/matches" component={Matches} />
       <Route path="/teams" component={Teams} />
       <Route path="/teams/create" component={CreateTeam} />
+      <Route path="/teams/:id/edit" component={EditTeam} />
       <Route path="/teams/:id" component={TeamDetail} />
       <Route path="/profile" component={Profile} />
       <Route path="/shop" component={Shop} />
