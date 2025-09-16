@@ -186,9 +186,16 @@ export default function Profile() {
                 
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-2">
-                    <h1 className="text-3xl font-bold" data-testid="text-user-name">
-                      {user?.firstName} {user?.lastName}
-                    </h1>
+                    <div>
+                      <h1 className="text-3xl font-bold" data-testid="text-user-name">
+                        {user?.firstName} {user?.lastName}
+                      </h1>
+                      {user?.username && (
+                        <p className="text-lg text-muted-foreground" data-testid="text-username">
+                          @{user.username}
+                        </p>
+                      )}
+                    </div>
                     <Button 
                       variant="outline" 
                       size="sm"
