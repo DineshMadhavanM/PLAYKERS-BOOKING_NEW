@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { Match } from "@shared/schema";
 
 interface CricketScorerProps {
@@ -110,6 +111,25 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
   const [showManOfMatchDialog, setShowManOfMatchDialog] = useState(false);
   const [selectedManOfMatch, setSelectedManOfMatch] = useState('');
   const [manOfMatchSelected, setManOfMatchSelected] = useState(false);
+  
+  // Match saving functionality
+  const [isMatchSaved, setIsMatchSaved] = useState(false);
+  const [isSavingMatch, setIsSavingMatch] = useState(false);
+  
+  // Per-innings data persistence
+  const [inningsData, setInningsData] = useState<Array<{
+    inningNumber: number;
+    battingTeam: string;
+    score: {
+      runs: number;
+      wickets: number;
+      overs: string;
+      ballsFaced: number;
+    };
+    batsmen: PlayerBattingStats[];
+    bowlers: PlayerBowlingStats[];
+    ballByBall: string[];
+  }>>([]);
   
   // Manual second innings trigger
   const [firstInningsComplete, setFirstInningsComplete] = useState(false);
@@ -1390,8 +1410,43 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
     });
   };
 
+  // Function to capture current innings data before resetting
+  const captureInningsData = (inningNumber: number) => {
+    const currentBattingTeam = inningNumber === 1 ? 
+      (match.team1Name || 'Team 1') : 
+      (match.team2Name || 'Team 2');
+    
+    const currentRuns = inningNumber === 1 ? team1Runs : team2Runs;
+    const currentWickets = inningNumber === 1 ? team1Wickets : team2Wickets;
+    const currentBalls = inningNumber === 1 ? team1Balls : team2Balls;
+    
+    const inningData = {
+      inningNumber,
+      battingTeam: currentBattingTeam,
+      score: {
+        runs: currentRuns,
+        wickets: currentWickets,
+        overs: `${Math.floor(currentBalls / 6)}.${currentBalls % 6}`,
+        ballsFaced: currentBalls
+      },
+      batsmen: [...battingStats],
+      bowlers: [...bowlingStats],
+      ballByBall: [...ballByBall]
+    };
+    
+    setInningsData(prev => {
+      const filtered = prev.filter(data => data.inningNumber !== inningNumber);
+      return [...filtered, inningData];
+    });
+    
+    console.log(`Captured innings ${inningNumber} data:`, inningData);
+  };
+
   const switchInnings = () => {
     if (!isLive) return;
+    
+    // Capture first innings data before resetting
+    captureInningsData(1);
     
     // Reset for second innings (currentInning already set to 2 in handleInningsCompletion)
     setCurrentOver(0);
@@ -1462,6 +1517,325 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
       },
     };
     onScoreUpdate(scoreData);
+  };
+
+  // Helper functions to fix race conditions and team mapping issues
+  
+  // Get current batting team name based on match setup, not just inning number
+  const getCurrentBattingTeamName = () => {
+    // In cricket, team1 bats first only if they won toss and chose to bat, or lost toss and opponent chose to field
+    // For simplicity, we'll determine from the match data structure or current state
+    const matchData = match.matchData as any;
+    
+    // If match has explicit team/toss info, use it
+    if (matchData?.tossWinner && matchData?.tossDecision) {
+      const tossWinner = matchData.tossWinner;
+      const tossDecision = matchData.tossDecision; // 'bat' or 'bowl'
+      
+      if (currentInning === 1) {
+        // First innings: if toss winner chose to bat, they bat first; if they chose to bowl, opponent bats first
+        return tossDecision === 'bat' ? 
+          (tossWinner === 'team1' ? (match.team1Name || 'Team 1') : (match.team2Name || 'Team 2')) :
+          (tossWinner === 'team1' ? (match.team2Name || 'Team 2') : (match.team1Name || 'Team 1'));
+      } else {
+        // Second innings: opposite team bats
+        const firstInningsBattingTeam = tossDecision === 'bat' ? 
+          (tossWinner === 'team1' ? (match.team1Name || 'Team 1') : (match.team2Name || 'Team 2')) :
+          (tossWinner === 'team1' ? (match.team2Name || 'Team 2') : (match.team1Name || 'Team 1'));
+        return firstInningsBattingTeam === (match.team1Name || 'Team 1') ? 
+          (match.team2Name || 'Team 2') : (match.team1Name || 'Team 1');
+      }
+    }
+    
+    // Fallback: check which team has been scoring in current inning based on actual score changes
+    // If team1 score is changing in this inning, they're batting
+    if (currentInning === 1) {
+      return match.team1Name || 'Team 1'; // Default assumption for first inning
+    } else {
+      return match.team2Name || 'Team 2'; // Default assumption for second inning
+    }
+  };
+  
+  // Get current batting team ID
+  const getCurrentBattingTeamId = () => {
+    const matchData = match.matchData as any;
+    const battingTeamName = getCurrentBattingTeamName();
+    
+    // Return corresponding team ID
+    if (battingTeamName === (match.team1Name || 'Team 1')) {
+      return matchData?.team1Id || 'team1';
+    } else {
+      return matchData?.team2Id || 'team2';
+    }
+  };
+  
+  // Get current inning stats without state dependency
+  const getCurrentInningRuns = () => {
+    const battingTeamName = getCurrentBattingTeamName();
+    return battingTeamName === (match.team1Name || 'Team 1') ? team1Runs : team2Runs;
+  };
+  
+  const getCurrentInningWickets = () => {
+    const battingTeamName = getCurrentBattingTeamName();
+    return battingTeamName === (match.team1Name || 'Team 1') ? team1Wickets : team2Wickets;
+  };
+  
+  const getCurrentInningBalls = () => {
+    const battingTeamName = getCurrentBattingTeamName();
+    return battingTeamName === (match.team1Name || 'Team 1') ? team1Balls : team2Balls;
+  };
+  
+  // Get final team stats using correct team mapping
+  const getTeamFinalRuns = (teamKey: 'team1' | 'team2') => {
+    return teamKey === 'team1' ? team1Runs : team2Runs;
+  };
+  
+  const getTeamFinalWickets = (teamKey: 'team1' | 'team2') => {
+    return teamKey === 'team1' ? team1Wickets : team2Wickets;
+  };
+  
+  const getTeamId = (teamKey: 'team1' | 'team2') => {
+    const matchData = match.matchData as any;
+    return teamKey === 'team1' ? (matchData?.team1Id || 'team1') : (matchData?.team2Id || 'team2');
+  };
+  
+  // Build scorecard in format expected by backend scorecardUpdateSchema
+  const buildProperScorecardFormat = (allInnings: any[]) => {
+    const team1Innings: any[] = [];
+    const team2Innings: any[] = [];
+    
+    allInnings.forEach(inning => {
+      const battingTeamId = inning.battingTeamId || (inning.battingTeam === (match.team1Name || 'Team 1') ? 'team1' : 'team2');
+      
+      const innings = {
+        inningsNumber: inning.inningNumber,
+        battingTeamId,
+        totalRuns: inning.score.runs,
+        totalWickets: inning.score.wickets,
+        totalOvers: parseFloat(inning.score.overs) || 0,
+        runRate: inning.score.runs / (parseFloat(inning.score.overs) || 1),
+        extras: {
+          wides: 0, // These would need to be tracked separately in a full implementation
+          noBalls: 0,
+          byes: 0,
+          legByes: 0,
+          penalties: 0,
+        },
+        batsmen: (inning.batsmen || []).map((batsman: any) => ({
+          playerId: batsman.name || `player-${Date.now()}`, // Use name as ID for now
+          runsScored: batsman.runs || 0,
+          ballsFaced: batsman.balls || 0,
+          fours: batsman.fours || 0,
+          sixes: batsman.sixes || 0,
+          strikeRate: batsman.strikeRate || 0,
+          dismissalType: batsman.isDismissed ? (batsman.dismissalType || 'not-out') : 'not-out',
+          bowlerOut: batsman.bowlerOut,
+          fielderOut: batsman.fielderOut,
+        })),
+        bowlers: (inning.bowlers || []).map((bowler: any) => ({
+          playerId: bowler.name || `bowler-${Date.now()}`, // Use name as ID for now
+          overs: parseFloat(bowler.oversBowled) || 0,
+          maidens: bowler.maidenOvers || 0,
+          runsGiven: bowler.runsConceded || 0,
+          wickets: bowler.wickets || 0,
+          economy: bowler.economyRate || 0,
+          wides: 0, // These would need to be tracked separately
+          noBalls: 0,
+        })),
+        ballByBall: [], // Optional field, skip for now due to complexity
+      };
+      
+      // Assign to correct team array based on battingTeamId
+      if (battingTeamId === getTeamId('team1')) {
+        team1Innings.push(innings);
+      } else {
+        team2Innings.push(innings);
+      }
+    });
+    
+    return {
+      team1Innings,
+      team2Innings,
+    };
+  };
+  
+  // Proper cache invalidation with correct query keys
+  const invalidateMatchQueries = () => {
+    // Invalidate core match queries
+    queryClient.invalidateQueries({ queryKey: ['/api/matches'] });
+    queryClient.invalidateQueries({ queryKey: ['/api/matches', match.id] });
+    
+    // Invalidate team-specific queries if team IDs are available
+    const team1Id = getTeamId('team1');
+    const team2Id = getTeamId('team2');
+    
+    if (team1Id && team1Id !== 'team1') {
+      queryClient.invalidateQueries({ queryKey: ['/api/teams', team1Id] });
+      queryClient.invalidateQueries({ queryKey: ['/api/teams', team1Id, 'matches'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/teams', team1Id, 'stats'] });
+    }
+    if (team2Id && team2Id !== 'team2') {
+      queryClient.invalidateQueries({ queryKey: ['/api/teams', team2Id] });
+      queryClient.invalidateQueries({ queryKey: ['/api/teams', team2Id, 'matches'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/teams', team2Id, 'stats'] });
+    }
+    
+    // Invalidate user-specific queries
+    queryClient.invalidateQueries({ queryKey: ['/api/matches', 'user'] });
+    queryClient.invalidateQueries({ queryKey: ['/api/matches', 'history'] });
+  };
+
+  // Handle saving match to MongoDB with complete scorecard and stats
+  const handleSaveMatch = async () => {
+    if (!isMatchCompleted || !matchResult) {
+      toast({
+        title: "Match Not Complete",
+        description: "Please complete the match before saving.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSavingMatch(true);
+
+    try {
+      // Build complete innings data synchronously without setState dependencies
+      const currentInningsData = {
+        inningNumber: currentInning,
+        battingTeam: getCurrentBattingTeamName(), // Use helper function for correct team mapping
+        battingTeamId: getCurrentBattingTeamId(), // Get actual team ID
+        score: {
+          runs: getCurrentInningRuns(),
+          wickets: getCurrentInningWickets(), 
+          overs: `${Math.floor(getCurrentInningBalls() / 6)}.${getCurrentInningBalls() % 6}`,
+          ballsFaced: getCurrentInningBalls()
+        },
+        batsmen: [...battingStats],
+        bowlers: [...bowlingStats],
+        ballByBall: [...ballByBall]
+      };
+
+      // Merge current innings with persisted innings data
+      const allInnings = [...inningsData];
+      const existingInningIndex = allInnings.findIndex(data => data.inningNumber === currentInning);
+      
+      if (existingInningIndex >= 0) {
+        // Replace existing entry with current data
+        allInnings[existingInningIndex] = currentInningsData;
+      } else {
+        // Add new innings data
+        allInnings.push(currentInningsData);
+      }
+
+      // Sort innings by inning number
+      allInnings.sort((a, b) => a.inningNumber - b.inningNumber);
+
+      // Build scorecard in the format expected by backend schema
+      const finalScorecard = buildProperScorecardFormat(allInnings);
+
+      // Determine match winner using correct team mapping
+      let winnerId: string | undefined;
+      let resultType: "won-by-runs" | "won-by-wickets" | "tied" | "no-result" | "abandoned" = "no-result";
+      let marginRuns: number | undefined;
+      let marginWickets: number | undefined;
+
+      const team1FinalRuns = getTeamFinalRuns('team1');
+      const team2FinalRuns = getTeamFinalRuns('team2');
+      const team1FinalWickets = getTeamFinalWickets('team1'); 
+      const team2FinalWickets = getTeamFinalWickets('team2');
+
+      if (team1FinalRuns > team2FinalRuns) {
+        winnerId = getTeamId('team1');
+        resultType = "won-by-runs";
+        marginRuns = team1FinalRuns - team2FinalRuns;
+      } else if (team2FinalRuns > team1FinalRuns) {
+        winnerId = getTeamId('team2');
+        resultType = "won-by-wickets";
+        marginWickets = 10 - team2FinalWickets;
+      } else {
+        resultType = "tied";
+      }
+
+      // Prepare match completion data
+      const completionData = {
+        matchId: match.id,
+        finalScorecard,
+        awards: manOfMatchSelected && selectedManOfMatch ? {
+          manOfTheMatch: getAllPlayers().find(p => (p.name || p.playerName) === selectedManOfMatch)?.id
+        } : undefined,
+        resultSummary: {
+          winnerId,
+          resultType,
+          marginRuns,
+          marginWickets
+        }
+      };
+
+      // Save match to MongoDB
+      const response = await apiRequest(`/api/matches/${match.id}/complete`, 'POST', completionData);
+
+      if (response.ok) {
+        const responseData = await response.json();
+        
+        // Handle already processed matches
+        if (responseData.alreadyProcessed) {
+          setIsMatchSaved(true);
+          toast({
+            title: "✅ Match Already Saved",
+            description: "This match has already been saved to the database.",
+            duration: 4000,
+          });
+        } else {
+          setIsMatchSaved(true);
+          toast({
+            title: "✅ Match Saved Successfully!",
+            description: "Full match scorecard and stats saved to database. Check Match History for updated records.",
+            duration: 6000,
+          });
+        }
+
+        // Invalidate queries to refresh data in real-time with proper keys
+        invalidateMatchQueries();
+        
+      } else if (response.status === 401 || response.status === 403) {
+        // Handle authentication/authorization errors
+        throw new Error('You are not authorized to save this match. Please check your permissions or try logging in again.');
+      } else if (response.status === 409) {
+        // Handle conflict (match already completed)
+        setIsMatchSaved(true);
+        toast({
+          title: "✅ Match Already Saved",
+          description: "This match has already been completed and saved.",
+          duration: 4000,
+        });
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Failed to save match');
+      }
+
+    } catch (error: any) {
+      console.error('Error saving match:', error);
+      
+      let errorMessage = "Failed to save match to database. Please try again.";
+      
+      // Provide specific guidance based on error type
+      if (error.message && error.message.includes('authorized')) {
+        errorMessage = "You are not authorized to save this match. Please check your permissions.";
+      } else if (error.message && error.message.includes('network')) {
+        errorMessage = "Network error. Please check your internet connection and try again.";
+      } else if (error.message && error.message.includes('validation')) {
+        errorMessage = "Invalid match data. Please ensure all required information is complete.";
+      }
+      
+      toast({
+        title: "❌ Save Failed",
+        description: errorMessage,
+        variant: "destructive",
+        duration: 5000,
+      });
+    } finally {
+      setIsSavingMatch(false);
+    }
   };
 
   return (
@@ -3267,18 +3641,32 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
                 </div>
               )}
               
-              <Button 
-                onClick={() => {
-                  setIsMatchCompleted(false);
-                  setMatchResult(null);
-                  setSelectedManOfMatch('');
-                  setManOfMatchSelected(false);
-                }}
-                className="w-full"
-                data-testid="button-close-result"
-              >
-                Close
-              </Button>
+              <div className="flex gap-3">
+                {!isMatchSaved && (
+                  <Button 
+                    onClick={handleSaveMatch}
+                    disabled={isSavingMatch}
+                    className="flex-1 bg-green-600 hover:bg-green-700 text-white"
+                    data-testid="button-save-match"
+                  >
+                    {isSavingMatch ? "Saving..." : "💾 Save Match"}
+                  </Button>
+                )}
+                <Button 
+                  onClick={() => {
+                    setIsMatchCompleted(false);
+                    setMatchResult(null);
+                    setSelectedManOfMatch('');
+                    setManOfMatchSelected(false);
+                    setIsMatchSaved(false);
+                  }}
+                  className={isMatchSaved ? "w-full" : "flex-1"}
+                  variant={isMatchSaved ? "default" : "outline"}
+                  data-testid="button-close-result"
+                >
+                  Close
+                </Button>
+              </div>
             </CardContent>
           </Card>
         </div>
