@@ -390,6 +390,16 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
   const addRuns = (runs: number) => {
     if (!isLive || isMatchCompleted || showManOfMatchDialog) return;
     
+    // Block further scoring if first innings is complete
+    if (currentInning === 1 && firstInningsComplete) {
+      toast({
+        title: "First Innings Complete",
+        description: "Click 'Start Second Innings' to continue the match.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     // Block scoring while bowler selection is in progress
     if (showBowlerDialog) {
       toast({
@@ -593,6 +603,16 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
   const addWicket = (wicketType: 'bowled' | 'caught' | 'run-out' | 'hit-wicket' | 'stump-out' | 'wide-wicket' | 'no-ball-wicket' | 'leg-bye-wicket' | 'bye-wicket', fielder?: string, nextBatsmanName?: string, dismissedBatter?: 'striker' | 'non-striker', extraRunsConceded?: number) => {
     if (!isLive || isMatchCompleted || showManOfMatchDialog) return;
     
+    // Block further scoring if first innings is complete
+    if (currentInning === 1 && firstInningsComplete) {
+      toast({
+        title: "First Innings Complete",
+        description: "Click 'Start Second Innings' to continue the match.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     // Block scoring while bowler selection is in progress
     if (showBowlerDialog) {
       toast({
@@ -619,11 +639,22 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
     // Check total overs limit (applies to ALL events regardless of countsAsBall)
     const currentTeamBalls = currentInning === 1 ? team1Balls : team2Balls;
     if (currentTeamBalls >= totalOvers * 6) {
-      toast({
-        title: "Innings Complete",
-        description: `${totalOvers} overs completed. No more balls can be bowled.`,
-        variant: "destructive",
-      });
+      // Check if this should trigger innings completion
+      if (currentInning === 1 && !firstInningsComplete) {
+        setFirstInningsComplete(true);
+        setShowManualSecondInningsButton(true);
+        toast({
+          title: "First Innings Complete!",
+          description: `${totalOvers} overs completed. Click 'Start Second Innings' to continue.`,
+          duration: 8000,
+        });
+      } else {
+        toast({
+          title: "Innings Complete",
+          description: `${totalOvers} overs completed. No more balls can be bowled.`,
+          variant: "destructive",
+        });
+      }
       return;
     }
 
@@ -829,6 +860,16 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
   const addExtra = (type: 'wide' | 'no-ball' | 'bye' | 'leg-bye', runs: number = 1) => {
     if (!isLive || isMatchCompleted || showManOfMatchDialog) return;
     
+    // Block further scoring if first innings is complete
+    if (currentInning === 1 && firstInningsComplete) {
+      toast({
+        title: "First Innings Complete",
+        description: "Click 'Start Second Innings' to continue the match.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     // Block scoring while bowler selection is in progress
     if (showBowlerDialog) {
       toast({
@@ -886,11 +927,22 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
       // Check total overs limit (applies to ALL events regardless of countsAsBall)
       const currentTeamBalls = currentInning === 1 ? team1Balls : team2Balls;
       if (currentTeamBalls >= totalOvers * 6) {
-        toast({
-          title: "Innings Complete",
-          description: `${totalOvers} overs completed. No more balls can be bowled.`,
-          variant: "destructive",
-        });
+        // Check if this should trigger innings completion
+        if (currentInning === 1 && !firstInningsComplete) {
+          setFirstInningsComplete(true);
+          setShowManualSecondInningsButton(true);
+          toast({
+            title: "First Innings Complete!",
+            description: `${totalOvers} overs completed. Click 'Start Second Innings' to continue.`,
+            duration: 8000,
+          });
+        } else {
+          toast({
+            title: "Innings Complete",
+            description: `${totalOvers} overs completed. No more balls can be bowled.`,
+            variant: "destructive",
+          });
+        }
         return;
       }
 
@@ -918,11 +970,22 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
     // Check total overs limit (applies to ALL events regardless of countsAsBall)
     const currentTeamBalls = currentInning === 1 ? team1Balls : team2Balls;
     if (currentTeamBalls >= totalOvers * 6) {
-      toast({
-        title: "Innings Complete",
-        description: `${totalOvers} overs completed. No more balls can be bowled.`,
-        variant: "destructive",
-      });
+      // Check if this should trigger innings completion
+      if (currentInning === 1 && !firstInningsComplete) {
+        setFirstInningsComplete(true);
+        setShowManualSecondInningsButton(true);
+        toast({
+          title: "First Innings Complete!",
+          description: `${totalOvers} overs completed. Click 'Start Second Innings' to continue.`,
+          duration: 8000,
+        });
+      } else {
+        toast({
+          title: "Innings Complete",
+          description: `${totalOvers} overs completed. No more balls can be bowled.`,
+          variant: "destructive",
+        });
+      }
       return;
     }
 
@@ -1102,7 +1165,10 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
     const oversCompleted = Math.floor((currentInning === 1 ? team1Balls : team2Balls) / 6);
     
     if (currentInning === 1) {
-      // First innings completed
+      // First innings completed - always set manual trigger states
+      setFirstInningsComplete(true);
+      setShowManualSecondInningsButton(true);
+      
       const target = team1Runs + 1;
       
       let completionReason = '';
@@ -1114,18 +1180,24 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
       
       toast({
         title: "First Innings Complete!",
-        description: `${match.team1Name || 'Team A'} scored ${team1Runs}/${team1Wickets} (${completionReason})`,
-        duration: 5000
+        description: `${match.team1Name || 'Team A'} scored ${team1Runs}/${team1Wickets} (${completionReason}). Click 'Start Second Innings' to continue.`,
+        duration: 8000
       });
       
-      // Set current inning to 2 before showing dialog to get correct rosters
-      setCurrentInning(2);
-      
-      // Show second innings setup dialog
-      setNewStriker('');
-      setNewNonStriker('');
-      setNewBowler('');
-      setShowSecondInningsDialog(true);
+      // Try automatic transition - if it fails, manual button is already available
+      try {
+        // Set current inning to 2 before showing dialog to get correct rosters
+        setCurrentInning(2);
+        
+        // Show second innings setup dialog
+        setNewStriker('');
+        setNewNonStriker('');
+        setNewBowler('');
+        setShowSecondInningsDialog(true);
+      } catch (error) {
+        console.error('Automatic second innings setup failed:', error);
+        // Manual button is already showing as fallback
+      }
       
     } else {
       // Second innings completed - determine match result
@@ -1241,6 +1313,10 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
     setBowlingStats([]); // Reset bowling stats for new team
     setBallByBall([]);
     setDismissedPlayers(new Set()); // Reset dismissed players for new innings
+    
+    // Reset manual second innings trigger states
+    setFirstInningsComplete(false);
+    setShowManualSecondInningsButton(false);
     
     // Set new players
     setCurrentStriker(newStriker);
