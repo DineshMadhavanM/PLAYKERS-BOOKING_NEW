@@ -386,6 +386,26 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
       });
       return;
     }
+    
+    // Ensure both batsmen are selected
+    if (!currentStriker || !currentNonStriker) {
+      toast({
+        title: "Batsmen Required",
+        description: "Both striker and non-striker must be selected before scoring.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Ensure striker and non-striker are different players
+    if (currentStriker === currentNonStriker) {
+      toast({
+        title: "Invalid Selection",
+        description: "Striker and non-striker must be different players.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     // Check if the current striker is dismissed - prevent scoring
     if (dismissedPlayers.has(currentStriker)) {
@@ -703,6 +723,38 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
         variant: "destructive",
       });
       return;
+    }
+    
+    // For bye/leg-bye (legal deliveries), ensure both batsmen are selected
+    if ((type === 'bye' || type === 'leg-bye')) {
+      if (!currentStriker || !currentNonStriker) {
+        toast({
+          title: "Batsmen Required",
+          description: "Both striker and non-striker must be selected for byes and leg-byes.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      // Check if current striker is dismissed
+      if (dismissedPlayers.has(currentStriker)) {
+        toast({
+          title: "Player is Out",
+          description: `${currentStriker} is already dismissed and cannot run byes/leg-byes.`,
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      // Prevent 7th legal ball in an over for bye/leg-bye
+      if (currentBall >= 6) {
+        toast({
+          title: "Over Complete",
+          description: "Cannot bowl more than 6 legal balls in an over.",
+          variant: "destructive",
+        });
+        return;
+      }
     }
 
     // Check if current striker is dismissed for byes/leg-byes (they need to face the ball)
