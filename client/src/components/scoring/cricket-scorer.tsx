@@ -118,6 +118,11 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
   // Wicket tracking
   const [dismissedPlayers, setDismissedPlayers] = useState<Set<string>>(new Set());
   
+  // Batsman replacement dialog
+  const [showReplacementDialog, setShowReplacementDialog] = useState(false);
+  const [selectedReplacement, setSelectedReplacement] = useState('');
+  const [replacingPlayer, setReplacingPlayer] = useState<'striker' | 'non-striker'>('striker');
+  
   // Match configuration for bowling restrictions
   const totalOvers = parseInt(match.matchType?.replace(/[^\d]/g, '') || '20'); // Extract number from match type like "20 Overs"
   const maxWickets = 10; // Maximum wickets in an innings
@@ -387,6 +392,76 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
     setCurrentNonStriker(temp);
   };
 
+  // Handle batsman replacement
+  const handleBatsmanReplacement = () => {
+    if (!selectedReplacement) {
+      toast({
+        title: "Replacement Required",
+        description: "Please select a replacement batsman.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Validate replacement is from batting team
+    const battingRoster = getBattingRoster();
+    const replacementInRoster = battingRoster.some((player: any) => 
+      (player.name || player.playerName) === selectedReplacement
+    );
+    
+    if (!replacementInRoster) {
+      toast({
+        title: "Invalid Selection",
+        description: "Selected batsman is not from the batting team roster.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Validate replacement is not already playing
+    if (selectedReplacement === currentStriker || selectedReplacement === currentNonStriker) {
+      toast({
+        title: "Invalid Selection",
+        description: "Selected batsman is already playing. Choose a different player.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Validate replacement is not already dismissed
+    if (dismissedPlayers.has(selectedReplacement)) {
+      toast({
+        title: "Invalid Selection",
+        description: "Selected batsman is already out. Choose an active player.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Replace the batsman
+    const playerBeingReplaced = replacingPlayer === 'striker' ? currentStriker : currentNonStriker;
+    
+    if (replacingPlayer === 'striker') {
+      setCurrentStriker(selectedReplacement);
+    } else {
+      setCurrentNonStriker(selectedReplacement);
+    }
+    
+    // Add to ball-by-ball commentary
+    setBallByBall(prev => [...prev, `${selectedReplacement} comes in to bat replacing ${playerBeingReplaced}`]);
+    
+    // Close dialog and clear selection
+    setShowReplacementDialog(false);
+    setSelectedReplacement('');
+    
+    // Success message
+    toast({
+      title: "Batsman Replaced",
+      description: `${selectedReplacement} comes in to bat replacing ${playerBeingReplaced}`,
+      duration: 3000,
+    });
+  };
+
   const addRuns = (runs: number) => {
     if (!isLive || isMatchCompleted || showManOfMatchDialog) return;
     
@@ -450,13 +525,19 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
       return;
     }
 
-    // Check if the current striker is dismissed - prevent scoring
+    // Check if the current striker is dismissed - show replacement dialog
     if (dismissedPlayers.has(currentStriker)) {
-      toast({
-        title: "Player is Out",
-        description: `${currentStriker} is already dismissed and cannot score runs. Please select a new batsman.`,
-        variant: "destructive",
-      });
+      setReplacingPlayer('striker');
+      setSelectedReplacement('');
+      setShowReplacementDialog(true);
+      return;
+    }
+
+    // Check if the current non-striker is dismissed - show replacement dialog  
+    if (dismissedPlayers.has(currentNonStriker)) {
+      setReplacingPlayer('non-striker');
+      setSelectedReplacement('');
+      setShowReplacementDialog(true);
       return;
     }
 
@@ -914,13 +995,19 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
         return;
       }
       
-      // Check if current striker is dismissed
+      // Check if current striker is dismissed - show replacement dialog
       if (dismissedPlayers.has(currentStriker)) {
-        toast({
-          title: "Player is Out",
-          description: `${currentStriker} is already dismissed and cannot run byes/leg-byes.`,
-          variant: "destructive",
-        });
+        setReplacingPlayer('striker');
+        setSelectedReplacement('');
+        setShowReplacementDialog(true);
+        return;
+      }
+
+      // Check if current non-striker is dismissed - show replacement dialog  
+      if (dismissedPlayers.has(currentNonStriker)) {
+        setReplacingPlayer('non-striker');
+        setSelectedReplacement('');
+        setShowReplacementDialog(true);
         return;
       }
       
@@ -2720,6 +2807,117 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
                 data-testid="button-confirm-bowler"
               >
                 Confirm Bowler
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Batsman Replacement Dialog */}
+      <Dialog open={showReplacementDialog} onOpenChange={setShowReplacementDialog}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              🏏 Replace Batsman
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-6 py-4">
+            {/* Replacement info */}
+            <div className="bg-orange-50 dark:bg-orange-900/20 p-3 rounded-lg border border-orange-200 dark:border-orange-800">
+              <p className="text-sm font-medium text-orange-800 dark:text-orange-200 mb-2">
+                {replacingPlayer === 'striker' ? currentStriker : currentNonStriker} is already out and needs to be replaced
+              </p>
+              <p className="text-xs text-orange-600 dark:text-orange-400">
+                Select a new batsman from the batting team to continue the innings
+              </p>
+              {rosterPlayers.length === 0 && (
+                <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                  📝 Using generic batsman names (roster data not available)
+                </p>
+              )}
+            </div>
+
+            {/* Available batsmen dropdown */}
+            <div className="space-y-2">
+              <Label htmlFor="replacement-batsman" className="font-medium">
+                New {replacingPlayer === 'striker' ? 'Striker' : 'Non-Striker'}:
+              </Label>
+              <Select value={selectedReplacement} onValueChange={setSelectedReplacement}>
+                <SelectTrigger className="w-full" data-testid="select-replacement-batsman">
+                  <SelectValue placeholder="Select replacement batsman" />
+                </SelectTrigger>
+                <SelectContent>
+                  {getBattingRoster().map((player: any) => {
+                    const playerName = player.name || player.playerName;
+                    const isAlreadyPlaying = playerName === currentStriker || playerName === currentNonStriker;
+                    const isAlreadyOut = dismissedPlayers.has(playerName);
+                    const isAvailable = !isAlreadyPlaying && !isAlreadyOut;
+                    
+                    return (
+                      <SelectItem 
+                        key={player.id || playerName} 
+                        value={playerName}
+                        disabled={!isAvailable}
+                        data-testid={`replacement-option-${playerName.replace(/\s+/g, '-').toLowerCase()}`}
+                      >
+                        <div className="flex items-center justify-between w-full">
+                          <div className="flex flex-col">
+                            <span>{playerName}</span>
+                            {player.role && player.role !== 'player' && (
+                              <span className="text-xs text-muted-foreground">({player.role})</span>
+                            )}
+                          </div>
+                          <div className="text-xs text-muted-foreground ml-2">
+                            {isAlreadyPlaying && <span className="text-blue-500">Playing</span>}
+                            {isAlreadyOut && <span className="text-red-500">Out</span>}
+                            {isAvailable && <span className="text-green-500">Available</span>}
+                          </div>
+                        </div>
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+              {getBattingRoster().filter((player: any) => {
+                const playerName = player.name || player.playerName;
+                return !dismissedPlayers.has(playerName) && playerName !== currentStriker && playerName !== currentNonStriker;
+              }).length === 0 && (
+                <p className="text-xs text-red-600 dark:text-red-400">
+                  ⚠️ No available batsmen! All remaining players are either already playing or dismissed.
+                  {rosterPlayers.length === 0 && " (Using fallback batsman names)"}
+                </p>
+              )}
+            </div>
+
+            {/* Replacement confirmation */}
+            {selectedReplacement && (
+              <div className="bg-green-50 dark:bg-green-900/20 p-3 rounded-lg border border-green-200 dark:border-green-800">
+                <p className="text-sm font-medium text-green-800 dark:text-green-200 mb-1">
+                  Replacement Ready
+                </p>
+                <p className="text-xs text-green-600 dark:text-green-400">
+                  {selectedReplacement} will replace {replacingPlayer === 'striker' ? currentStriker : currentNonStriker} as the {replacingPlayer}
+                </p>
+              </div>
+            )}
+
+            {/* Action Buttons */}
+            <div className="flex gap-3 pt-4">
+              <Button 
+                variant="outline" 
+                onClick={() => setShowReplacementDialog(false)}
+                className="flex-1"
+                data-testid="button-cancel-replacement"
+              >
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleBatsmanReplacement}
+                disabled={!selectedReplacement}
+                className="flex-1 bg-orange-600 hover:bg-orange-700"
+                data-testid="button-confirm-replacement"
+              >
+                Confirm Replacement
               </Button>
             </div>
           </div>

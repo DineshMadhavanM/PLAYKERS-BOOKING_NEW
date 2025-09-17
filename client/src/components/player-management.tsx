@@ -132,9 +132,9 @@ export default function PlayerManagement({ teamId, teamName, players, isLoading 
     editForm.reset({
       name: player.name,
       email: player.email || "",
-      role: player.role || undefined,
-      battingStyle: player.battingStyle || undefined,
-      bowlingStyle: player.bowlingStyle || undefined,
+      role: (player.role as any) || undefined,
+      battingStyle: (player.battingStyle as any) || undefined,
+      bowlingStyle: (player.bowlingStyle as any) || undefined,
       jerseyNumber: player.jerseyNumber || undefined,
     });
   };
