@@ -449,6 +449,188 @@ export const teamStatsUpdateSchema = z.object({
   netRunRateChange: z.number().optional(),
 });
 
+// Match completion validation schemas
+export const matchCompletionSchema = z.object({
+  matchId: z.string(),
+  finalScorecard: scorecardUpdateSchema,
+  awards: z.object({
+    manOfTheMatch: z.string().optional(), // Player ID
+    bestBatsman: z.string().optional(),
+    bestBowler: z.string().optional(),
+    bestFielder: z.string().optional(),
+  }).optional(),
+  resultSummary: z.object({
+    winnerId: z.string().optional(), // Team ID
+    resultType: z.enum(["won-by-runs", "won-by-wickets", "tied", "no-result", "abandoned"]),
+    marginRuns: z.number().optional(),
+    marginWickets: z.number().optional(),
+    marginBalls: z.number().optional(),
+  }).refine((data) => {
+    // Enforce winnerId for decisive results
+    if (["won-by-runs", "won-by-wickets"].includes(data.resultType) && !data.winnerId) {
+      return false;
+    }
+    // Enforce appropriate margins based on result type
+    if (data.resultType === "won-by-runs" && typeof data.marginRuns !== "number") {
+      return false;
+    }
+    if (data.resultType === "won-by-wickets" && typeof data.marginWickets !== "number") {
+      return false;
+    }
+    // Forbid margins for ties and no-results
+    if (["tied", "no-result", "abandoned"].includes(data.resultType)) {
+      if (data.marginRuns || data.marginWickets || data.marginBalls) {
+        return false;
+      }
+    }
+    return true;
+  }, {
+    message: "Invalid result summary: winnerId and appropriate margins are required for decisive results, and margins are not allowed for ties/no-results"
+  }),
+  processed: z.boolean().optional(), // For idempotency
+});
+
+// Player match performance validation schema
+export const playerMatchPerformanceSchema = z.object({
+  matchId: z.string(),
+  playerId: z.string(),
+  teamId: z.string(),
+  opposition: z.string(), // Opposing team name
+  venue: z.string(),
+  date: z.coerce.date(),
+  matchFormat: z.enum(["T20", "ODI", "Test", "T10"]),
+  matchResult: z.enum(["won", "lost", "drawn", "no-result", "abandoned"]),
+  
+  // Batting performance
+  battingStats: z.object({
+    runs: z.number().min(0),
+    balls: z.number().min(0),
+    fours: z.number().min(0),
+    sixes: z.number().min(0),
+    strikeRate: z.number().min(0),
+    isOut: z.boolean(),
+    dismissalType: z.enum(["not-out", "bowled", "caught", "lbw", "run-out", "stumped", "hit-wicket", "retired", "timed-out"]).optional(),
+    position: z.number().min(1).max(11), // Batting position
+  }).refine((data) => {
+    // If player is out, dismissalType must be provided and not "not-out"
+    if (data.isOut) {
+      return data.dismissalType && data.dismissalType !== "not-out";
+    }
+    // If player is not out, dismissalType should be "not-out" or undefined
+    if (!data.isOut) {
+      return !data.dismissalType || data.dismissalType === "not-out";
+    }
+    return true;
+  }, {
+    message: "Invalid batting stats: dismissalType must match isOut status - require valid dismissal when isOut=true, allow only 'not-out' when isOut=false"
+  }).optional(),
+  
+  // Bowling performance
+  bowlingStats: z.object({
+    overs: z.number().min(0),
+    maidens: z.number().min(0),
+    runs: z.number().min(0),
+    wickets: z.number().min(0),
+    economy: z.number().min(0),
+    wides: z.number().min(0),
+    noBalls: z.number().min(0),
+  }).optional(),
+  
+  // Fielding performance
+  fieldingStats: z.object({
+    catches: z.number().min(0),
+    runOuts: z.number().min(0),
+    stumpings: z.number().min(0),
+  }).optional(),
+  
+  // Awards received
+  awards: z.array(z.enum(["man-of-match", "best-batsman", "best-bowler", "best-fielder"])).optional(),
+});
+
+// Team match summary validation schema
+export const teamMatchSummarySchema = z.object({
+  matchId: z.string(),
+  teamId: z.string(),
+  opposition: z.string(), // Opposing team name
+  venue: z.string(),
+  date: z.coerce.date(),
+  matchFormat: z.enum(["T20", "ODI", "Test", "T10"]),
+  result: z.enum(["won", "lost", "drawn", "no-result", "abandoned"]),
+  
+  // Team performance
+  teamPerformance: z.object({
+    totalRuns: z.number().min(0),
+    totalWickets: z.number().min(0),
+    totalOvers: z.number().min(0),
+    runRate: z.number().min(0),
+    extras: z.number().min(0),
+  }),
+  
+  // Opposition performance (for net run rate calculation)
+  oppositionPerformance: z.object({
+    totalRuns: z.number().min(0),
+    totalWickets: z.number().min(0),
+    totalOvers: z.number().min(0),
+    runRate: z.number().min(0),
+  }),
+  
+  // Result details
+  resultDetails: z.object({
+    marginRuns: z.number().optional(),
+    marginWickets: z.number().optional(),
+    marginBalls: z.number().optional(),
+  }).optional(),
+  
+  // Tournament points earned
+  tournamentPoints: z.number().min(0).optional(),
+  
+  // Top performers from the team
+  topPerformers: z.object({
+    topBatsman: z.object({
+      playerId: z.string(),
+      runs: z.number(),
+    }).optional(),
+    topBowler: z.object({
+      playerId: z.string(),
+      wickets: z.number(),
+      runs: z.number(),
+    }).optional(),
+  }).optional(),
+});
+
+// Player career statistics update schema (for aggregating match performances)
+export const playerCareerUpdateSchema = z.object({
+  playerId: z.string(),
+  matchPerformance: playerMatchPerformanceSchema,
+  
+  // Career totals to increment
+  careerIncrements: z.object({
+    totalMatches: z.number().min(0),
+    matchesWon: z.number().min(0),
+    totalRuns: z.number().min(0),
+    totalBallsFaced: z.number().min(0),
+    totalFours: z.number().min(0),
+    totalSixes: z.number().min(0),
+    totalOvers: z.number().min(0),
+    totalRunsGiven: z.number().min(0),
+    totalWickets: z.number().min(0),
+    totalMaidens: z.number().min(0),
+    catches: z.number().min(0),
+    runOuts: z.number().min(0),
+    stumpings: z.number().min(0),
+    manOfTheMatchAwards: z.number().min(0),
+    bestBatsmanAwards: z.number().min(0),
+    bestBowlerAwards: z.number().min(0),
+    bestFielderAwards: z.number().min(0),
+  }),
+  
+  // New career bests (if achieved)
+  careerBests: z.object({
+    highestScore: z.number().optional(),
+    bestBowlingFigures: z.string().optional(), // e.g., "4/25"
+  }).optional(),
+});
+
 // TypeScript types for MongoDB documents
 export type User = {
   id: string;
@@ -676,6 +858,13 @@ export type MatchRosterPlayer = {
   userId: string | null;
   createdAt: Date | null;
 };
+
+// Properly typed exports using inferred types from Zod schemas
+export type ScorecardUpdate = z.infer<typeof scorecardUpdateSchema>;
+export type MatchCompletionInput = z.infer<typeof matchCompletionSchema>;
+export type PlayerMatchPerformanceInput = z.infer<typeof playerMatchPerformanceSchema>;
+export type TeamMatchSummaryInput = z.infer<typeof teamMatchSummarySchema>;
+export type PlayerCareerUpdateInput = z.infer<typeof playerCareerUpdateSchema>;
 
 // Insert types (inferred from Zod schemas)
 export type InsertUser = z.infer<typeof insertUserSchema>;
