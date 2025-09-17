@@ -139,6 +139,36 @@ export interface IStorage {
   updateMatchScorecard(matchId: string, scorecard: any): Promise<Match | undefined>;
   getPlayerMatchHistory(playerId: string): Promise<Match[]>;
   getTeamMatchHistory(teamId: string): Promise<Match[]>;
+  
+  // Match completion operations
+  applyMatchResults(matchData: {
+    matchId: string;
+    status: string;
+    team1Id?: string;
+    team2Id?: string;
+    winnerTeamId?: string;
+    scorecard?: any;
+    playerStats: Array<{
+      playerId: string;
+      teamId: string;
+      runsScored?: number;
+      ballsFaced?: number;
+      fours?: number;
+      sixes?: number;
+      isOut?: boolean;
+      oversBowled?: number;
+      runsGiven?: number;
+      wicketsTaken?: number;
+      maidens?: number;
+      catches?: number;
+      runOuts?: number;
+      stumpings?: number;
+      manOfMatch?: boolean;
+      bestBatsman?: boolean;
+      bestBowler?: boolean;
+      bestFielder?: boolean;
+    }>;
+  }): Promise<{ success: boolean; updatedMatch?: Match; errors?: string[] }>;
 }
 
 // MongoDB Storage Implementation

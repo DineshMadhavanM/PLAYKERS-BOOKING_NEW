@@ -13,6 +13,8 @@ import {
   insertCartItemSchema,
   insertTeamSchema,
   insertPlayerSchema,
+  matchCompletionSchema,
+  MatchCompletionInput,
 } from "@shared/schema";
 import { z } from "zod";
 
@@ -867,6 +869,175 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error updating match scorecard:", error);
       res.status(500).json({ message: "Failed to update match scorecard" });
+    }
+  });
+
+  // Complete a cricket match with final scorecard and statistics
+  app.post('/api/matches/:id/complete', requireAuth, async (req: any, res) => {
+    try {
+      const matchId = req.params.id;
+      
+      // Check if match exists and is not already processed
+      const existingMatch = await storage.getMatch(matchId);
+      if (!existingMatch) {
+        return res.status(404).json({ message: "Match not found" });
+      }
+
+      // Check for idempotency - if already processed, return existing data
+      const existingMatchData = existingMatch.matchData as any;
+      if (existingMatchData?.processed === true) {
+        return res.status(200).json({ 
+          message: "Match already completed", 
+          match: existingMatch,
+          alreadyProcessed: true 
+        });
+      }
+
+      // Validate the completion data using our enhanced schema
+      const completionData: MatchCompletionInput = matchCompletionSchema.parse({
+        ...req.body,
+        matchId,
+      });
+
+      // Update match with final scorecard and mark as completed
+      const updatedMatch = await storage.updateMatch(matchId, {
+        status: 'completed',
+        matchData: {
+          ...existingMatchData,
+          scorecard: completionData.finalScorecard,
+          awards: completionData.awards,
+          resultSummary: completionData.resultSummary,
+          processed: true, // Mark as processed for idempotency
+        }
+      });
+
+      if (!updatedMatch) {
+        return res.status(404).json({ message: "Failed to update match" });
+      }
+
+      // Extract team and player data from scorecard for statistics updates
+      const { finalScorecard, awards, resultSummary } = completionData;
+      
+      // Determine team IDs from match data
+      const team1Id = (existingMatch.matchData as any)?.team1Id || null;
+      const team2Id = (existingMatch.matchData as any)?.team2Id || null;
+      const winnerId = resultSummary.winnerId;
+
+      // Extract player statistics from scorecard
+      const playerStats: any[] = [];
+      
+      // Process both innings for player stats
+      [...(finalScorecard.team1Innings || []), ...(finalScorecard.team2Innings || [])].forEach(innings => {
+        // Add batting stats
+        innings.batsmen?.forEach(batsman => {
+          const existingPlayerStat = playerStats.find(p => p.playerId === batsman.playerId);
+          if (existingPlayerStat) {
+            existingPlayerStat.runsScored = (existingPlayerStat.runsScored || 0) + batsman.runsScored;
+            existingPlayerStat.ballsFaced = (existingPlayerStat.ballsFaced || 0) + batsman.ballsFaced;
+            existingPlayerStat.fours = (existingPlayerStat.fours || 0) + batsman.fours;
+            existingPlayerStat.sixes = (existingPlayerStat.sixes || 0) + batsman.sixes;
+          } else {
+            playerStats.push({
+              playerId: batsman.playerId,
+              teamId: innings.battingTeamId,
+              runsScored: batsman.runsScored,
+              ballsFaced: batsman.ballsFaced,
+              fours: batsman.fours,
+              sixes: batsman.sixes,
+              isOut: batsman.dismissalType !== 'not-out',
+            });
+          }
+        });
+
+        // Add bowling stats
+        innings.bowlers?.forEach(bowler => {
+          const existingPlayerStat = playerStats.find(p => p.playerId === bowler.playerId);
+          if (existingPlayerStat) {
+            existingPlayerStat.oversBowled = (existingPlayerStat.oversBowled || 0) + bowler.overs;
+            existingPlayerStat.runsGiven = (existingPlayerStat.runsGiven || 0) + bowler.runsGiven;
+            existingPlayerStat.wicketsTaken = (existingPlayerStat.wicketsTaken || 0) + bowler.wickets;
+            existingPlayerStat.maidens = (existingPlayerStat.maidens || 0) + bowler.maidens;
+          } else {
+            const existingBattingStat = playerStats.find(p => p.playerId === bowler.playerId);
+            if (existingBattingStat) {
+              existingBattingStat.oversBowled = bowler.overs;
+              existingBattingStat.runsGiven = bowler.runsGiven;
+              existingBattingStat.wicketsTaken = bowler.wickets;
+              existingBattingStat.maidens = bowler.maidens;
+            } else {
+              playerStats.push({
+                playerId: bowler.playerId,
+                teamId: innings.battingTeamId === team1Id ? team2Id : team1Id, // Bowler is from opposite team
+                oversBowled: bowler.overs,
+                runsGiven: bowler.runsGiven,
+                wicketsTaken: bowler.wickets,
+                maidens: bowler.maidens,
+              });
+            }
+          }
+        });
+      });
+
+      // Add awards to player stats
+      if (awards) {
+        if (awards.manOfTheMatch) {
+          const player = playerStats.find(p => p.playerId === awards.manOfTheMatch);
+          if (player) player.manOfMatch = true;
+        }
+        if (awards.bestBatsman) {
+          const player = playerStats.find(p => p.playerId === awards.bestBatsman);
+          if (player) player.bestBatsman = true;
+        }
+        if (awards.bestBowler) {
+          const player = playerStats.find(p => p.playerId === awards.bestBowler);
+          if (player) player.bestBowler = true;
+        }
+        if (awards.bestFielder) {
+          const player = playerStats.find(p => p.playerId === awards.bestFielder);
+          if (player) player.bestFielder = true;
+        }
+      }
+
+      // Apply match results to update team and player statistics
+      if (team1Id && team2Id && playerStats.length > 0) {
+        const applyResult = await storage.applyMatchResults({
+          matchId,
+          status: 'completed',
+          team1Id,
+          team2Id,
+          winnerTeamId: winnerId,
+          scorecard: finalScorecard,
+          playerStats
+        });
+
+        if (!applyResult.success) {
+          console.error("Error applying match results:", applyResult.errors);
+          return res.status(500).json({ 
+            message: "Match completed but failed to update statistics", 
+            errors: applyResult.errors 
+          });
+        }
+      }
+
+      res.status(200).json({
+        message: "Match completed successfully",
+        match: updatedMatch,
+        statistics: {
+          teamsUpdated: team1Id && team2Id ? 2 : 0,
+          playersUpdated: playerStats.length,
+          awardsProcessed: awards ? Object.keys(awards).length : 0
+        }
+      });
+
+    } catch (error: any) {
+      console.error("Error completing match:", error);
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ 
+          message: "Validation error", 
+          issues: error.issues 
+        });
+      }
+      res.status(500).json({ message: "Failed to complete match" });
     }
   });
 
