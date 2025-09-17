@@ -1071,6 +1071,80 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Development route to seed sample completed matches with result data
+  app.post('/api/dev/seed-completed-matches', requireAuth, async (req, res) => {
+    try {
+      // Get some live matches to convert to completed
+      const allMatches = await storage.getMatches();
+      const liveMatches = allMatches.filter(match => 
+        match.status === 'live' && 
+        (match.matchData as any)?.team1Id && 
+        (match.matchData as any)?.team2Id
+      ).slice(0, 3); // Take first 3 live matches
+
+      const completedMatches = [];
+
+      for (let i = 0; i < liveMatches.length; i++) {
+        const match = liveMatches[i];
+        const matchData = match.matchData as any;
+        
+        // Create different result types for variety
+        let resultSummary;
+        const team1Id = matchData.team1Id;
+        const team2Id = matchData.team2Id;
+        
+        if (i === 0) {
+          // Team 1 wins by runs
+          resultSummary = {
+            winnerId: team1Id,
+            resultType: "won-by-runs" as const,
+            marginRuns: 25
+          };
+        } else if (i === 1) {
+          // Team 2 wins by wickets  
+          resultSummary = {
+            winnerId: team2Id,
+            resultType: "won-by-wickets" as const,
+            marginWickets: 4
+          };
+        } else {
+          // Tied match
+          resultSummary = {
+            resultType: "tied" as const
+          };
+        }
+
+        // Update the match to completed with result summary
+        const updatedMatch = await storage.updateMatch(match.id, {
+          status: 'completed',
+          matchData: {
+            ...matchData,
+            resultSummary,
+            processed: true
+          }
+        });
+
+        if (updatedMatch) {
+          completedMatches.push(updatedMatch);
+        }
+      }
+
+      res.json({
+        message: `Successfully created ${completedMatches.length} completed matches with result data`,
+        matches: completedMatches.map(m => ({ 
+          id: m.id, 
+          title: m.title, 
+          status: m.status,
+          resultSummary: (m.matchData as any).resultSummary 
+        }))
+      });
+
+    } catch (error) {
+      console.error("Error seeding completed matches:", error);
+      res.status(500).json({ message: "Failed to seed completed matches" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
