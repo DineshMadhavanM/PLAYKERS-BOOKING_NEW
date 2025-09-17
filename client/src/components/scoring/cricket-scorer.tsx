@@ -118,55 +118,62 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
   const getFieldingRoster = () => {
     // First inning: team2 is fielding, second inning: team1 is fielding
     const fieldingTeam = currentInning === 1 ? 'team2' : 'team1';
+    
+    // Filter actual roster players by fielding team
     const filteredPlayers = rosterPlayers.filter((player: any) => 
-      player.team === fieldingTeam && player.role !== 'wicket-keeper'
+      player.team === fieldingTeam
     );
     
-    // If no roster data is available, provide fallback bowler names
-    if (filteredPlayers.length === 0) {
-      const fallbackBowlers = [
-        { name: 'Bowler 1', team: fieldingTeam, role: 'bowler', id: `${fieldingTeam}-bowler-1` },
-        { name: 'Bowler 2', team: fieldingTeam, role: 'bowler', id: `${fieldingTeam}-bowler-2` },
-        { name: 'Bowler 3', team: fieldingTeam, role: 'bowler', id: `${fieldingTeam}-bowler-3` },
-        { name: 'Bowler 4', team: fieldingTeam, role: 'bowler', id: `${fieldingTeam}-bowler-4` },
-        { name: 'Bowler 5', team: fieldingTeam, role: 'bowler', id: `${fieldingTeam}-bowler-5` },
-        { name: 'Bowler 6', team: fieldingTeam, role: 'bowler', id: `${fieldingTeam}-bowler-6` },
-      ];
-      return fallbackBowlers;
+    // If we have roster data, return actual players
+    if (filteredPlayers.length > 0) {
+      return filteredPlayers;
     }
     
-    return filteredPlayers;
+    // If no roster data is available, provide fallback bowler names
+    const teamName = fieldingTeam === 'team1' ? (match.team1Name || 'Team A') : (match.team2Name || 'Team B');
+    const fallbackBowlers = [
+      { name: `${teamName} Bowler 1`, team: fieldingTeam, role: 'bowler', id: `${fieldingTeam}-bowler-1` },
+      { name: `${teamName} Bowler 2`, team: fieldingTeam, role: 'bowler', id: `${fieldingTeam}-bowler-2` },
+      { name: `${teamName} Bowler 3`, team: fieldingTeam, role: 'bowler', id: `${fieldingTeam}-bowler-3` },
+      { name: `${teamName} Bowler 4`, team: fieldingTeam, role: 'bowler', id: `${fieldingTeam}-bowler-4` },
+      { name: `${teamName} Bowler 5`, team: fieldingTeam, role: 'bowler', id: `${fieldingTeam}-bowler-5` },
+      { name: `${teamName} Bowler 6`, team: fieldingTeam, role: 'bowler', id: `${fieldingTeam}-bowler-6` },
+    ];
+    return fallbackBowlers;
   };
 
   // Batting roster helper function (similar to fielding roster)
   const getBattingRoster = () => {
     // First inning: team1 is batting, second inning: team2 is batting
     const battingTeam = currentInning === 1 ? 'team1' : 'team2';
+    
+    // Filter actual roster players by batting team and exclude dismissed players
     const filteredPlayers = rosterPlayers.filter((player: any) => 
-      player.team === battingTeam
+      player.team === battingTeam && !dismissedPlayers.has(player.name || player.playerName)
     );
     
-    // If no roster data is available, provide fallback batsman names
-    if (filteredPlayers.length === 0) {
-      const fallbackBatsmen = [
-        { name: 'Batsman 1', team: battingTeam, role: 'batsman', id: `${battingTeam}-batsman-1` },
-        { name: 'Batsman 2', team: battingTeam, role: 'batsman', id: `${battingTeam}-batsman-2` },
-        { name: 'Batsman 3', team: battingTeam, role: 'batsman', id: `${battingTeam}-batsman-3` },
-        { name: 'Batsman 4', team: battingTeam, role: 'batsman', id: `${battingTeam}-batsman-4` },
-        { name: 'Batsman 5', team: battingTeam, role: 'batsman', id: `${battingTeam}-batsman-5` },
-        { name: 'Batsman 6', team: battingTeam, role: 'batsman', id: `${battingTeam}-batsman-6` },
-        { name: 'Batsman 7', team: battingTeam, role: 'batsman', id: `${battingTeam}-batsman-7` },
-        { name: 'Batsman 8', team: battingTeam, role: 'batsman', id: `${battingTeam}-batsman-8` },
-        { name: 'Batsman 9', team: battingTeam, role: 'batsman', id: `${battingTeam}-batsman-9` },
-        { name: 'Batsman 10', team: battingTeam, role: 'batsman', id: `${battingTeam}-batsman-10` },
-        { name: 'Batsman 11', team: battingTeam, role: 'batsman', id: `${battingTeam}-batsman-11` },
-      ];
-      // Filter out dismissed players from fallback names too
-      return fallbackBatsmen.filter(player => !dismissedPlayers.has(player.name));
+    // If we have roster data with available players, return them
+    if (filteredPlayers.length > 0) {
+      return filteredPlayers;
     }
     
-    // Filter out dismissed players from actual roster
-    return filteredPlayers.filter((player: any) => !dismissedPlayers.has(player.name));
+    // If no roster data is available, provide fallback batsman names
+    const teamName = battingTeam === 'team1' ? (match.team1Name || 'Team A') : (match.team2Name || 'Team B');
+    const fallbackBatsmen = [
+      { name: `${teamName} Batsman 1`, team: battingTeam, role: 'batsman', id: `${battingTeam}-batsman-1` },
+      { name: `${teamName} Batsman 2`, team: battingTeam, role: 'batsman', id: `${battingTeam}-batsman-2` },
+      { name: `${teamName} Batsman 3`, team: battingTeam, role: 'batsman', id: `${battingTeam}-batsman-3` },
+      { name: `${teamName} Batsman 4`, team: battingTeam, role: 'batsman', id: `${battingTeam}-batsman-4` },
+      { name: `${teamName} Batsman 5`, team: battingTeam, role: 'batsman', id: `${battingTeam}-batsman-5` },
+      { name: `${teamName} Batsman 6`, team: battingTeam, role: 'batsman', id: `${battingTeam}-batsman-6` },
+      { name: `${teamName} Batsman 7`, team: battingTeam, role: 'batsman', id: `${battingTeam}-batsman-7` },
+      { name: `${teamName} Batsman 8`, team: battingTeam, role: 'batsman', id: `${battingTeam}-batsman-8` },
+      { name: `${teamName} Batsman 9`, team: battingTeam, role: 'batsman', id: `${battingTeam}-batsman-9` },
+      { name: `${teamName} Batsman 10`, team: battingTeam, role: 'batsman', id: `${battingTeam}-batsman-10` },
+      { name: `${teamName} Batsman 11`, team: battingTeam, role: 'batsman', id: `${battingTeam}-batsman-11` },
+    ];
+    // Filter out dismissed players from fallback names too
+    return fallbackBatsmen.filter(player => !dismissedPlayers.has(player.name));
   };
 
   // Track legal balls separately from total balls (including extras)
@@ -210,17 +217,18 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
     const bowlerToExclude = excludeBowler || lastOverBowlerByInning[currentInning];
     return fieldingRoster
       .filter((player: any) => {
-        const isNotPreviousBowler = player.name !== bowlerToExclude;
+        const playerName = player.name || player.playerName;
+        const isNotPreviousBowler = playerName !== bowlerToExclude;
         // Bowling quota constraint removed - only check consecutive overs rule
-        return isNotPreviousBowler;
+        return isNotPreviousBowler && playerName; // Ensure player has a valid name
       })
-      .map((player: any) => player.name);
+      .map((player: any) => player.name || player.playerName);
   };
 
   const getBowlerRestrictionReason = (playerName: string, excludeBowler?: string) => {
     const bowlerToExclude = excludeBowler || lastOverBowlerByInning[currentInning];
     if (playerName === bowlerToExclude) {
-      return "This bowler cannot bowl consecutive overs. Choose another bowler.";
+      return "Cannot bowl consecutive overs";
     }
     // Bowling quota constraint removed - no quota restrictions
     return null;
@@ -2093,12 +2101,18 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
                         <SelectValue placeholder="Select next batsman" />
                       </SelectTrigger>
                       <SelectContent>
-                        {/* Available team players using fallback system */}
-                        {getBattingRoster().filter((player: any) => 
-                          player.name !== currentStriker && player.name !== currentNonStriker
-                        ).map((player: any) => (
-                          <SelectItem key={player.id} value={player.name}>
-                            {player.name}
+                        {/* Available team players using improved team filtering */}
+                        {getBattingRoster().filter((player: any) => {
+                          const playerName = player.name || player.playerName;
+                          return playerName !== currentStriker && 
+                                 playerName !== currentNonStriker &&
+                                 !dismissedPlayers.has(playerName);
+                        }).map((player: any) => (
+                          <SelectItem key={player.id} value={player.name || player.playerName}>
+                            {player.name || player.playerName}
+                            {player.role && player.role !== 'player' && (
+                              <span className="ml-2 text-xs text-muted-foreground">({player.role})</span>
+                            )}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -2141,6 +2155,42 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
                       });
                       return;
                     }
+                    
+                    // Validate next batsman is from batting team
+                    const battingRoster = getBattingRoster();
+                    const batsmanInRoster = battingRoster.some((player: any) => 
+                      (player.name || player.playerName) === nextBatsman.trim()
+                    );
+                    
+                    if (!batsmanInRoster) {
+                      toast({
+                        title: "Invalid Selection",
+                        description: "Selected batsman is not from the batting team roster.",
+                        variant: "destructive",
+                      });
+                      return;
+                    }
+                    
+                    // Validate next batsman is not currently playing
+                    if (nextBatsman.trim() === currentStriker || nextBatsman.trim() === currentNonStriker) {
+                      toast({
+                        title: "Invalid Selection",
+                        description: "Selected batsman is already playing. Choose a different player.",
+                        variant: "destructive",
+                      });
+                      return;
+                    }
+                    
+                    // Validate next batsman is not already dismissed
+                    if (dismissedPlayers.has(nextBatsman.trim())) {
+                      toast({
+                        title: "Invalid Selection",
+                        description: "Selected batsman is already out. Choose an active player.",
+                        variant: "destructive",
+                      });
+                      return;
+                    }
+                    
                     addWicket(
                       selectedWicketType, 
                       fielderName || undefined, 
@@ -2198,23 +2248,29 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
                 </SelectTrigger>
                 <SelectContent>
                   {getFieldingRoster().map((player: any) => {
-                    const isEligible = eligibleBowlers.includes(player.name);
-                    const restrictionReason = getBowlerRestrictionReason(player.name, currentBowler);
-                    const oversBowled = getOversBowled(player.name);
+                    const playerName = player.name || player.playerName;
+                    const isEligible = eligibleBowlers.includes(playerName);
+                    const restrictionReason = getBowlerRestrictionReason(playerName, currentBowler);
+                    const oversBowled = getOversBowled(playerName);
                     
                     return (
                       <SelectItem 
                         key={player.id} 
-                        value={player.name}
+                        value={playerName}
                         disabled={!isEligible}
-                        data-testid={`bowler-option-${player.name.replace(/\s+/g, '-').toLowerCase()}`}
+                        data-testid={`bowler-option-${playerName.replace(/\s+/g, '-').toLowerCase()}`}
                       >
                         <div className="flex items-center justify-between w-full">
-                          <span>{player.name}</span>
-                          <div className="text-xs text-muted-foreground ml-2">
+                          <div className="flex flex-col">
+                            <span>{playerName}</span>
+                            {player.role && player.role !== 'player' && (
+                              <span className="text-xs text-muted-foreground">({player.role})</span>
+                            )}
+                          </div>
+                          <div className="text-xs text-muted-foreground ml-2 flex flex-col items-end">
                             {oversBowled > 0 && <span>({oversBowled} overs)</span>}
-                            {restrictionReason && (
-                              <span className="text-red-500 ml-1">- {restrictionReason}</span>
+                            {!isEligible && restrictionReason && (
+                              <span className="text-red-500 text-xs">Restricted</span>
                             )}
                           </div>
                         </div>
@@ -2265,10 +2321,25 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
                     return;
                   }
                   
+                  // Validate bowler is from fielding team
+                  const fieldingRoster = getFieldingRoster();
+                  const bowlerInRoster = fieldingRoster.some((player: any) => 
+                    (player.name || player.playerName) === selectedNextBowler
+                  );
+                  
+                  if (!bowlerInRoster) {
+                    toast({
+                      title: "Invalid Selection",
+                      description: "Selected bowler is not from the fielding team.",
+                      variant: "destructive",
+                    });
+                    return;
+                  }
+                  
                   if (!eligibleBowlers.includes(selectedNextBowler)) {
                     toast({
                       title: "Invalid Selection",
-                      description: "Selected bowler is not eligible due to bowling restrictions.",
+                      description: "Selected bowler cannot bowl consecutive overs.",
                       variant: "destructive",
                     });
                     return;
@@ -2339,8 +2410,11 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
                     </SelectTrigger>
                     <SelectContent>
                       {getBattingRoster().map((player: any) => (
-                        <SelectItem key={player.id} value={player.name}>
-                          {player.name}
+                        <SelectItem key={player.id} value={player.name || player.playerName}>
+                          {player.name || player.playerName}
+                          {player.role && player.role !== 'player' && (
+                            <span className="ml-2 text-xs text-muted-foreground">({player.role})</span>
+                          )}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -2364,9 +2438,15 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
                       <SelectValue placeholder="Select opening non-striker" />
                     </SelectTrigger>
                     <SelectContent>
-                      {getBattingRoster().filter((player: any) => player.name !== newStriker).map((player: any) => (
-                        <SelectItem key={player.id} value={player.name}>
-                          {player.name}
+                      {getBattingRoster().filter((player: any) => {
+                        const playerName = player.name || player.playerName;
+                        return playerName !== newStriker;
+                      }).map((player: any) => (
+                        <SelectItem key={player.id} value={player.name || player.playerName}>
+                          {player.name || player.playerName}
+                          {player.role && player.role !== 'player' && (
+                            <span className="ml-2 text-xs text-muted-foreground">({player.role})</span>
+                          )}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -2391,8 +2471,11 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
                     </SelectTrigger>
                     <SelectContent>
                       {getFieldingRoster().map((player: any) => (
-                        <SelectItem key={player.id} value={player.name}>
-                          {player.name}
+                        <SelectItem key={player.id} value={player.name || player.playerName}>
+                          {player.name || player.playerName}
+                          {player.role && player.role !== 'player' && (
+                            <span className="ml-2 text-xs text-muted-foreground">({player.role})</span>
+                          )}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -2433,6 +2516,39 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
                     toast({
                       title: "Invalid Selection",
                       description: "Striker and non-striker must be different players.",
+                      variant: "destructive",
+                    });
+                    return;
+                  }
+                  
+                  // Validate batsmen are from batting team (team2 in second innings)
+                  const battingRoster = getBattingRoster();
+                  const strikerInRoster = battingRoster.some((player: any) => 
+                    (player.name || player.playerName) === newStriker.trim()
+                  );
+                  const nonStrikerInRoster = battingRoster.some((player: any) => 
+                    (player.name || player.playerName) === newNonStriker.trim()
+                  );
+                  
+                  if (!strikerInRoster || !nonStrikerInRoster) {
+                    toast({
+                      title: "Invalid Selection",
+                      description: "Both batsmen must be from the batting team roster.",
+                      variant: "destructive",
+                    });
+                    return;
+                  }
+                  
+                  // Validate bowler is from fielding team (team1 in second innings)
+                  const fieldingRoster = getFieldingRoster();
+                  const bowlerInRoster = fieldingRoster.some((player: any) => 
+                    (player.name || player.playerName) === newBowler.trim()
+                  );
+                  
+                  if (!bowlerInRoster) {
+                    toast({
+                      title: "Invalid Selection",
+                      description: "Bowler must be from the fielding team roster.",
                       variant: "destructive",
                     });
                     return;
