@@ -103,9 +103,6 @@ export default function TeamDetail() {
     );
   }
 
-  const winPercentage = team.totalMatches 
-    ? Math.round(((team.matchesWon || 0) / team.totalMatches) * 100)
-    : 0;
 
   // Calculate team statistics from matches
   const calculateTeamStats = () => {
@@ -143,18 +140,9 @@ export default function TeamDetail() {
         // Don't count no-result or abandoned matches in stats
         return;
       } else {
-        // TEMPORARY: Handle completed matches without result summary
-        // For demo purposes, assign a random but consistent result based on match ID
-        const matchIdHash = match.id.split('').reduce((a, b) => a + b.charCodeAt(0), 0);
-        const resultType = matchIdHash % 3; // 0=win, 1=loss, 2=draw
-        
-        if (resultType === 0) {
-          wins++;
-        } else if (resultType === 1) {
-          losses++;
-        } else {
-          draws++;
-        }
+        // Only count matches with proper result data - ignore matches without results
+        // This ensures we only show real-time statistics from actual completed matches
+        return;
       }
     });
     
