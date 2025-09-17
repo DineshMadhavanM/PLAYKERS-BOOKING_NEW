@@ -2,7 +2,8 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation } from "@tanstack/react-query";
-import { UserPlus, Edit, Trash2, Save, X, Crown, Shield, Zap } from "lucide-react";
+import { UserPlus, Edit, Trash2, Save, X, Crown, Shield, Zap, User } from "lucide-react";
+import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -414,6 +415,16 @@ export default function PlayerManagement({ teamId, teamName, players, isLoading 
                   </div>
 
                   <div className="flex items-center gap-2">
+                    <Link href={`/players/${player.id}`}>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        data-testid={`button-view-player-${player.id}`}
+                      >
+                        <User className="h-4 w-4" />
+                      </Button>
+                    </Link>
+                    
                     <Button
                       variant="outline"
                       size="sm"

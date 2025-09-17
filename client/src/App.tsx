@@ -18,6 +18,7 @@ import Shop from "@/pages/shop";
 import CreateMatch from "@/pages/create-match";
 import MatchScorer from "@/pages/match-scorer";
 import Admin from "@/pages/admin";
+import PlayerProfile from "@/pages/player-profile";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -36,6 +37,7 @@ function Router() {
       <Route path="/teams/create" component={CreateTeam} />
       <Route path="/teams/:id/edit" component={EditTeam} />
       <Route path="/teams/:id" component={TeamDetail} />
+      <Route path="/players/:id" component={PlayerProfile} />
       <Route path="/profile" component={Profile} />
       <Route path="/shop" component={Shop} />
       <Route path="/create-match" component={CreateMatch} />
