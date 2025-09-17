@@ -107,6 +107,63 @@ export default function TeamDetail() {
     ? Math.round(((team.matchesWon || 0) / team.totalMatches) * 100)
     : 0;
 
+  // Calculate team statistics from matches
+  const calculateTeamStats = () => {
+    const completed = teamMatches.filter(match => match.status === 'completed');
+    let wins = 0;
+    let losses = 0;
+    let draws = 0;
+    
+    completed.forEach(match => {
+      const resultSummary = (match.matchData as any)?.resultSummary;
+      const matchData = match.matchData as any;
+      
+      // Determine if current team participated in this match
+      const isTeam1 = matchData?.team1Id === teamId;
+      const isTeam2 = matchData?.team2Id === teamId;
+      const isParticipant = isTeam1 || isTeam2;
+      
+      // Only count matches where the current team participated
+      if (!isParticipant) {
+        return;
+      }
+      
+      if (resultSummary?.resultType === 'tied') {
+        draws++;
+      } else if (resultSummary?.winnerId) {
+        // Check if current team won by comparing winnerId with current teamId
+        if (resultSummary.winnerId === teamId) {
+          wins++;
+        } else {
+          losses++;
+        }
+      } else if (resultSummary?.resultType === 'no-result' || resultSummary?.resultType === 'abandoned') {
+        // Don't count no-result or abandoned matches in stats
+        return;
+      } else {
+        // If no clear result type, treat as abandoned (don't count)
+        return;
+      }
+    });
+    
+    const totalMatches = wins + losses + draws;
+    const winRate = totalMatches > 0 ? (wins / totalMatches) * 100 : 0;
+    
+    // Calculate tournament points (assume 2 points for win, 1 for draw)
+    const tournamentPoints = (wins * 2) + (draws * 1);
+    
+    return {
+      totalMatches,
+      matchesWon: wins,
+      matchesLost: losses,
+      matchesDrawn: draws,
+      winRate,
+      tournamentPoints
+    };
+  };
+
+  const teamStats = calculateTeamStats();
+
   return (
     <div className="container mx-auto p-6 max-w-7xl">
       {/* Header */}
@@ -185,36 +242,36 @@ export default function TeamDetail() {
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 mb-8">
         <Card>
           <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-green-600">{team.matchesWon || 0}</div>
+            <div className="text-2xl font-bold text-green-600">{teamStats.matchesWon}</div>
             <div className="text-sm text-gray-600 dark:text-gray-400">Wins</div>
           </CardContent>
         </Card>
         
         <Card>
           <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-red-600">{team.matchesLost || 0}</div>
+            <div className="text-2xl font-bold text-red-600">{teamStats.matchesLost}</div>
             <div className="text-sm text-gray-600 dark:text-gray-400">Losses</div>
           </CardContent>
         </Card>
         
         <Card>
           <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-blue-600">{team.matchesDrawn || 0}</div>
+            <div className="text-2xl font-bold text-blue-600">{teamStats.matchesDrawn}</div>
             <div className="text-sm text-gray-600 dark:text-gray-400">Draws</div>
           </CardContent>
         </Card>
         
         <Card>
           <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-purple-600">{team.totalMatches || 0}</div>
+            <div className="text-2xl font-bold text-purple-600">{teamStats.totalMatches}</div>
             <div className="text-sm text-gray-600 dark:text-gray-400">Total</div>
           </CardContent>
         </Card>
         
         <Card>
           <CardContent className="p-4 text-center">
-            <div className={`text-2xl font-bold ${winPercentage >= 50 ? 'text-green-600' : 'text-red-600'}`}>
-              {winPercentage}%
+            <div className={`text-2xl font-bold ${teamStats.winRate >= 50 ? 'text-green-600' : 'text-red-600'}`}>
+              {teamStats.winRate.toFixed(1)}%
             </div>
             <div className="text-sm text-gray-600 dark:text-gray-400">Win Rate</div>
           </CardContent>
@@ -222,7 +279,7 @@ export default function TeamDetail() {
         
         <Card>
           <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-yellow-600">{team.tournamentPoints || 0}</div>
+            <div className="text-2xl font-bold text-yellow-600">{teamStats.tournamentPoints}</div>
             <div className="text-sm text-gray-600 dark:text-gray-400">Points</div>
           </CardContent>
         </Card>
@@ -290,6 +347,7 @@ export default function TeamDetail() {
                       key={match.id} 
                       match={match} 
                       showActions={false}
+                      teamStats={teamStats}
                     />
                   ))}
                 </div>
