@@ -417,13 +417,22 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
       return;
     }
 
-    // Prevent 7th legal ball in an over
-    if (currentBall >= 6) {
-      toast({
-        title: "Over Complete",
-        description: "A bowler cannot bowl more than 6 legal balls in an over.",
-        variant: "destructive",
-      });
+    // Prevent 7th legal ball in an over or exceeding total overs limit
+    const currentTeamBalls = currentInning === 1 ? team1Balls : team2Balls;
+    if (currentBall >= 6 || currentTeamBalls >= totalOvers * 6) {
+      if (currentTeamBalls >= totalOvers * 6) {
+        toast({
+          title: "Innings Complete",
+          description: `${totalOvers} overs completed. No more balls can be bowled.`,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Over Complete",
+          description: "A bowler cannot bowl more than 6 legal balls in an over.",
+          variant: "destructive",
+        });
+      }
       return;
     }
 
@@ -439,6 +448,30 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
       setTeam1Runs(newTeam1Runs);
     } else {
       setTeam2Runs(newTeam2Runs);
+    }
+
+    // Check for immediate target achievement in second innings
+    if (currentInning === 2) {
+      const target = team1Runs + 1;
+      if (newTeam2Runs >= target) {
+        // Target reached! End match immediately
+        setTeam2Runs(newTeam2Runs);
+        setBallByBall([...ballByBall, `${runs} run${runs !== 1 ? 's' : ''}`, "🎯 TARGET REACHED!"]);
+        
+        setTimeout(() => {
+          setIsMatchCompleted(true);
+          const wicketsRemaining = maxWickets - team2Wickets;
+          const result = `${match.team2Name || 'Team B'} won by ${wicketsRemaining} wickets`;
+          setMatchResult(result);
+          
+          toast({
+            title: "🎯 TARGET ACHIEVED!",
+            description: result,
+            duration: 10000
+          });
+        }, 500);
+        return;
+      }
     }
 
     // Update player stats
@@ -484,9 +517,11 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
       ballByBall: newBallByBall
     });
     
-    // Check for innings completion after scoring runs
-    if (checkInningsCompletion()) {
-      setTimeout(() => handleInningsCompletion(), 100); // Small delay to ensure state updates
+    // Check for innings completion after scoring runs (but only if target not already reached)
+    if (currentInning === 1 || (currentInning === 2 && newTeam2Runs < team1Runs + 1)) {
+      if (checkInningsCompletion()) {
+        setTimeout(() => handleInningsCompletion(), 100); // Small delay to ensure state updates
+      }
     }
   };
 
@@ -869,19 +904,19 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
     const currentTeamBalls = currentInning === 1 ? team1Balls : team2Balls;
     const oversCompleted = Math.floor(currentTeamBalls / 6);
     
-    // End innings if max overs reached or all 10 wickets fall
-    if (oversCompleted >= totalOvers || currentTeamWickets >= maxWickets) {
+    // End innings if max overs reached (exactly totalOvers * 6 balls) or all 10 wickets fall
+    if (currentTeamBalls >= totalOvers * 6 || currentTeamWickets >= maxWickets) {
       return true;
     }
     
-    // For second innings, also check if target is reached or tie
+    // For second innings, also check if target is reached immediately
     if (currentInning === 2) {
       const target = team1Runs + 1;
       if (team2Runs >= target) {
         return true;
       }
       // Check for tie when overs completed or all wickets fall
-      if ((oversCompleted >= totalOvers || currentTeamWickets >= maxWickets) && team2Runs === team1Runs) {
+      if ((currentTeamBalls >= totalOvers * 6 || currentTeamWickets >= maxWickets) && team2Runs === team1Runs) {
         return true;
       }
     }
