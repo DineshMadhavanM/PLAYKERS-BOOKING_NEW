@@ -104,17 +104,27 @@ export default function TeamDetail() {
   }
 
 
-  // Calculate team statistics from matches
+  // Calculate comprehensive cricket team statistics from real match results
   const calculateTeamStats = () => {
-    const completed = teamMatches.filter(match => match.status === 'completed');
+    // Filter for cricket matches only to ensure accurate cricket-specific statistics
+    const completedCricketMatches = teamMatches.filter(match => 
+      match.status === 'completed' && match.sport === 'cricket'
+    );
     
     let wins = 0;
     let losses = 0;
     let draws = 0;
+    let totalRunsScored = 0;
+    let totalWicketsTaken = 0;
+    let totalRunsConceded = 0;
+    let totalWicketsLost = 0;
+    let totalBallsFaced = 0;
+    let totalBallsBowled = 0;
     
-    completed.forEach(match => {
+    completedCricketMatches.forEach(match => {
       const resultSummary = (match.matchData as any)?.resultSummary;
       const matchData = match.matchData as any;
+      const scorecard = matchData?.scorecard;
       
       // Determine if current team participated in this match
       const isTeam1 = matchData?.team1Id === teamId;
@@ -126,9 +136,11 @@ export default function TeamDetail() {
         return;
       }
       
-      // Handle matches with result summaries
+      // Process match result for wins/losses/draws (cricket matches only)
+      let hasRealResult = false;
       if (resultSummary?.resultType === 'tied') {
         draws++;
+        hasRealResult = true;
       } else if (resultSummary?.winnerId) {
         // Check if current team won by comparing winnerId with current teamId
         if (resultSummary.winnerId === teamId) {
@@ -136,6 +148,7 @@ export default function TeamDetail() {
         } else {
           losses++;
         }
+        hasRealResult = true;
       } else if (resultSummary?.resultType === 'no-result' || resultSummary?.resultType === 'abandoned') {
         // Don't count no-result or abandoned matches in stats
         return;
@@ -144,21 +157,114 @@ export default function TeamDetail() {
         // This ensures we only show real-time statistics from actual completed matches
         return;
       }
+
+      // Only process scorecard data for matches with real results (aligned with runs/wickets accumulation)
+      if (hasRealResult && scorecard) {
+        // Process ALL innings in the match correctly
+        // Check team1Innings
+        if (scorecard.team1Innings) {
+          scorecard.team1Innings.forEach((innings: any) => {
+            if (innings.battingTeamId === teamId) {
+              // Current team was batting
+              totalRunsScored += innings.totalRuns || 0;
+              totalWicketsLost += innings.totalWickets || 0;
+              
+              // Convert overs to balls for accurate NRR calculation
+              if (innings.totalOvers) {
+                const overs = parseFloat(innings.totalOvers.toString());
+                const wholeOvers = Math.floor(overs);
+                const remainingBalls = Math.round((overs - wholeOvers) * 10); // 0.4 becomes 4 balls
+                const ballsThisInnings = (wholeOvers * 6) + remainingBalls;
+                totalBallsFaced += ballsThisInnings;
+              }
+            } else {
+              // Current team was bowling
+              totalWicketsTaken += innings.totalWickets || 0;
+              totalRunsConceded += innings.totalRuns || 0;
+              
+              // Convert overs to balls for accurate NRR calculation
+              if (innings.totalOvers) {
+                const overs = parseFloat(innings.totalOvers.toString());
+                const wholeOvers = Math.floor(overs);
+                const remainingBalls = Math.round((overs - wholeOvers) * 10); // 0.4 becomes 4 balls
+                const ballsThisInnings = (wholeOvers * 6) + remainingBalls;
+                totalBallsBowled += ballsThisInnings;
+              }
+            }
+          });
+        }
+        
+        // Check team2Innings
+        if (scorecard.team2Innings) {
+          scorecard.team2Innings.forEach((innings: any) => {
+            if (innings.battingTeamId === teamId) {
+              // Current team was batting
+              totalRunsScored += innings.totalRuns || 0;
+              totalWicketsLost += innings.totalWickets || 0;
+              
+              // Convert overs to balls for accurate NRR calculation
+              if (innings.totalOvers) {
+                const overs = parseFloat(innings.totalOvers.toString());
+                const wholeOvers = Math.floor(overs);
+                const remainingBalls = Math.round((overs - wholeOvers) * 10); // 0.4 becomes 4 balls
+                const ballsThisInnings = (wholeOvers * 6) + remainingBalls;
+                totalBallsFaced += ballsThisInnings;
+              }
+            } else {
+              // Current team was bowling
+              totalWicketsTaken += innings.totalWickets || 0;
+              totalRunsConceded += innings.totalRuns || 0;
+              
+              // Convert overs to balls for accurate NRR calculation
+              if (innings.totalOvers) {
+                const overs = parseFloat(innings.totalOvers.toString());
+                const wholeOvers = Math.floor(overs);
+                const remainingBalls = Math.round((overs - wholeOvers) * 10); // 0.4 becomes 4 balls
+                const ballsThisInnings = (wholeOvers * 6) + remainingBalls;
+                totalBallsBowled += ballsThisInnings;
+              }
+            }
+          });
+        }
+      }
     });
     
+    // Only count matches with real results for statistics
     const totalMatches = wins + losses + draws;
     const winRate = totalMatches > 0 ? (wins / totalMatches) * 100 : 0;
     
-    // Calculate tournament points (assume 2 points for win, 1 for draw)
+    // Calculate tournament points (2 points for win, 1 for draw, 0 for loss)
     const tournamentPoints = (wins * 2) + (draws * 1);
     
+    // Calculate NRR using proper ball-based formula (balls already calculated in the loop above)
+    let netRunRate = 0;
+    let hasNRRData = false;
+    
+    if (totalBallsFaced > 0 && totalBallsBowled > 0) {
+      const oversFaced = totalBallsFaced / 6;
+      const oversBowled = totalBallsBowled / 6;
+      const runsPerOverScored = totalRunsScored / oversFaced;
+      const runsPerOverConceded = totalRunsConceded / oversBowled;
+      netRunRate = runsPerOverScored - runsPerOverConceded;
+      hasNRRData = true;
+    }
+    
     return {
-      totalMatches,
+      totalMatches, // This is wins + losses + draws (matches with real results only)
       matchesWon: wins,
       matchesLost: losses,
       matchesDrawn: draws,
       winRate,
-      tournamentPoints
+      tournamentPoints,
+      totalRunsScored,
+      totalWicketsTaken,
+      totalRunsConceded,
+      totalWicketsLost,
+      netRunRate,
+      hasNRRData,
+      // Use totalMatches for averages (only counts matches with real results)
+      matchesWithResults: totalMatches,
+      totalCricketMatches: completedCricketMatches.length // All cricket matches including no-result
     };
   };
 
@@ -238,49 +344,65 @@ export default function TeamDetail() {
         </div>
       </div>
 
-      {/* Team Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 mb-8">
-        <Card>
+      {/* Team Stats Cards - Real-time Cricket Statistics */}
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 mb-8" data-testid="team-stats-cards">
+        <Card data-testid="card-wins">
           <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-green-600">{teamStats.matchesWon}</div>
+            <div className="text-2xl font-bold text-green-600" data-testid="stat-wins">
+              {teamStats.matchesWon}
+            </div>
             <div className="text-sm text-gray-600 dark:text-gray-400">Wins</div>
+            <div className="text-xs text-muted-foreground mt-1">Real Victories</div>
           </CardContent>
         </Card>
         
-        <Card>
+        <Card data-testid="card-losses">
           <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-red-600">{teamStats.matchesLost}</div>
+            <div className="text-2xl font-bold text-red-600" data-testid="stat-losses">
+              {teamStats.matchesLost}
+            </div>
             <div className="text-sm text-gray-600 dark:text-gray-400">Losses</div>
+            <div className="text-xs text-muted-foreground mt-1">Actual Defeats</div>
           </CardContent>
         </Card>
         
-        <Card>
+        <Card data-testid="card-draws">
           <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-blue-600">{teamStats.matchesDrawn}</div>
+            <div className="text-2xl font-bold text-blue-600" data-testid="stat-draws">
+              {teamStats.matchesDrawn}
+            </div>
             <div className="text-sm text-gray-600 dark:text-gray-400">Draws</div>
+            <div className="text-xs text-muted-foreground mt-1">Tied Matches</div>
           </CardContent>
         </Card>
         
-        <Card>
+        <Card data-testid="card-total">
           <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-purple-600">{teamStats.totalMatches}</div>
+            <div className="text-2xl font-bold text-purple-600" data-testid="stat-total">
+              {teamStats.totalMatches}
+            </div>
             <div className="text-sm text-gray-600 dark:text-gray-400">Total</div>
+            <div className="text-xs text-muted-foreground mt-1">Completed</div>
           </CardContent>
         </Card>
         
-        <Card>
+        <Card data-testid="card-win-rate">
           <CardContent className="p-4 text-center">
-            <div className={`text-2xl font-bold ${teamStats.winRate >= 50 ? 'text-green-600' : 'text-red-600'}`}>
+            <div className={`text-2xl font-bold ${teamStats.winRate >= 50 ? 'text-green-600' : teamStats.winRate >= 30 ? 'text-orange-600' : 'text-red-600'}`} data-testid="stat-win-rate">
               {teamStats.winRate.toFixed(1)}%
             </div>
             <div className="text-sm text-gray-600 dark:text-gray-400">Win Rate</div>
+            <div className="text-xs text-muted-foreground mt-1">Success %</div>
           </CardContent>
         </Card>
         
-        <Card>
+        <Card data-testid="card-tournament-points">
           <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-yellow-600">{teamStats.tournamentPoints}</div>
+            <div className="text-2xl font-bold text-yellow-600" data-testid="stat-tournament-points">
+              {teamStats.tournamentPoints}
+            </div>
             <div className="text-sm text-gray-600 dark:text-gray-400">Points</div>
+            <div className="text-xs text-muted-foreground mt-1">Tournament</div>
           </CardContent>
         </Card>
       </div>
@@ -360,28 +482,60 @@ export default function TeamDetail() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <Card>
               <CardHeader>
-                <CardTitle>Performance Overview</CardTitle>
+                <CardTitle>Cricket Performance Overview</CardTitle>
+                <p className="text-sm text-muted-foreground">Real-time statistics from completed matches</p>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
                   <div className="flex justify-between">
                     <span>Total Runs Scored:</span>
-                    <span className="font-semibold">{team.totalRunsScored || 0}</span>
+                    <span className="font-semibold text-green-600" data-testid="stats-runs-scored">
+                      {teamStats.totalRunsScored.toLocaleString()}
+                    </span>
                   </div>
                   <div className="flex justify-between">
                     <span>Total Wickets Taken:</span>
-                    <span className="font-semibold">{team.totalWicketsTaken || 0}</span>
+                    <span className="font-semibold text-blue-600" data-testid="stats-wickets-taken">
+                      {teamStats.totalWicketsTaken}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Total Runs Conceded:</span>
+                    <span className="font-semibold text-red-600" data-testid="stats-runs-conceded">
+                      {teamStats.totalRunsConceded.toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Total Wickets Lost:</span>
+                    <span className="font-semibold text-orange-600" data-testid="stats-wickets-lost">
+                      {teamStats.totalWicketsLost}
+                    </span>
                   </div>
                   <div className="flex justify-between">
                     <span>Net Run Rate:</span>
-                    <span className="font-semibold">
-                      {team.netRunRate ? team.netRunRate.toFixed(2) : '0.00'}
+                    <span className={`font-semibold ${teamStats.hasNRRData ? (teamStats.netRunRate >= 0 ? 'text-green-600' : 'text-red-600') : 'text-gray-500'}`} data-testid="stats-net-run-rate">
+                      {teamStats.hasNRRData ? 
+                        `${teamStats.netRunRate >= 0 ? '+' : ''}${teamStats.netRunRate.toFixed(3)}` : 
+                        'No data available'
+                      }
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span>Tournament Points:</span>
-                    <span className="font-semibold text-yellow-600">
-                      {team.tournamentPoints || 0}
+                    <span className="font-semibold text-yellow-600" data-testid="stats-tournament-points">
+                      {teamStats.tournamentPoints}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Average Score Per Match:</span>
+                    <span className="font-semibold text-purple-600" data-testid="stats-avg-score">
+                      {teamStats.matchesWithResults > 0 ? Math.round(teamStats.totalRunsScored / teamStats.matchesWithResults) : 0}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Wickets Per Match:</span>
+                    <span className="font-semibold text-indigo-600" data-testid="stats-wickets-per-match">
+                      {teamStats.matchesWithResults > 0 ? (teamStats.totalWicketsTaken / teamStats.matchesWithResults).toFixed(1) : '0.0'}
                     </span>
                   </div>
                 </div>
