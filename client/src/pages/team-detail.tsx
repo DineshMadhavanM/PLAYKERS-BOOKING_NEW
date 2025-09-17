@@ -10,8 +10,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import type { Team, Player } from "@shared/schema";
+import type { Team, Player, Match } from "@shared/schema";
 import PlayerManagement from "@/components/player-management";
+import MatchCard from "@/components/match-card";
 
 export default function TeamDetail() {
   const params = useParams();
@@ -38,6 +39,19 @@ export default function TeamDetail() {
       const response = await fetch(`/api/players?teamId=${teamId}`);
       if (!response.ok) {
         throw new Error('Failed to fetch players');
+      }
+      return response.json();
+    },
+    enabled: !!teamId,
+  });
+
+  // Fetch team match history
+  const { data: teamMatches = [], isLoading: matchesLoading } = useQuery({
+    queryKey: ['/api/teams', teamId, 'matches'],
+    queryFn: async (): Promise<Match[]> => {
+      const response = await fetch(`/api/teams/${teamId}/matches`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch team matches');
       }
       return response.json();
     },
@@ -243,14 +257,43 @@ export default function TeamDetail() {
         <TabsContent value="matches">
           <Card>
             <CardHeader>
-              <CardTitle>Match History</CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                <Calendar className="h-5 w-5" />
+                Match History ({teamMatches.length})
+              </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-center py-8 text-gray-500">
-                <Calendar className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>Match history feature coming soon!</p>
-                <p className="text-sm mt-1">Track your team's performance across all matches</p>
-              </div>
+              {matchesLoading ? (
+                <div className="space-y-4">
+                  {[...Array(3)].map((_, i) => (
+                    <Card key={i}>
+                      <CardContent className="p-4">
+                        <div className="space-y-2">
+                          <Skeleton className="h-6 w-3/4" />
+                          <Skeleton className="h-4 w-1/2" />
+                          <Skeleton className="h-4 w-1/4" />
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              ) : teamMatches.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  <Calendar className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>No matches found</p>
+                  <p className="text-sm mt-1">This team hasn't played any matches yet</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {teamMatches.map((match) => (
+                    <MatchCard 
+                      key={match.id} 
+                      match={match} 
+                      showActions={false}
+                    />
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
