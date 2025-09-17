@@ -111,6 +111,10 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
   const [selectedManOfMatch, setSelectedManOfMatch] = useState('');
   const [manOfMatchSelected, setManOfMatchSelected] = useState(false);
   
+  // Manual second innings trigger
+  const [firstInningsComplete, setFirstInningsComplete] = useState(false);
+  const [showManualSecondInningsButton, setShowManualSecondInningsButton] = useState(false);
+  
   // Wicket tracking
   const [dismissedPlayers, setDismissedPlayers] = useState<Set<string>>(new Set());
   
@@ -450,11 +454,22 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
     const currentTeamBalls = currentInning === 1 ? team1Balls : team2Balls;
     if (currentBall >= 6 || currentTeamBalls >= totalOvers * 6) {
       if (currentTeamBalls >= totalOvers * 6) {
-        toast({
-          title: "Innings Complete",
-          description: `${totalOvers} overs completed. No more balls can be bowled.`,
-          variant: "destructive",
-        });
+        // Check if this should trigger innings completion
+        if (currentInning === 1 && !firstInningsComplete) {
+          setFirstInningsComplete(true);
+          setShowManualSecondInningsButton(true);
+          toast({
+            title: "First Innings Complete!",
+            description: `${totalOvers} overs completed. Click 'Start Second Innings' to continue.`,
+            duration: 8000,
+          });
+        } else {
+          toast({
+            title: "Innings Complete",
+            description: `${totalOvers} overs completed. No more balls can be bowled.`,
+            variant: "destructive",
+          });
+        }
       } else {
         toast({
           title: "Over Complete",
@@ -1193,6 +1208,29 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
     });
   };
 
+  // Handle manual second innings start
+  const handleManualSecondInningsStart = () => {
+    if (!isLive) return;
+    
+    // Set current inning to 2 before showing dialog to get correct rosters
+    setCurrentInning(2);
+    
+    // Show second innings setup dialog
+    setNewStriker('');
+    setNewNonStriker('');
+    setNewBowler('');
+    setShowSecondInningsDialog(true);
+    
+    // Hide the manual button
+    setShowManualSecondInningsButton(false);
+    
+    toast({
+      title: "Setting up Second Innings",
+      description: "Please select batting team players and bowler",
+      duration: 3000
+    });
+  };
+
   const switchInnings = () => {
     if (!isLive) return;
     
@@ -1601,14 +1639,30 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
                 {currentInning === 1 && (
                   <div>
                     <h4 className="font-semibold mb-3 text-purple-700 dark:text-purple-300">🏆 Innings</h4>
-                    <Button 
-                      onClick={switchInnings}
-                      className="w-full bg-purple-600 hover:bg-purple-700"
-                      data-testid="button-switch-innings"
-                      size="lg"
-                    >
-                      🏆 End Inning 1 / Start Inning 2
-                    </Button>
+                    
+                    {/* Manual Second Innings Button - shows when first innings is complete */}
+                    {showManualSecondInningsButton && firstInningsComplete && (
+                      <Button 
+                        onClick={handleManualSecondInningsStart}
+                        className="w-full bg-green-600 hover:bg-green-700 text-white font-bold mb-3"
+                        data-testid="button-start-second-innings"
+                        size="lg"
+                      >
+                        🏏 Start Second Innings
+                      </Button>
+                    )}
+                    
+                    {/* Regular switch innings button */}
+                    {!showManualSecondInningsButton && (
+                      <Button 
+                        onClick={switchInnings}
+                        className="w-full bg-purple-600 hover:bg-purple-700"
+                        data-testid="button-switch-innings"
+                        size="lg"
+                      >
+                        🏆 End Inning 1 / Start Inning 2
+                      </Button>
+                    )}
                   </div>
                 )}
               </div>
