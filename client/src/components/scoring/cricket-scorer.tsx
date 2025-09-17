@@ -106,6 +106,11 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
   const [matchResult, setMatchResult] = useState<string | null>(null);
   const [isMatchCompleted, setIsMatchCompleted] = useState(false);
   
+  // Man of the match functionality
+  const [showManOfMatchDialog, setShowManOfMatchDialog] = useState(false);
+  const [selectedManOfMatch, setSelectedManOfMatch] = useState('');
+  const [manOfMatchSelected, setManOfMatchSelected] = useState(false);
+  
   // Wicket tracking
   const [dismissedPlayers, setDismissedPlayers] = useState<Set<string>>(new Set());
   
@@ -140,6 +145,30 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
       { name: `${teamName} Bowler 6`, team: fieldingTeam, role: 'bowler', id: `${fieldingTeam}-bowler-6` },
     ];
     return fallbackBowlers;
+  };
+
+  // Get all players from both teams for man of the match selection
+  const getAllPlayers = () => {
+    const allPlayers = rosterPlayers.filter((player: any) => player.name || player.playerName);
+    
+    if (allPlayers.length > 0) {
+      return allPlayers;
+    }
+    
+    // Fallback if no roster data
+    const team1Players = [
+      { name: `${match.team1Name || 'Team A'} Player 1`, team: 'team1', id: 'team1-player-1' },
+      { name: `${match.team1Name || 'Team A'} Player 2`, team: 'team1', id: 'team1-player-2' },
+      { name: `${match.team1Name || 'Team A'} Player 3`, team: 'team1', id: 'team1-player-3' },
+    ];
+    
+    const team2Players = [
+      { name: `${match.team2Name || 'Team B'} Player 1`, team: 'team2', id: 'team2-player-1' },
+      { name: `${match.team2Name || 'Team B'} Player 2`, team: 'team2', id: 'team2-player-2' },
+      { name: `${match.team2Name || 'Team B'} Player 3`, team: 'team2', id: 'team2-player-3' },
+    ];
+    
+    return [...team1Players, ...team2Players];
   };
 
   // Batting roster helper function (similar to fielding roster)
@@ -355,7 +384,7 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
   };
 
   const addRuns = (runs: number) => {
-    if (!isLive || isMatchCompleted) return;
+    if (!isLive || isMatchCompleted || showManOfMatchDialog) return;
     
     // Block scoring while bowler selection is in progress
     if (showBowlerDialog) {
@@ -458,18 +487,29 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
         setTeam2Runs(newTeam2Runs);
         setBallByBall([...ballByBall, `${runs} run${runs !== 1 ? 's' : ''}`, "🎯 TARGET REACHED!"]);
         
-        setTimeout(() => {
-          setIsMatchCompleted(true);
-          const wicketsRemaining = maxWickets - team2Wickets;
-          const result = `${match.team2Name || 'Team B'} won by ${wicketsRemaining} wickets`;
-          setMatchResult(result);
-          
-          toast({
-            title: "🎯 TARGET ACHIEVED!",
-            description: result,
-            duration: 10000
-          });
-        }, 500);
+        // Immediately lock the match and show result
+        const wicketsRemaining = maxWickets - team2Wickets;
+        const result = `${match.team2Name || 'Team B'} won by ${wicketsRemaining} wickets`;
+        setMatchResult(result);
+        setIsMatchCompleted(true);
+        
+        // Update final score before showing dialog
+        updateScore({
+          team1Runs: newTeam1Runs,
+          team2Runs: newTeam2Runs,
+          team1Balls: newTeam1Balls,
+          team2Balls: newTeam2Balls,
+          ballByBall: [...ballByBall, `${runs} run${runs !== 1 ? 's' : ''}`, "🎯 TARGET REACHED!"]
+        });
+        
+        // Show man of the match dialog immediately
+        setShowManOfMatchDialog(true);
+        
+        toast({
+          title: "🎯 TARGET ACHIEVED!",
+          description: result,
+          duration: 10000
+        });
         return;
       }
     }
@@ -536,7 +576,7 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
   };
 
   const addWicket = (wicketType: 'bowled' | 'caught' | 'run-out' | 'hit-wicket' | 'stump-out' | 'wide-wicket' | 'no-ball-wicket' | 'leg-bye-wicket' | 'bye-wicket', fielder?: string, nextBatsmanName?: string, dismissedBatter?: 'striker' | 'non-striker', extraRunsConceded?: number) => {
-    if (!isLive || isMatchCompleted) return;
+    if (!isLive || isMatchCompleted || showManOfMatchDialog) return;
     
     // Block scoring while bowler selection is in progress
     if (showBowlerDialog) {
@@ -560,6 +600,17 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
 
     // Determine if this counts as a legal ball (wide-wicket and no-ball-wicket don't)
     const countsAsBall = !['wide-wicket', 'no-ball-wicket'].includes(wicketType);
+
+    // Check total overs limit (applies to ALL events regardless of countsAsBall)
+    const currentTeamBalls = currentInning === 1 ? team1Balls : team2Balls;
+    if (currentTeamBalls >= totalOvers * 6) {
+      toast({
+        title: "Innings Complete",
+        description: `${totalOvers} overs completed. No more balls can be bowled.`,
+        variant: "destructive",
+      });
+      return;
+    }
 
     // For legal ball wickets, prevent 7th legal ball in an over
     if (countsAsBall && currentBall >= 6) {
@@ -623,6 +674,42 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
     }
     
     const newBallByBall = [...ballByBall, wicketDescription];
+
+    // Check for immediate target achievement in second innings
+    if (currentInning === 2) {
+      const target = team1Runs + 1;
+      if (newTeam2Runs >= target) {
+        // Target reached! End match immediately
+        setTeam2Runs(newTeam2Runs);
+        setTeam2Wickets(newTeam2Wickets);
+        setBallByBall([...ballByBall, wicketDescription, "🎯 TARGET REACHED!"]);
+        
+        // Immediately lock the match and show result
+        const wicketsRemaining = maxWickets - newTeam2Wickets;
+        const result = `${match.team2Name || 'Team B'} won by ${wicketsRemaining} wickets`;
+        setMatchResult(result);
+        setIsMatchCompleted(true);
+        setShowManOfMatchDialog(true);
+        
+        // Update final score
+        updateScore({
+          team1Runs: newTeam1Runs,
+          team2Runs: newTeam2Runs,
+          team1Wickets: newTeam1Wickets,
+          team2Wickets: newTeam2Wickets,
+          team1Balls: newTeam1Balls,
+          team2Balls: newTeam2Balls,
+          ballByBall: [...ballByBall, wicketDescription, "🎯 TARGET REACHED!"]
+        });
+        
+        toast({
+          title: "🎯 TARGET ACHIEVED!",
+          description: result,
+          duration: 10000
+        });
+        return;
+      }
+    }
 
     // Update state
     if (currentInning === 1) {
@@ -725,7 +812,7 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
   };
 
   const addExtra = (type: 'wide' | 'no-ball' | 'bye' | 'leg-bye', runs: number = 1) => {
-    if (!isLive || isMatchCompleted) return;
+    if (!isLive || isMatchCompleted || showManOfMatchDialog) return;
     
     // Block scoring while bowler selection is in progress
     if (showBowlerDialog) {
@@ -781,6 +868,17 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
         return;
       }
       
+      // Check total overs limit (applies to ALL events regardless of countsAsBall)
+      const currentTeamBalls = currentInning === 1 ? team1Balls : team2Balls;
+      if (currentTeamBalls >= totalOvers * 6) {
+        toast({
+          title: "Innings Complete",
+          description: `${totalOvers} overs completed. No more balls can be bowled.`,
+          variant: "destructive",
+        });
+        return;
+      }
+
       // Prevent 7th legal ball in an over for bye/leg-bye
       if (currentBall >= 6) {
         toast({
@@ -797,6 +895,17 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
       toast({
         title: "Player is Out",
         description: `${currentStriker} is already dismissed and cannot face the ball. Please select a new batsman.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Check total overs limit (applies to ALL events regardless of countsAsBall)
+    const currentTeamBalls = currentInning === 1 ? team1Balls : team2Balls;
+    if (currentTeamBalls >= totalOvers * 6) {
+      toast({
+        title: "Innings Complete",
+        description: `${totalOvers} overs completed. No more balls can be bowled.`,
         variant: "destructive",
       });
       return;
@@ -844,6 +953,32 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
     }
     
     const newBallByBall = [...ballByBall, description];
+
+    // Immediate target check for extras in second innings
+    if (currentInning === 2) {
+      const target = team1Runs + 1;
+      if (newTeam2Runs >= target) {
+        setTeam2Runs(newTeam2Runs);
+        setBallByBall([...ballByBall, description, "🎯 TARGET REACHED!"]);
+
+        const wicketsRemaining = maxWickets - team2Wickets;
+        const result = `${match.team2Name || 'Team B'} won by ${wicketsRemaining} wickets`;
+        setMatchResult(result);
+        setIsMatchCompleted(true);
+        setShowManOfMatchDialog(true);
+
+        updateScore({
+          team1Runs: newTeam1Runs,
+          team2Runs: newTeam2Runs,
+          team1Balls: newTeam1Balls,
+          team2Balls: newTeam2Balls,
+          ballByBall: [...ballByBall, description, "🎯 TARGET REACHED!"]
+        });
+
+        toast({ title: "🎯 TARGET ACHIEVED!", description: result, duration: 10000 });
+        return;
+      }
+    }
 
     // Update state
     if (currentInning === 1) {
@@ -993,7 +1128,9 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
       }
       
       setMatchResult(result);
-      setIsMatchCompleted(true);
+      
+      // Show man of the match dialog instead of completing immediately
+      setShowManOfMatchDialog(true);
       
       toast({
         title: "Match Complete!",
@@ -2654,6 +2791,111 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
         </DialogContent>
       </Dialog>
 
+      {/* Man of the Match Selection Dialog */}
+      <Dialog open={showManOfMatchDialog} onOpenChange={setShowManOfMatchDialog}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              🏆 Select Man of the Match
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-6 py-4">
+            {/* Match result summary */}
+            <div className="bg-yellow-50 dark:bg-yellow-900/20 p-3 rounded-lg border border-yellow-200 dark:border-yellow-800">
+              <p className="text-lg font-bold text-yellow-900 dark:text-yellow-100 mb-2">
+                {matchResult}
+              </p>
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <p className="font-semibold">{match.team1Name || 'Team A'}</p>
+                  <p>{team1Runs}/{team1Wickets} ({Math.floor(team1Balls / 6)}.{team1Balls % 6} overs)</p>
+                </div>
+                <div>
+                  <p className="font-semibold">{match.team2Name || 'Team B'}</p>
+                  <p>{team2Runs}/{team2Wickets} ({Math.floor(team2Balls / 6)}.{team2Balls % 6} overs)</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Player selection */}
+            <div className="space-y-4">
+              <p className="font-medium text-gray-800 dark:text-gray-200">
+                Select the Man of the Match:
+              </p>
+              
+              <div className="space-y-2">
+                <Label htmlFor="man-of-match" className="font-medium">Player:</Label>
+                <Select value={selectedManOfMatch} onValueChange={setSelectedManOfMatch}>
+                  <SelectTrigger data-testid="select-man-of-match">
+                    <SelectValue placeholder="Select Man of the Match" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {getAllPlayers().map((player: any) => {
+                      const playerName = player.name || player.playerName;
+                      const teamName = player.team === 'team1' ? (match.team1Name || 'Team A') : (match.team2Name || 'Team B');
+                      return (
+                        <SelectItem key={player.id} value={playerName}>
+                          {playerName}
+                          <span className="ml-2 text-xs text-muted-foreground">({teamName})</span>
+                          {player.role && player.role !== 'player' && (
+                            <span className="ml-1 text-xs text-muted-foreground">[{player.role}]</span>
+                          )}
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex gap-3 pt-4">
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  // Complete match without man of the match
+                  setShowManOfMatchDialog(false);
+                  setIsMatchCompleted(true);
+                  setManOfMatchSelected(false);
+                }}
+                className="flex-1"
+                data-testid="button-skip-man-of-match"
+              >
+                Skip Selection
+              </Button>
+              <Button 
+                onClick={() => {
+                  if (!selectedManOfMatch.trim()) {
+                    toast({
+                      title: "Player Required",
+                      description: "Please select a player for Man of the Match.",
+                      variant: "destructive",
+                    });
+                    return;
+                  }
+                  
+                  // Complete match with man of the match
+                  setShowManOfMatchDialog(false);
+                  setIsMatchCompleted(true);
+                  setManOfMatchSelected(true);
+                  
+                  toast({
+                    title: "🏆 Man of the Match",
+                    description: `${selectedManOfMatch} selected as Man of the Match!`,
+                    duration: 5000
+                  });
+                }}
+                disabled={!selectedManOfMatch.trim()}
+                className="flex-1 bg-yellow-600 hover:bg-yellow-700"
+                data-testid="button-confirm-man-of-match"
+              >
+                Confirm Selection
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Match Result Display */}
       {isMatchCompleted && matchResult && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
@@ -2682,10 +2924,27 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
                   </div>
                 </div>
               </div>
+              
+              {/* Man of the Match Display */}
+              {manOfMatchSelected && selectedManOfMatch && (
+                <div className="bg-gradient-to-r from-yellow-100 to-orange-100 dark:from-yellow-900/30 dark:to-orange-900/30 p-4 rounded-lg border-2 border-yellow-400 dark:border-yellow-600">
+                  <div className="text-center">
+                    <p className="text-lg font-bold text-yellow-800 dark:text-yellow-200 mb-1">
+                      🏆 Man of the Match
+                    </p>
+                    <p className="text-xl font-extrabold text-orange-700 dark:text-orange-300">
+                      {selectedManOfMatch}
+                    </p>
+                  </div>
+                </div>
+              )}
+              
               <Button 
                 onClick={() => {
                   setIsMatchCompleted(false);
                   setMatchResult(null);
+                  setSelectedManOfMatch('');
+                  setManOfMatchSelected(false);
                 }}
                 className="w-full"
                 data-testid="button-close-result"
