@@ -2331,8 +2331,8 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
                           return playerName !== currentStriker && 
                                  playerName !== currentNonStriker &&
                                  !dismissedPlayers.has(playerName);
-                        }).map((player: any) => (
-                          <SelectItem key={player.id} value={player.name || player.playerName}>
+                        }).map((player: any, index: number) => (
+                          <SelectItem key={player.id || `replacement-${index}`} value={player.name || player.playerName}>
                             {player.name || player.playerName}
                             {player.role && player.role !== 'player' && (
                               <span className="ml-2 text-xs text-muted-foreground">({player.role})</span>
@@ -2633,8 +2633,8 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
                       <SelectValue placeholder="Select opening striker" />
                     </SelectTrigger>
                     <SelectContent>
-                      {getBattingRoster().map((player: any) => (
-                        <SelectItem key={player.id} value={player.name || player.playerName}>
+                      {getBattingRoster().map((player: any, index: number) => (
+                        <SelectItem key={player.id || `striker-${index}`} value={player.name || player.playerName}>
                           {player.name || player.playerName}
                           {player.role && player.role !== 'player' && (
                             <span className="ml-2 text-xs text-muted-foreground">({player.role})</span>
@@ -2665,8 +2665,8 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
                       {getBattingRoster().filter((player: any) => {
                         const playerName = player.name || player.playerName;
                         return playerName !== newStriker;
-                      }).map((player: any) => (
-                        <SelectItem key={player.id} value={player.name || player.playerName}>
+                      }).map((player: any, index: number) => (
+                        <SelectItem key={player.id || `non-striker-${index}`} value={player.name || player.playerName}>
                           {player.name || player.playerName}
                           {player.role && player.role !== 'player' && (
                             <span className="ml-2 text-xs text-muted-foreground">({player.role})</span>
@@ -2694,8 +2694,8 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
                       <SelectValue placeholder="Select opening bowler" />
                     </SelectTrigger>
                     <SelectContent>
-                      {getFieldingRoster().map((player: any) => (
-                        <SelectItem key={player.id} value={player.name || player.playerName}>
+                      {getFieldingRoster().map((player: any, index: number) => (
+                        <SelectItem key={player.id || `bowler-${index}`} value={player.name || player.playerName}>
                           {player.name || player.playerName}
                           {player.role && player.role !== 'player' && (
                             <span className="ml-2 text-xs text-muted-foreground">({player.role})</span>
@@ -2830,11 +2830,11 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
                     <SelectValue placeholder="Select Man of the Match" />
                   </SelectTrigger>
                   <SelectContent>
-                    {getAllPlayers().map((player: any) => {
+                    {getAllPlayers().map((player: any, index: number) => {
                       const playerName = player.name || player.playerName;
                       const teamName = player.team === 'team1' ? (match.team1Name || 'Team A') : (match.team2Name || 'Team B');
                       return (
-                        <SelectItem key={player.id} value={playerName}>
+                        <SelectItem key={player.id || `motm-${index}`} value={playerName}>
                           {playerName}
                           <span className="ml-2 text-xs text-muted-foreground">({teamName})</span>
                           {player.role && player.role !== 'player' && (
