@@ -196,6 +196,45 @@ export default function MatchScorer() {
       return;
     }
     
+    // Determine team assignments based on toss
+    const tossWinnerIsTeam1 = tossWinner === (match?.team1Name || "Team 1");
+    let battingTeam, bowlingTeam;
+    
+    if (tossDecision === 'bat') {
+      battingTeam = tossWinnerIsTeam1 ? 'team1' : 'team2';
+      bowlingTeam = tossWinnerIsTeam1 ? 'team2' : 'team1';
+    } else {
+      battingTeam = tossWinnerIsTeam1 ? 'team2' : 'team1';
+      bowlingTeam = tossWinnerIsTeam1 ? 'team1' : 'team2';
+    }
+    
+    // Validate batsmen are from batting team
+    const battingPlayers = rosterPlayers.filter(p => p.team === battingTeam);
+    const strikerInTeam = battingPlayers.some(p => p.name === striker);
+    const nonStrikerInTeam = battingPlayers.some(p => p.name === nonStriker);
+    
+    if (!strikerInTeam || !nonStrikerInTeam) {
+      toast({
+        title: "Invalid Team Selection",
+        description: "Both batsmen must be from the batting team roster.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Validate bowler is from bowling team
+    const bowlingPlayers = rosterPlayers.filter(p => p.team === bowlingTeam);
+    const bowlerInTeam = bowlingPlayers.some(p => p.name === bowler);
+    
+    if (!bowlerInTeam) {
+      toast({
+        title: "Invalid Team Selection",
+        description: "Bowler must be from the bowling team roster.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     startMatchAfterToss();
   };
 
