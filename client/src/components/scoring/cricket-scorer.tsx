@@ -1772,7 +1772,7 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
       };
 
       // Save match to MongoDB
-      const response = await apiRequest(`/api/matches/${match.id}/complete`, 'POST', completionData);
+      const response = await apiRequest('POST', `/api/matches/${match.id}/complete`, completionData);
 
       if (response.ok) {
         const responseData = await response.json();
