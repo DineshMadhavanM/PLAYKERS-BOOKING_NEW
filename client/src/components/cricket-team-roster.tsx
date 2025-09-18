@@ -14,6 +14,10 @@ export interface Player {
   email: string;
   role: "captain" | "vice-captain" | "wicket-keeper" | "player";
   position: number;
+  battingStyle?: "right-handed" | "left-handed";
+  bowlingStyle?: "right-arm-fast" | "left-arm-fast" | "right-arm-medium" | "left-arm-medium" | "right-arm-spin" | "left-arm-spin" | "leg-spin" | "off-spin";
+  isRegisteredUser?: boolean;
+  userId?: string;
 }
 
 interface CricketTeamRosterProps {

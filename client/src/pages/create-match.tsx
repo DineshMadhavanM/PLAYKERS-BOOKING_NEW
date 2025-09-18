@@ -58,7 +58,9 @@ export default function CreateMatch() {
   const [selectedSport, setSelectedSport] = useState("");
   const [team1Roster, setTeam1Roster] = useState<Player[]>([]);
   const [team2Roster, setTeam2Roster] = useState<Player[]>([]);
-  const [selectedTeam, setSelectedTeam] = useState<string>("");
+  const [selectedTeam, setSelectedTeam] = useState<string>(""); // For backward compatibility when team1 is pre-filled
+  const [selectedTeam1, setSelectedTeam1] = useState<string>(""); // For team 1 selection when not pre-filled
+  const [selectedTeam2, setSelectedTeam2] = useState<string>(""); // For team 2 selection when not pre-filled
   const [team1Id, setTeam1Id] = useState<string>("");
   const [team2Id, setTeam2Id] = useState<string>("");
   
@@ -165,7 +167,11 @@ export default function CreateMatch() {
     name: dbPlayer.name,
     email: dbPlayer.email || '',
     role: 'player', // Default role, can be changed in roster
-    position: 0, // Will be set by roster component
+    position: dbPlayer.position || 0, // Preserve position from database or caller
+    battingStyle: dbPlayer.battingStyle || undefined,
+    bowlingStyle: dbPlayer.bowlingStyle || undefined,
+    isRegisteredUser: dbPlayer.userId ? true : false,
+    userId: dbPlayer.userId || undefined,
   });
 
   // Set form defaults with pre-filled data
@@ -196,24 +202,66 @@ export default function CreateMatch() {
     }
   }, [prefilledTeam1, prefilledTeam2, form]);
 
-  // Handle opponent selection changes
+  // Handle opponent selection changes (when team1 is pre-filled)
   useEffect(() => {
-    if (selectedTeam && allTeams.length > 0) {
+    if (selectedTeam && allTeams.length > 0 && prefilledTeam1) {
       const selectedTeamData = allTeams.find(team => team.id === selectedTeam);
       if (selectedTeamData) {
         form.setValue('team2Name', selectedTeamData.name);
         setTeam2Id(selectedTeamData.id); // Track team2 ID
         
         // Update title if we have both teams
-        if (prefilledTeam1?.name) {
-          const defaultTitle = `${prefilledTeam1.name} vs ${selectedTeamData.name}`;
-          if (!form.getValues('title') || form.getValues('title') === '') {
-            form.setValue('title', defaultTitle);
-          }
+        const defaultTitle = `${prefilledTeam1.name} vs ${selectedTeamData.name}`;
+        if (!form.getValues('title') || form.getValues('title') === '') {
+          form.setValue('title', defaultTitle);
         }
       }
     }
   }, [selectedTeam, allTeams, prefilledTeam1, form]);
+
+  // Handle team1 selection changes (when no teams are pre-filled)
+  useEffect(() => {
+    if (selectedTeam1 && allTeams.length > 0 && !prefilledTeam1) {
+      const selectedTeam1Data = allTeams.find(team => team.id === selectedTeam1);
+      if (selectedTeam1Data) {
+        form.setValue('team1Name', selectedTeam1Data.name);
+        setTeam1Id(selectedTeam1Data.id); // Track team1 ID
+        
+        // Update title if we have both teams
+        if (selectedTeam2) {
+          const selectedTeam2Data = allTeams.find(team => team.id === selectedTeam2);
+          if (selectedTeam2Data) {
+            const defaultTitle = `${selectedTeam1Data.name} vs ${selectedTeam2Data.name}`;
+            if (!form.getValues('title') || form.getValues('title') === '') {
+              form.setValue('title', defaultTitle);
+            }
+          }
+        }
+      }
+    }
+  }, [selectedTeam1, allTeams, selectedTeam2, prefilledTeam1, form]);
+
+  // Handle team2 selection changes (when no teams are pre-filled)
+  useEffect(() => {
+    if (selectedTeam2 && allTeams.length > 0 && !prefilledTeam1) {
+      const selectedTeam2Data = allTeams.find(team => team.id === selectedTeam2);
+      if (selectedTeam2Data) {
+        form.setValue('team2Name', selectedTeam2Data.name);
+        setTeam2Id(selectedTeam2Data.id); // Track team2 ID
+        
+        // Update title if we have both teams
+        if (selectedTeam1) {
+          const selectedTeam1Data = allTeams.find(team => team.id === selectedTeam1);
+          if (selectedTeam1Data) {
+            const defaultTitle = `${selectedTeam1Data.name} vs ${selectedTeam2Data.name}`;
+            if (!form.getValues('title') || form.getValues('title') === '') {
+              form.setValue('title', defaultTitle);
+            }
+          }
+        }
+      }
+    }
+  }, [selectedTeam2, allTeams, selectedTeam1, prefilledTeam1, form]);
 
   // Initialize team rosters with available players when players are fetched
   // Reset and reinitialize when team1Id changes or when team1Players are loaded
@@ -424,63 +472,187 @@ export default function CreateMatch() {
                 </div>
               )}
 
-              {/* Opponent Team Selection */}
-              <div>
-                <Label htmlFor="opponent-select" className="text-base font-medium">
-                  {prefilledTeam1 ? 'Choose Opponent (Team 2)' : 'Choose from Available Teams'}
-                </Label>
-                <p className="text-sm text-muted-foreground mb-3">
-                  {prefilledTeam1 ? 'Select the opposing team for this match' : 'Select a team from all available teams in the system'}
-                </p>
-                <Select 
-                  onValueChange={setSelectedTeam} 
-                  value={selectedTeam}
-                  disabled={teamsLoading}
-                >
-                  <SelectTrigger 
-                    id="opponent-select" 
-                    className="w-full"
-                    data-testid="select-opponent-team"
+{/* Team Selection Logic */}
+              {prefilledTeam1 ? (
+                /* Opponent Team Selection (when team1 is pre-filled) */
+                <div>
+                  <Label htmlFor="opponent-select" className="text-base font-medium">
+                    Choose Opponent (Team 2)
+                  </Label>
+                  <p className="text-sm text-muted-foreground mb-3">
+                    Select the opposing team for this match
+                  </p>
+                  <Select 
+                    onValueChange={setSelectedTeam} 
+                    value={selectedTeam}
+                    disabled={teamsLoading}
                   >
-                    <SelectValue placeholder={teamsLoading ? "Loading teams..." : (prefilledTeam1 ? "Select opponent team" : "Select a team")} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {allTeams
-                      .filter(team => !prefilledTeam1 || team.id !== prefilledTeam1.id) // Filter out Team 1 if pre-filled
-                      .map((team) => (
-                        <SelectItem key={team.id} value={team.id}>
-                          <div className="flex items-center justify-between w-full">
-                            <span className="font-medium">{team.name}</span>
-                            {team.city && (
-                              <span className="text-sm text-muted-foreground ml-2">
-                                {team.city}
-                              </span>
-                            )}
+                    <SelectTrigger 
+                      id="opponent-select" 
+                      className="w-full"
+                      data-testid="select-opponent-team"
+                    >
+                      <SelectValue placeholder={teamsLoading ? "Loading teams..." : "Select opponent team"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {allTeams
+                        .filter(team => team.id !== prefilledTeam1.id) // Filter out Team 1 if pre-filled
+                        .map((team) => (
+                          <SelectItem key={team.id} value={team.id}>
+                            <div className="flex items-center justify-between w-full">
+                              <span className="font-medium">{team.name}</span>
+                              {team.city && (
+                                <span className="text-sm text-muted-foreground ml-2">
+                                  {team.city}
+                                </span>
+                              )}
+                            </div>
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                  
+                  {selectedTeam && (
+                    <div className="mt-4 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+                      {(() => {
+                        const team = allTeams.find(t => t.id === selectedTeam);
+                        return team ? (
+                          <div className="flex items-center gap-3">
+                            <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                            <div>
+                              <p className="font-medium text-green-700 dark:text-green-300">
+                                {team.name} (Opponent)
+                              </p>
+                              <p className="text-sm text-green-600 dark:text-green-400">
+                                {team.city ? `Located in ${team.city}` : 'No city specified'} • {team.totalMatches || 0} matches played
+                              </p>
+                            </div>
                           </div>
-                        </SelectItem>
-                      ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              
-              {selectedTeam && (
-                <div className="mt-4 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
-                  {(() => {
-                    const team = allTeams.find(t => t.id === selectedTeam);
-                    return team ? (
-                      <div className="flex items-center gap-3">
-                        <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                        <div>
-                          <p className="font-medium text-green-700 dark:text-green-300">
-                            {team.name} {prefilledTeam1 ? '(Opponent)' : ''}
-                          </p>
-                          <p className="text-sm text-green-600 dark:text-green-400">
-                            {team.city ? `Located in ${team.city}` : 'No city specified'} • {team.totalMatches || 0} matches played
-                          </p>
-                        </div>
+                        ) : null;
+                      })()}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                /* Both Team Dropdowns (when no teams are pre-filled) */
+                <div className="space-y-6">
+                  <div>
+                    <Label htmlFor="team1-select" className="text-base font-medium">
+                      Select Team 1
+                    </Label>
+                    <p className="text-sm text-muted-foreground mb-3">
+                      Choose the first team for this match
+                    </p>
+                    <Select 
+                      onValueChange={setSelectedTeam1} 
+                      value={selectedTeam1}
+                      disabled={teamsLoading}
+                    >
+                      <SelectTrigger 
+                        id="team1-select" 
+                        className="w-full"
+                        data-testid="select-team1"
+                      >
+                        <SelectValue placeholder={teamsLoading ? "Loading teams..." : "Select Team 1"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {allTeams
+                          .filter(team => team.id !== selectedTeam2) // Filter out selected Team 2
+                          .map((team) => (
+                            <SelectItem key={team.id} value={team.id}>
+                              <div className="flex items-center justify-between w-full">
+                                <span className="font-medium">{team.name}</span>
+                                {team.city && (
+                                  <span className="text-sm text-muted-foreground ml-2">
+                                    {team.city}
+                                  </span>
+                                )}
+                              </div>
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                    
+                    {selectedTeam1 && (
+                      <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                        {(() => {
+                          const team = allTeams.find(t => t.id === selectedTeam1);
+                          return team ? (
+                            <div className="flex items-center gap-3">
+                              <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                              <div>
+                                <p className="font-medium text-blue-700 dark:text-blue-300">
+                                  {team.name} (Team 1)
+                                </p>
+                                <p className="text-sm text-blue-600 dark:text-blue-400">
+                                  {team.city ? `Located in ${team.city}` : 'No city specified'} • {team.totalMatches || 0} matches played
+                                </p>
+                              </div>
+                            </div>
+                          ) : null;
+                        })()}
                       </div>
-                    ) : null;
-                  })()}
+                    )}
+                  </div>
+
+                  <div>
+                    <Label htmlFor="team2-select" className="text-base font-medium">
+                      Select Team 2
+                    </Label>
+                    <p className="text-sm text-muted-foreground mb-3">
+                      Choose the second team for this match
+                    </p>
+                    <Select 
+                      onValueChange={setSelectedTeam2} 
+                      value={selectedTeam2}
+                      disabled={teamsLoading}
+                    >
+                      <SelectTrigger 
+                        id="team2-select" 
+                        className="w-full"
+                        data-testid="select-team2"
+                      >
+                        <SelectValue placeholder={teamsLoading ? "Loading teams..." : "Select Team 2"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {allTeams
+                          .filter(team => team.id !== selectedTeam1) // Filter out selected Team 1
+                          .map((team) => (
+                            <SelectItem key={team.id} value={team.id}>
+                              <div className="flex items-center justify-between w-full">
+                                <span className="font-medium">{team.name}</span>
+                                {team.city && (
+                                  <span className="text-sm text-muted-foreground ml-2">
+                                    {team.city}
+                                  </span>
+                                )}
+                              </div>
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                    
+                    {selectedTeam2 && (
+                      <div className="mt-4 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+                        {(() => {
+                          const team = allTeams.find(t => t.id === selectedTeam2);
+                          return team ? (
+                            <div className="flex items-center gap-3">
+                              <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                              <div>
+                                <p className="font-medium text-green-700 dark:text-green-300">
+                                  {team.name} (Team 2)
+                                </p>
+                                <p className="text-sm text-green-600 dark:text-green-400">
+                                  {team.city ? `Located in ${team.city}` : 'No city specified'} • {team.totalMatches || 0} matches played
+                                </p>
+                              </div>
+                            </div>
+                          ) : null;
+                        })()}
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
