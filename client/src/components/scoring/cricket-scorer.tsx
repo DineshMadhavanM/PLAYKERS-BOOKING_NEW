@@ -876,19 +876,37 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
       // Add to dismissed players set
       setDismissedPlayers(prev => new Set(Array.from(prev).concat(dismissedBatterName)));
       
+      // Map wicket type to proper dismissal type for database
+      const getDismissalType = (wType: string): string => {
+        switch (wType) {
+          case 'bowled': return 'bowled';
+          case 'caught': return 'caught';
+          case 'run-out': return 'run-out';
+          case 'hit-wicket': return 'hit-wicket';
+          case 'stump-out': return 'stumped';
+          case 'wide-wicket': return 'caught'; // Wide-wicket is usually a catch
+          case 'no-ball-wicket': return 'caught'; // No-ball-wicket is usually a catch
+          case 'leg-bye-wicket': return 'run-out'; // Usually run-out on leg-bye
+          case 'bye-wicket': return 'run-out'; // Usually run-out on bye
+          default: return 'bowled';
+        }
+      };
+      
+      const properDismissalType = getDismissalType(wicketType);
+      
       // For legal deliveries: striker always faces the ball, regardless of who gets out
       if (countsAsBall) {
         if (actualDismissedBatter === 'striker') {
           // Striker gets out - they face the ball and get dismissed
-          updateBattingStats(dismissedBatterName, 0, true, false, wicketDescription);
+          updateBattingStats(dismissedBatterName, 0, true, false, properDismissalType);
         } else {
           // Non-striker gets out - striker faces the ball, non-striker gets dismissed without ball faced
           updateBattingStats(currentStriker, 0, true, false); // Striker faces the ball
-          updateBattingStats(dismissedBatterName, 0, false, false, wicketDescription); // Non-striker dismissed, no ball faced
+          updateBattingStats(dismissedBatterName, 0, false, false, properDismissalType); // Non-striker dismissed, no ball faced
         }
       } else {
         // Extra delivery wickets (wide-wicket, no-ball-wicket) - no ball faced by anyone
-        updateBattingStats(dismissedBatterName, 0, false, false, wicketDescription);
+        updateBattingStats(dismissedBatterName, 0, false, false, properDismissalType);
       }
     }
 
