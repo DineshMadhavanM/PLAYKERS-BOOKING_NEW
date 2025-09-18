@@ -131,6 +131,98 @@ export default function MatchScorecardDialog({ match, children, teamStats }: Mat
     return String(s ?? '');
   };
 
+  const getTopPerformers = () => {
+    const scorecard = getScorecard();
+    if (!scorecard) return null;
+
+    let bestBatsman = { playerId: '', runs: 0, teamName: '', ballsFaced: 0, strikeRate: 0 };
+    let bestBowler = { playerId: '', wickets: 0, teamName: '', overs: 0, runsGiven: 999, economy: 999 };
+    let bestFielder = { playerId: '', catches: 0, teamName: '', runOuts: 0, stumpings: 0 };
+
+    // Check all innings for batting performance
+    [scorecard.team1Innings, scorecard.team2Innings].forEach((innings, teamIndex) => {
+      const teamName = teamIndex === 0 ? (match.team1Name || 'Team 1') : (match.team2Name || 'Team 2');
+      
+      if (innings && Array.isArray(innings)) {
+        innings.forEach((inning: any) => {
+          // Best batsman - highest runs
+          if (inning.batsmen && Array.isArray(inning.batsmen)) {
+            inning.batsmen.forEach((batsman: any) => {
+              if ((batsman.runsScored || 0) > bestBatsman.runs) {
+                bestBatsman = {
+                  playerId: batsman.playerId,
+                  runs: batsman.runsScored || 0,
+                  teamName,
+                  ballsFaced: batsman.ballsFaced || 0,
+                  strikeRate: batsman.strikeRate || 0
+                };
+              }
+            });
+          }
+
+          // Best bowler - most wickets, then best economy
+          if (inning.bowlers && Array.isArray(inning.bowlers)) {
+            inning.bowlers.forEach((bowler: any) => {
+              const wickets = bowler.wickets || 0;
+              const economy = bowler.economy || 999;
+              const overs = bowler.overs || 0;
+              const runsGiven = bowler.runsGiven || 0;
+              
+              if (wickets > bestBowler.wickets || 
+                  (wickets === bestBowler.wickets && economy < bestBowler.economy)) {
+                bestBowler = {
+                  playerId: bowler.playerId,
+                  wickets,
+                  teamName,
+                  overs,
+                  runsGiven,
+                  economy
+                };
+              }
+            });
+          }
+
+          // Best fielder - from dismissals and fielding stats
+          if (inning.batsmen && Array.isArray(inning.batsmen)) {
+            inning.batsmen.forEach((batsman: any) => {
+              if (batsman.dismissalType && batsman.dismissalType !== 'not-out' && batsman.fielder) {
+                const fielderId = batsman.fielder;
+                const dismissalType = batsman.dismissalType;
+                
+                // Count different types of fielding contributions
+                if (dismissalType === 'caught' || dismissalType === 'caught-behind') {
+                  if (!bestFielder.playerId || fielderId === bestFielder.playerId) {
+                    bestFielder.playerId = fielderId;
+                    bestFielder.catches = (bestFielder.catches || 0) + 1;
+                    bestFielder.teamName = teamName;
+                  }
+                } else if (dismissalType === 'run-out') {
+                  if (!bestFielder.playerId || fielderId === bestFielder.playerId) {
+                    bestFielder.playerId = fielderId;
+                    bestFielder.runOuts = (bestFielder.runOuts || 0) + 1;
+                    bestFielder.teamName = teamName;
+                  }
+                } else if (dismissalType === 'stump-out') {
+                  if (!bestFielder.playerId || fielderId === bestFielder.playerId) {
+                    bestFielder.playerId = fielderId;
+                    bestFielder.stumpings = (bestFielder.stumpings || 0) + 1;
+                    bestFielder.teamName = teamName;
+                  }
+                }
+              }
+            });
+          }
+        });
+      }
+    });
+
+    return {
+      bestBatsman: bestBatsman.runs > 0 ? bestBatsman : null,
+      bestBowler: bestBowler.wickets > 0 ? bestBowler : null,
+      bestFielder: (bestFielder.catches + bestFielder.runOuts + bestFielder.stumpings) > 0 ? bestFielder : null
+    };
+  };
+
   const renderInningsCard = (innings: any, teamName: string | null) => {
     if (!innings || innings.length === 0) return null;
     
@@ -591,6 +683,105 @@ export default function MatchScorecardDialog({ match, children, teamStats }: Mat
                       <p className="text-sm text-muted-foreground mt-2">
                         Match-specific performance data is shown above
                       </p>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Top Performers */}
+                {match.status === 'completed' && getScorecard() && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Trophy className="h-5 w-5" />
+                        Top Performers
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      {(() => {
+                        const topPerformers = getTopPerformers();
+                        if (!topPerformers) {
+                          return (
+                            <div className="text-center py-6 text-muted-foreground">
+                              No performance data available
+                            </div>
+                          );
+                        }
+
+                        return (
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-6" data-testid={`top-performers-grid-${match.id}`}>
+                            {/* Best Batsman */}
+                            <Card className="bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800" data-testid={`card-best-batsman-${match.id}`}>
+                              <CardContent className="p-4 text-center">
+                                <div className="text-sm font-semibold text-green-800 dark:text-green-200 mb-2">🏏 Best Batsman</div>
+                                {topPerformers.bestBatsman ? (
+                                  <div>
+                                    <div className="font-bold text-lg text-green-600" data-testid={`best-batsman-name-${match.id}`}>
+                                      {getPlayerName(topPerformers.bestBatsman.playerId)}
+                                    </div>
+                                    <div className="text-sm text-muted-foreground">{topPerformers.bestBatsman.teamName}</div>
+                                    <div className="text-2xl font-bold text-green-600 mt-1" data-testid={`best-batsman-runs-${match.id}`}>
+                                      {topPerformers.bestBatsman.runs} runs
+                                    </div>
+                                    <div className="text-xs text-muted-foreground">
+                                      {topPerformers.bestBatsman.ballsFaced} balls, SR: {topPerformers.bestBatsman.strikeRate.toFixed(1)}
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div className="text-muted-foreground">No data</div>
+                                )}
+                              </CardContent>
+                            </Card>
+
+                            {/* Best Bowler */}
+                            <Card className="bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800" data-testid={`card-best-bowler-${match.id}`}>
+                              <CardContent className="p-4 text-center">
+                                <div className="text-sm font-semibold text-blue-800 dark:text-blue-200 mb-2">⚡ Best Bowler</div>
+                                {topPerformers.bestBowler ? (
+                                  <div>
+                                    <div className="font-bold text-lg text-blue-600" data-testid={`best-bowler-name-${match.id}`}>
+                                      {getPlayerName(topPerformers.bestBowler.playerId)}
+                                    </div>
+                                    <div className="text-sm text-muted-foreground">{topPerformers.bestBowler.teamName}</div>
+                                    <div className="text-2xl font-bold text-blue-600 mt-1" data-testid={`best-bowler-wickets-${match.id}`}>
+                                      {topPerformers.bestBowler.wickets} wickets
+                                    </div>
+                                    <div className="text-xs text-muted-foreground">
+                                      {topPerformers.bestBowler.overs} overs, {topPerformers.bestBowler.runsGiven} runs, Eco: {topPerformers.bestBowler.economy.toFixed(2)}
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div className="text-muted-foreground">No data</div>
+                                )}
+                              </CardContent>
+                            </Card>
+
+                            {/* Best Fielder */}
+                            <Card className="bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-800" data-testid={`card-best-fielder-${match.id}`}>
+                              <CardContent className="p-4 text-center">
+                                <div className="text-sm font-semibold text-orange-800 dark:text-orange-200 mb-2">🤲 Best Fielder</div>
+                                {topPerformers.bestFielder ? (
+                                  <div>
+                                    <div className="font-bold text-lg text-orange-600" data-testid={`best-fielder-name-${match.id}`}>
+                                      {getPlayerName(topPerformers.bestFielder.playerId)}
+                                    </div>
+                                    <div className="text-sm text-muted-foreground">{topPerformers.bestFielder.teamName}</div>
+                                    <div className="text-2xl font-bold text-orange-600 mt-1" data-testid={`best-fielder-contributions-${match.id}`}>
+                                      {topPerformers.bestFielder.catches + topPerformers.bestFielder.runOuts + topPerformers.bestFielder.stumpings} dismissals
+                                    </div>
+                                    <div className="text-xs text-muted-foreground">
+                                      {topPerformers.bestFielder.catches > 0 && `${topPerformers.bestFielder.catches} catches`}
+                                      {topPerformers.bestFielder.runOuts > 0 && `, ${topPerformers.bestFielder.runOuts} run-outs`}
+                                      {topPerformers.bestFielder.stumpings > 0 && `, ${topPerformers.bestFielder.stumpings} stumpings`}
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div className="text-muted-foreground">No data</div>
+                                )}
+                              </CardContent>
+                            </Card>
+                          </div>
+                        );
+                      })()}
                     </CardContent>
                   </Card>
                 )}
