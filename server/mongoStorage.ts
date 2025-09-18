@@ -931,10 +931,21 @@ export class MongoStorage implements IStorage {
           if (existingMatch && (existingMatch.matchData as any)?.processed === true) {
             console.log(`⚠️ STORAGE: Match ${matchData.matchId} already processed, returning existing`);
             updatedMatch = existingMatch as Match;
-            // Exit transaction successfully but with no further processing
-            return;
+            console.log(`⚠️ STORAGE: Skipping all processing for already processed match`);
+            // Return immediately with already processed flag
+            return { 
+              success: true, 
+              updatedMatch, 
+              errors: ['Match already processed'],
+              cacheInvalidation: {
+                teams: [],
+                players: [],
+                matches: []
+              }
+            };
+          } else {
+            throw new Error(`Match ${matchData.matchId} not found or concurrency conflict`);
           }
-          throw new Error(`Match ${matchData.matchId} not found or concurrency conflict`);
         }
 
         // Update team stats

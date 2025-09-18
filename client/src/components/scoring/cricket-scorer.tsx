@@ -1830,6 +1830,29 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
         // Invalidate queries to refresh data in real-time with proper keys
         invalidateMatchQueries();
         
+        // Invalidate player and team caches for immediate profile updates
+        if (responseData.cacheInvalidation) {
+          console.log('🔄 Invalidating caches for:', responseData.cacheInvalidation);
+          
+          // Invalidate player caches
+          responseData.cacheInvalidation.players?.forEach((playerId: string) => {
+            queryClient.invalidateQueries({ queryKey: ['/api/players', playerId] });
+            queryClient.invalidateQueries({ queryKey: ['/api/players', playerId, 'matches'] });
+            queryClient.invalidateQueries({ queryKey: ['/api/players', playerId, 'stats'] });
+          });
+          
+          // Invalidate team caches
+          responseData.cacheInvalidation.teams?.forEach((teamId: string) => {
+            queryClient.invalidateQueries({ queryKey: ['/api/teams', teamId] });
+            queryClient.invalidateQueries({ queryKey: ['/api/teams', teamId, 'stats'] });
+            queryClient.invalidateQueries({ queryKey: ['/api/teams', teamId, 'players'] });
+          });
+          
+          // Invalidate general player and team lists
+          queryClient.invalidateQueries({ queryKey: ['/api/players'] });
+          queryClient.invalidateQueries({ queryKey: ['/api/teams'] });
+        }
+        
       } else if (response.status === 401 || response.status === 403) {
         // Handle authentication/authorization errors
         throw new Error('You are not authorized to save this match. Please check your permissions or try logging in again.');
