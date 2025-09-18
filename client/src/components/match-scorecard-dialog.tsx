@@ -100,8 +100,8 @@ export default function MatchScorecardDialog({ match, children, teamStats }: Mat
   const getCurrentScore = () => {
     const matchData = match.matchData as any;
     return {
-      team1Score: match.team1Score || 0,
-      team2Score: match.team2Score || 0,
+      team1Score: typeof match.team1Score === 'object' && match.team1Score?.runs !== undefined ? match.team1Score.runs : (match.team1Score || 0),
+      team2Score: typeof match.team2Score === 'object' && match.team2Score?.runs !== undefined ? match.team2Score.runs : (match.team2Score || 0),
       team1Wickets: matchData?.team1Wickets || 0,
       team2Wickets: matchData?.team2Wickets || 0,
       currentOver: matchData?.currentOver || 0,
@@ -122,6 +122,13 @@ export default function MatchScorecardDialog({ match, children, teamStats }: Mat
       lastBall: matchData.lastBall,
       recentOvers: matchData.recentOvers || []
     };
+  };
+
+  const formatScore = (s: any) => {
+    if (s && typeof s === 'object' && 'runs' in s) {
+      return `${s.runs}/${s.wickets || 0} (${s.overs || 0} ov)`;
+    }
+    return String(s ?? '');
   };
 
   const renderInningsCard = (innings: any, teamName: string | null) => {
