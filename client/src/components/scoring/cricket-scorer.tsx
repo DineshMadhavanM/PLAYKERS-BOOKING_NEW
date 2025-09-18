@@ -664,9 +664,9 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
     // All legal deliveries (including dot balls) advance to next ball
     const endOfOver = nextBall();
     
-    // Rotate strike at end of over only if last ball had even runs
+    // Rotate strike at end of over only if last ball had odd runs
     if (endOfOver) {
-      if (runs % 2 === 0) {
+      if (runs % 2 === 1) {
         rotateStrike();
       }
       handleOverCompletion();
@@ -926,9 +926,9 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
     
     const endOfOver = countsAsBall ? nextBall() : false;
     
-    // Rotate strike at end of over only if last legal ball had even runs (0 for wickets)
+    // Rotate strike at end of over only if last legal ball had odd runs (0 for wickets is even, so no rotation)
     if (endOfOver) {
-      rotateStrike(); // 0 is even, so always rotate on wicket at end of over
+      // 0 runs for wickets is even, so don't rotate according to the rule
       handleOverCompletion();
     }
 
@@ -1191,9 +1191,9 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
       // Track runs from this legal ball for end-of-over rotation
       setLastLegalBallRuns(runs);
       endOfOver = nextBall();
-      // Rotate strike at end of over only if last legal ball had even runs
+      // Rotate strike at end of over only if last legal ball had odd runs
       if (endOfOver) {
-        if (runs % 2 === 0) {
+        if (runs % 2 === 1) {
           rotateStrike();
         }
         handleOverCompletion();
