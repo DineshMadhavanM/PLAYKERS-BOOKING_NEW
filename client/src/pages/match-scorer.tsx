@@ -341,10 +341,41 @@ export default function MatchScorer() {
       
       setMatchStatus('completed');
       
-      // Invalidate queries to refresh data
+      // Invalidate queries to refresh data including player statistics
       queryClient.invalidateQueries({ queryKey: ["/api/matches"] });
       queryClient.invalidateQueries({ queryKey: ["/api/players"] });
       queryClient.invalidateQueries({ queryKey: ["/api/teams"] });
+      
+      // Invalidate user-specific stats and matches
+      queryClient.invalidateQueries({ queryKey: ["/api/user/stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/user/matches"] });
+      
+      // Invalidate specific match-related queries
+      queryClient.invalidateQueries({ queryKey: ["/api/matches", params?.id] });
+      queryClient.invalidateQueries({ queryKey: ["/api/matches", params?.id, "participants"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/matches", params?.id, "roster"] });
+      
+      // Invalidate team-specific caches for both teams
+      const team1Id = (match?.matchData as any)?.team1Id;
+      const team2Id = (match?.matchData as any)?.team2Id;
+      if (team1Id) {
+        queryClient.invalidateQueries({ queryKey: ["/api/teams", team1Id] });
+        queryClient.invalidateQueries({ queryKey: ["/api/teams", team1Id, "matches"] });
+      }
+      if (team2Id) {
+        queryClient.invalidateQueries({ queryKey: ["/api/teams", team2Id] });
+        queryClient.invalidateQueries({ queryKey: ["/api/teams", team2Id, "matches"] });
+      }
+      
+      // Invalidate player-specific caches for all participants
+      if (participants.length > 0) {
+        participants.forEach((participant: any) => {
+          if (participant.playerId) {
+            queryClient.invalidateQueries({ queryKey: ["/api/players", participant.playerId] });
+            queryClient.invalidateQueries({ queryKey: ["/api/players", participant.playerId, "matches"] });
+          }
+        });
+      }
       
     } catch (error) {
       console.error("Error completing match:", error);
