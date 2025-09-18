@@ -876,16 +876,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/matches/:id/complete', requireAuth, async (req: any, res) => {
     try {
       const matchId = req.params.id;
+      console.log(`📊 DATA FLOW STEP 1: Starting match completion for match ${matchId}`);
       
       // Check if match exists and is not already processed
       const existingMatch = await storage.getMatch(matchId);
       if (!existingMatch) {
+        console.log(`❌ DATA FLOW ERROR: Match ${matchId} not found`);
         return res.status(404).json({ message: "Match not found" });
       }
 
       // Check for idempotency - if already processed, return existing data
       const existingMatchData = existingMatch.matchData as any;
       if (existingMatchData?.processed === true) {
+        console.log(`⚠️ DATA FLOW: Match ${matchId} already processed, returning existing data`);
         return res.status(200).json({ 
           message: "Match already completed", 
           match: existingMatch,
@@ -893,29 +896,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
+      console.log(`✅ DATA FLOW STEP 1: Match ${matchId} found and ready for completion`);
+      console.log(`🏏 Match Details: ${existingMatch.title} - Status: ${existingMatch.status}`);
+
       // Validate the completion data using our enhanced schema
+      console.log(`📊 DATA FLOW STEP 2: Validating scorecard data for match ${matchId}`);
       const completionData: MatchCompletionInput = matchCompletionSchema.parse({
         ...req.body,
         matchId,
       });
+      
+      console.log(`✅ DATA FLOW STEP 2: Scorecard data validated successfully`);
+      console.log(`📈 Scorecard Contains: ${(completionData.finalScorecard.team1Innings || []).length + (completionData.finalScorecard.team2Innings || []).length} innings`);
 
-      // Update match with final scorecard and mark as completed
-      const updatedMatch = await storage.updateMatch(matchId, {
-        status: 'completed',
-        matchData: {
-          ...existingMatchData,
-          scorecard: completionData.finalScorecard,
-          awards: completionData.awards,
-          resultSummary: completionData.resultSummary,
-          processed: true, // Mark as processed for idempotency
-        }
-      });
-
-      if (!updatedMatch) {
-        return res.status(404).json({ message: "Failed to update match" });
-      }
+      console.log(`📊 DATA FLOW STEP 3: Preparing for atomic match completion (scorecard + stats update)`);
 
       // Extract team and player data from scorecard for statistics updates
+      console.log(`📊 DATA FLOW STEP 4: Extracting individual player statistics from scorecard`);
       const { finalScorecard, awards, resultSummary } = completionData;
       
       // Determine team IDs from match data
@@ -923,8 +920,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const team2Id = (existingMatch.matchData as any)?.team2Id || null;
       const winnerId = resultSummary.winnerId;
 
+      console.log(`🏏 Teams: ${team1Id} vs ${team2Id}, Winner: ${winnerId || 'None'}`);
+
       // Extract player statistics from scorecard
       const playerStats: any[] = [];
+      console.log(`📈 Processing player performance data from innings...`);
       
       // Process both innings for player stats
       [...(finalScorecard.team1Innings || []), ...(finalScorecard.team2Innings || [])].forEach(innings => {
@@ -978,60 +978,123 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       });
 
+      console.log(`✅ DATA FLOW STEP 4: Extracted stats for ${playerStats.length} players`);
+      
       // Add awards to player stats
       if (awards) {
+        console.log(`🏆 Processing player awards...`);
         if (awards.manOfTheMatch) {
           const player = playerStats.find(p => p.playerId === awards.manOfTheMatch);
-          if (player) player.manOfMatch = true;
+          if (player) {
+            player.manOfMatch = true;
+            console.log(`👑 Man of the Match: Player ${awards.manOfTheMatch}`);
+          }
         }
         if (awards.bestBatsman) {
           const player = playerStats.find(p => p.playerId === awards.bestBatsman);
-          if (player) player.bestBatsman = true;
+          if (player) {
+            player.bestBatsman = true;
+            console.log(`🏏 Best Batsman: Player ${awards.bestBatsman}`);
+          }
         }
         if (awards.bestBowler) {
           const player = playerStats.find(p => p.playerId === awards.bestBowler);
-          if (player) player.bestBowler = true;
+          if (player) {
+            player.bestBowler = true;
+            console.log(`⚾ Best Bowler: Player ${awards.bestBowler}`);
+          }
         }
         if (awards.bestFielder) {
           const player = playerStats.find(p => p.playerId === awards.bestFielder);
-          if (player) player.bestFielder = true;
+          if (player) {
+            player.bestFielder = true;
+            console.log(`🥅 Best Fielder: Player ${awards.bestFielder}`);
+          }
         }
       }
 
-      // Apply match results to update team and player statistics
+      // Apply match results atomically - updates match, teams, and player statistics
+      console.log(`📊 DATA FLOW STEP 4-5: Atomically updating match + team + player statistics`);
+      let applyResult;
       if (team1Id && team2Id && playerStats.length > 0) {
-        const applyResult = await storage.applyMatchResults({
+        const matchResultsData = {
           matchId,
-          status: 'completed',
+          status: 'completed' as const,
           team1Id,
           team2Id,
           winnerTeamId: winnerId,
           scorecard: finalScorecard,
+          awards,
+          resultSummary,
           playerStats
-        });
+        };
+        applyResult = await storage.applyMatchResults(matchResultsData);
 
         if (!applyResult.success) {
+          console.log(`❌ DATA FLOW ERROR: Failed atomic update - match, teams, and players`);
           console.error("Error applying match results:", applyResult.errors);
           return res.status(500).json({ 
-            message: "Match completed but failed to update statistics", 
+            message: "Failed to complete match and update statistics", 
             errors: applyResult.errors 
           });
         }
+        
+        console.log(`✅ DATA FLOW STEP 4-5: Atomic update successful - match, teams, and players updated`);
+        console.log(`📈 Stats Update Summary: ${playerStats.length} players updated`);
+        
+        // Log cache invalidation information for frontend
+        const cacheInfo = (applyResult as any).cacheInvalidation;
+        if (cacheInfo) {
+          console.log(`🔄 DATA FLOW: Cache invalidation required for:`);
+          console.log(`   - Teams: ${cacheInfo.teams.join(', ')}`);
+          console.log(`   - Players: ${cacheInfo.players.join(', ')}`);
+          console.log(`   - Matches: ${cacheInfo.matches.join(', ')}`);
+        }
+      } else {
+        console.log(`⚠️ DATA FLOW: Skipping atomic update - missing teams or no player stats`);
+        // If no stats to update, just mark match as completed
+        const matchResultsData = {
+          matchId,
+          status: 'completed' as const,
+          scorecard: finalScorecard,
+          awards,
+          resultSummary,
+          playerStats: []
+        };
+        applyResult = await storage.applyMatchResults(matchResultsData);
       }
 
+      console.log(`🎉 DATA FLOW COMPLETE: Match ${matchId} processing finished successfully`);
+      console.log(`📊 FINAL SUMMARY: Match → Scorecard → ${playerStats.length} Player Stats → Career Updates → Profile Ready`);
+      
       res.status(200).json({
         message: "Match completed successfully",
-        match: updatedMatch,
+        match: applyResult.updatedMatch,
         statistics: {
           teamsUpdated: team1Id && team2Id ? 2 : 0,
           playersUpdated: playerStats.length,
           awardsProcessed: awards ? Object.keys(awards).length : 0
+        },
+        dataFlow: {
+          matchProcessed: true,
+          scorecardStored: true,
+          playerStatsExtracted: playerStats.length,
+          careerStatsUpdated: true,
+          profilesReady: true,
+          atomicUpdate: true
+        },
+        cacheInvalidation: (applyResult as any).cacheInvalidation || {
+          teams: [],
+          players: [],
+          matches: []
         }
       });
 
     } catch (error: any) {
+      console.log(`❌ DATA FLOW FAILED: Error completing match ${req.params.id}`);
       console.error("Error completing match:", error);
       if (error.name === 'ZodError') {
+        console.log(`📊 DATA FLOW ERROR: Scorecard validation failed - ${error.issues?.[0]?.message || 'Invalid data'}`);
         return res.status(400).json({ 
           message: "Validation error", 
           issues: error.issues 

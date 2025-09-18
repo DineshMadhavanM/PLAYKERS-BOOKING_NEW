@@ -868,6 +868,8 @@ export class MongoStorage implements IStorage {
     team2Id?: string;
     winnerTeamId?: string;
     scorecard?: any;
+    awards?: any;
+    resultSummary?: any;
     playerStats: Array<{
       playerId: string;
       teamId: string;
@@ -888,7 +890,7 @@ export class MongoStorage implements IStorage {
       bestBowler?: boolean;
       bestFielder?: boolean;
     }>;
-  }): Promise<{ success: boolean; updatedMatch?: Match; errors?: string[] }> {
+  }): Promise<{ success: boolean; updatedMatch?: Match; errors?: string[]; cacheInvalidation?: { teams: string[]; players: string[]; matches: string[] } }> {
     const session = this.client.startSession();
     
     try {
@@ -896,26 +898,47 @@ export class MongoStorage implements IStorage {
       const errors: string[] = [];
 
       await session.withTransaction(async () => {
-        // Update match status and scorecard
+        console.log(`🔄 STORAGE: Starting atomic match completion transaction for ${matchData.matchId}`);
+        
+        // Update match status, scorecard, awards, resultSummary and mark as processed atomically
+        // Enforce idempotency at database level - only update if not already processed
         const matchResult = await this.matches.findOneAndUpdate(
-          { id: matchData.matchId } as any,
+          { 
+            id: matchData.matchId,
+            'matchData.processed': { $ne: true } // Idempotency guard at DB level
+          } as any,
           {
             $set: {
               status: matchData.status,
               'matchData.scorecard': matchData.scorecard,
+              'matchData.awards': matchData.awards,
+              'matchData.resultSummary': matchData.resultSummary,
+              'matchData.processed': true, // Ensure idempotency
               updatedAt: new Date()
             }
           },
           { returnDocument: 'after', session }
         );
         
+        console.log(`✅ STORAGE: Match ${matchData.matchId} status updated and marked as processed`);
+        
         if (matchResult) {
           updatedMatch = matchResult as Match;
+          console.log(`✅ STORAGE: Match ${matchData.matchId} status updated and marked as processed`);
         } else {
-          throw new Error(`Match ${matchData.matchId} not found`);
+          // Check if match exists but is already processed
+          const existingMatch = await this.matches.findOne({ id: matchData.matchId } as any, { session });
+          if (existingMatch && (existingMatch.matchData as any)?.processed === true) {
+            console.log(`⚠️ STORAGE: Match ${matchData.matchId} already processed, returning existing`);
+            updatedMatch = existingMatch as Match;
+            // Exit transaction successfully but with no further processing
+            return;
+          }
+          throw new Error(`Match ${matchData.matchId} not found or concurrency conflict`);
         }
 
         // Update team stats
+        console.log(`🏏 STORAGE: Updating team statistics`);
         if (matchData.team1Id && matchData.team2Id && matchData.winnerTeamId) {
           const team1Stats = {
             matchesWon: matchData.winnerTeamId === matchData.team1Id ? 1 : 0,
@@ -941,6 +964,9 @@ export class MongoStorage implements IStorage {
               team2Stats.wicketsTaken += playerStat.wicketsTaken || 0;
             }
           });
+          
+          console.log(`📊 STORAGE: Team1 (${matchData.team1Id}): +${team1Stats.runsScored} runs, +${team1Stats.wicketsTaken} wickets`);
+          console.log(`📊 STORAGE: Team2 (${matchData.team2Id}): +${team2Stats.runsScored} runs, +${team2Stats.wicketsTaken} wickets`);
 
           // Update both teams atomically
           await Promise.all([
@@ -975,9 +1001,13 @@ export class MongoStorage implements IStorage {
           ]);
         }
 
+        console.log(`✅ STORAGE: Team statistics updated successfully`);
+        
         // Update all player stats atomically
+        console.log(`👥 STORAGE: Updating career statistics for ${matchData.playerStats.length} players`);
         for (const playerStat of matchData.playerStats) {
           const isWinner = playerStat.teamId === matchData.winnerTeamId;
+          console.log(`🏃 STORAGE: Processing player ${playerStat.playerId} (Winner: ${isWinner})`);
           
           const incrementFields: any = {
             'careerStats.totalMatches': 1
@@ -1035,14 +1065,45 @@ export class MongoStorage implements IStorage {
       });
 
       // After transaction, recalculate derived metrics for all affected teams and players
+      console.log(`📊 STORAGE: Recalculating derived metrics for teams and players`);
       if (matchData.team1Id) await this.recalculateTeamStats(matchData.team1Id);
       if (matchData.team2Id) await this.recalculateTeamStats(matchData.team2Id);
       
-      for (const playerStat of matchData.playerStats) {
-        await this.recalculatePlayerAverages(playerStat.playerId);
+      // Only process if we actually updated something (not already processed)
+      if (updatedMatch && matchData.playerStats.length > 0) {
+        const updatedPlayerIds: string[] = [];
+        for (const playerStat of matchData.playerStats) {
+          await this.recalculatePlayerAverages(playerStat.playerId);
+          updatedPlayerIds.push(playerStat.playerId);
+        }
+        
+        console.log(`✅ STORAGE: Updated statistics for ${updatedPlayerIds.length} players`);
+        console.log(`📈 STORAGE: Players requiring cache invalidation: ${updatedPlayerIds.join(', ')}`);
+        
+        // Return information about what needs cache invalidation
+        return { 
+          success: true, 
+          updatedMatch, 
+          errors,
+          cacheInvalidation: {
+            teams: [matchData.team1Id, matchData.team2Id].filter(Boolean) as string[],
+            players: updatedPlayerIds,
+            matches: [matchData.matchId]
+          }
+        };
+      } else {
+        // Already processed case or no player stats
+        return { 
+          success: true, 
+          updatedMatch, 
+          errors: updatedMatch ? ['Match already processed'] : [],
+          cacheInvalidation: {
+            teams: [],
+            players: [],
+            matches: []
+          }
+        };
       }
-
-      return { success: true, updatedMatch, errors };
 
     } catch (error) {
       return { 
