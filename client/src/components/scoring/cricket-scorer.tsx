@@ -1680,6 +1680,21 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
       queryClient.invalidateQueries({ queryKey: ['/api/teams', team2Id, 'stats'] });
     }
     
+    // Invalidate player-specific queries for all players in the match
+    const allPlayers = getAllPlayers();
+    allPlayers.forEach(player => {
+      const playerId = player.id;
+      if (playerId) {
+        // Invalidate player profile data (includes career stats)
+        queryClient.invalidateQueries({ queryKey: ['/api/players', playerId] });
+        // Invalidate player match history  
+        queryClient.invalidateQueries({ queryKey: ['/api/players', playerId, 'matches'] });
+      }
+    });
+    
+    // Invalidate all players queries (for team rosters, etc.)
+    queryClient.invalidateQueries({ queryKey: ['/api/players'] });
+    
     // Invalidate user-specific queries
     queryClient.invalidateQueries({ queryKey: ['/api/matches', 'user'] });
     queryClient.invalidateQueries({ queryKey: ['/api/matches', 'history'] });
