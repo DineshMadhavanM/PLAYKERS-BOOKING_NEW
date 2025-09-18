@@ -1439,7 +1439,7 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
       return [...filtered, inningData];
     });
     
-    console.log(`Captured innings ${inningNumber} data:`, inningData);
+    // Removed console.log to prevent potential object rendering issues
   };
 
   const switchInnings = () => {
