@@ -489,8 +489,8 @@ export default function MatchScorecardDialog({ match, children, teamStats }: Mat
                         </div>
                         {match.sport === 'cricket' && getScorecard()?.team1Innings?.[0] && (
                           <div className="text-sm text-muted-foreground">
-                            <p>Run Rate: {getScorecard().team1Innings[0].runRate?.toFixed(2)}</p>
-                            <p>Extras: {Object.values(getScorecard().team1Innings[0].extras || {}).reduce((a: number, b: any) => a + Number(b), 0)}</p>
+                            <p>Run Rate: {getScorecard()?.team1Innings?.[0]?.runRate?.toFixed(2) || '0.00'}</p>
+                            <p>Extras: {Object.values(getScorecard()?.team1Innings?.[0]?.extras || {}).reduce((a: number, b: any) => a + Number(b || 0), 0)}</p>
                           </div>
                         )}
                       </div>
@@ -515,8 +515,8 @@ export default function MatchScorecardDialog({ match, children, teamStats }: Mat
                         </div>
                         {match.sport === 'cricket' && getScorecard()?.team2Innings?.[0] && (
                           <div className="text-sm text-muted-foreground">
-                            <p>Run Rate: {getScorecard().team2Innings[0].runRate?.toFixed(2)}</p>
-                            <p>Extras: {Object.values(getScorecard().team2Innings[0].extras || {}).reduce((a: number, b: any) => a + Number(b), 0)}</p>
+                            <p>Run Rate: {getScorecard()?.team2Innings?.[0]?.runRate?.toFixed(2) || '0.00'}</p>
+                            <p>Extras: {Object.values(getScorecard()?.team2Innings?.[0]?.extras || {}).reduce((a: number, b: any) => a + Number(b || 0), 0)}</p>
                           </div>
                         )}
                       </div>
