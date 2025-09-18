@@ -246,13 +246,114 @@ export default function MatchScorer() {
     });
   };
 
-  const handleEndMatch = () => {
-    updateMatchMutation.mutate({ status: 'completed' });
-    setMatchStatus('completed');
-    toast({
-      title: "Match Completed",
-      description: "The match has been completed!",
-    });
+  const handleEndMatch = async () => {
+    try {
+      // For cricket matches, need to call the completion endpoint to update player stats
+      if (match?.sport === 'cricket') {
+        // Build completion data for cricket matches
+        const completionData = {
+          finalScorecard: {
+            team1Innings: [
+              {
+                inningsNumber: 1,
+                battingTeamId: (match?.matchData as any)?.team1Id || '',
+                totalRuns: (match?.team1Score as any)?.runs || 0,
+                totalWickets: (match?.team1Score as any)?.wickets || 0,
+                totalOvers: parseFloat((match?.team1Score as any)?.overs || '0'),
+                runRate: ((match?.team1Score as any)?.runs || 0) / Math.max(parseFloat((match?.team1Score as any)?.overs || '0'), 1),
+                extras: {
+                  wides: 0,
+                  noBalls: 0,
+                  byes: 0,
+                  legByes: 0,
+                  penalties: 0,
+                },
+                batsmen: [], // Will be populated from match data if available
+                bowlers: [], // Will be populated from match data if available
+              }
+            ],
+            team2Innings: [
+              {
+                inningsNumber: 1,
+                battingTeamId: (match?.matchData as any)?.team2Id || '',
+                totalRuns: (match?.team2Score as any)?.runs || 0,
+                totalWickets: (match?.team2Score as any)?.wickets || 0,
+                totalOvers: parseFloat((match?.team2Score as any)?.overs || '0'),
+                runRate: ((match?.team2Score as any)?.runs || 0) / Math.max(parseFloat((match?.team2Score as any)?.overs || '0'), 1),
+                extras: {
+                  wides: 0,
+                  noBalls: 0,
+                  byes: 0,
+                  legByes: 0,
+                  penalties: 0,
+                },
+                batsmen: [], // Will be populated from match data if available
+                bowlers: [], // Will be populated from match data if available
+              }
+            ]
+          },
+          awards: {
+            manOfTheMatch: undefined,
+            bestBatsman: undefined,
+            bestBowler: undefined,
+            bestFielder: undefined,
+          },
+          resultSummary: {
+            winnerId: undefined, // Will be determined based on scores
+            resultType: 'won-by-runs' as 'won-by-runs' | 'won-by-wickets' | 'tied' | 'no-result' | 'abandoned',
+            marginRuns: 0,
+            marginWickets: 0,
+          }
+        };
+
+        // Determine winner based on scores
+        const team1Runs = (match?.team1Score as any)?.runs || 0;
+        const team2Runs = (match?.team2Score as any)?.runs || 0;
+        
+        if (team1Runs > team2Runs) {
+          completionData.resultSummary.winnerId = (match?.matchData as any)?.team1Id;
+          completionData.resultSummary.resultType = 'won-by-runs';
+          completionData.resultSummary.marginRuns = team1Runs - team2Runs;
+        } else if (team2Runs > team1Runs) {
+          completionData.resultSummary.winnerId = (match?.matchData as any)?.team2Id;
+          completionData.resultSummary.resultType = 'won-by-runs';
+          completionData.resultSummary.marginRuns = team2Runs - team1Runs;
+        } else {
+          completionData.resultSummary.resultType = 'tied';
+          completionData.resultSummary.marginRuns = 0;
+        }
+
+        // Call the completion endpoint which will update player and team statistics
+        await apiRequest("POST", `/api/matches/${params?.id}/complete`, completionData);
+        
+        toast({
+          title: "Match Completed",
+          description: "The match has been completed and player statistics have been updated!",
+        });
+      } else {
+        // For non-cricket matches, just update status
+        updateMatchMutation.mutate({ status: 'completed' });
+        toast({
+          title: "Match Completed",
+          description: "The match has been completed!",
+        });
+      }
+      
+      setMatchStatus('completed');
+      
+      // Invalidate queries to refresh data
+      queryClient.invalidateQueries({ queryKey: ["/api/matches"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/players"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/teams"] });
+      
+    } catch (error) {
+      console.error("Error completing match:", error);
+      toast({
+        title: "Error",
+        description: "Failed to complete match. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleScoreUpdate = (scoreData: any) => {
