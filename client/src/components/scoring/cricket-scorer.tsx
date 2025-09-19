@@ -630,8 +630,8 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
           ballByBall: [...ballByBall, `${runs} run${runs !== 1 ? 's' : ''}`, "🎯 TARGET REACHED!"]
         });
         
-        // Show man of the match dialog immediately
-        setShowManOfMatchDialog(true);
+        // Don't auto-open man of the match dialog - let user choose
+        // setShowManOfMatchDialog(true);
         
         toast({
           title: "🎯 TARGET ACHIEVED!",
@@ -835,7 +835,7 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
         const result = `${match.team2Name || 'Team B'} won by ${wicketsRemaining} wickets`;
         setMatchResult(result);
         setIsMatchCompleted(true);
-        setShowManOfMatchDialog(true);
+        // setShowManOfMatchDialog(true); // Let user choose to open this
         
         // Update final score
         updateScore({
@@ -1164,7 +1164,7 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
         const result = `${match.team2Name || 'Team B'} won by ${wicketsRemaining} wickets`;
         setMatchResult(result);
         setIsMatchCompleted(true);
-        setShowManOfMatchDialog(true);
+        // setShowManOfMatchDialog(true); // Let user choose to open this
 
         updateScore({
           team1Runs: newTeam1Runs,
