@@ -1331,14 +1331,15 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
       } else if (team2Runs === team1Runs) {
         result = 'Match Tied';
       } else {
-        const runsShort = (team1Runs + 1) - team2Runs;
-        result = `${match.team1Name || 'Team A'} won by ${runsShort} runs`;
+        const runsMargin = team1Runs - team2Runs;
+        result = `${match.team1Name || 'Team A'} won by ${runsMargin} runs`;
       }
       
       setMatchResult(result);
       
-      // Show man of the match dialog instead of completing immediately
-      setShowManOfMatchDialog(true);
+      // Complete the match immediately - don't auto-open Man of the Match dialog
+      setIsMatchCompleted(true);
+      // setShowManOfMatchDialog(true); // Let user choose to open this
       
       toast({
         title: "Match Complete!",
@@ -3785,8 +3786,8 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
                 </div>
               </div>
               
-              {/* Man of the Match Display */}
-              {manOfMatchSelected && selectedManOfMatch && (
+              {/* Man of the Match Display or Selection Button */}
+              {manOfMatchSelected && selectedManOfMatch ? (
                 <div className="bg-gradient-to-r from-yellow-100 to-orange-100 dark:from-yellow-900/30 dark:to-orange-900/30 p-4 rounded-lg border-2 border-yellow-400 dark:border-yellow-600">
                   <div className="text-center">
                     <p className="text-lg font-bold text-yellow-800 dark:text-yellow-200 mb-1">
@@ -3797,6 +3798,15 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
                     </p>
                   </div>
                 </div>
+              ) : (
+                <Button 
+                  onClick={() => setShowManOfMatchDialog(true)}
+                  variant="outline"
+                  className="w-full border-yellow-300 dark:border-yellow-700 hover:bg-yellow-50 dark:hover:bg-yellow-900/20"
+                  data-testid="button-select-man-of-match"
+                >
+                  🏆 Select Man of the Match (Optional)
+                </Button>
               )}
               
               <div className="flex flex-col gap-3">
