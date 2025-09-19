@@ -115,6 +115,8 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
   // Match saving functionality
   const [isMatchSaved, setIsMatchSaved] = useState(false);
   const [isSavingMatch, setIsSavingMatch] = useState(false);
+  const [isPlayerProfilesSaved, setIsPlayerProfilesSaved] = useState(false);
+  const [isSavingPlayerProfiles, setIsSavingPlayerProfiles] = useState(false);
   
   // Per-innings data persistence
   const [inningsData, setInningsData] = useState<Array<{
@@ -1716,6 +1718,112 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
     // Invalidate user-specific queries
     queryClient.invalidateQueries({ queryKey: ['/api/matches', 'user'] });
     queryClient.invalidateQueries({ queryKey: ['/api/matches', 'history'] });
+  };
+
+  // Handle saving player profiles to MongoDB with match statistics
+  const handleSavePlayerProfiles = async () => {
+    if (!isMatchCompleted || !matchResult) {
+      toast({
+        title: "Match Not Complete",
+        description: "Please complete the match before saving player profiles.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSavingPlayerProfiles(true);
+
+    try {
+      // Prepare player statistics for saving
+      const allPlayers = getAllPlayers();
+      const playerStats = [];
+
+      // Process batting statistics
+      for (const batter of battingStats) {
+        const player = allPlayers.find(p => (p.name || p.playerName) === batter.name);
+        if (player) {
+          playerStats.push({
+            playerId: player.id || batter.name,
+            teamId: player.teamId || (player.team === 'team1' ? getTeamId('team1') : getTeamId('team2')),
+            runsScored: batter.runs,
+            ballsFaced: batter.balls,
+            fours: batter.fours,
+            sixes: batter.sixes,
+            isOut: batter.isDismissed,
+            dismissalType: batter.dismissalType,
+            manOfMatch: manOfMatchSelected && selectedManOfMatch === batter.name
+          });
+        }
+      }
+
+      // Process bowling statistics
+      for (const bowler of bowlingStats) {
+        const player = allPlayers.find(p => (p.name || p.playerName) === bowler.name);
+        if (player) {
+          const existingPlayerIndex: number = playerStats.findIndex(p => p.playerId === (player.id || bowler.name));
+          if (existingPlayerIndex >= 0) {
+            // Update existing player stats with bowling info
+            playerStats[existingPlayerIndex] = {
+              ...playerStats[existingPlayerIndex],
+              oversBowled: bowler.overs,
+              runsGiven: bowler.runsConceded,
+              wicketsTaken: bowler.wickets,
+              maidens: bowler.maidenOvers
+            };
+          } else {
+            // Add new player with bowling stats only
+            playerStats.push({
+              playerId: player.id || bowler.name,
+              teamId: player.teamId || (player.team === 'team1' ? getTeamId('team1') : getTeamId('team2')),
+              oversBowled: bowler.overs,
+              runsGiven: bowler.runsConceded,
+              wicketsTaken: bowler.wickets,
+              maidens: bowler.maidenOvers,
+              manOfMatch: manOfMatchSelected && selectedManOfMatch === bowler.name
+            });
+          }
+        }
+      }
+
+      // Save player profiles via API
+      const response = await apiRequest('POST', `/api/matches/${match.id}/save-player-profiles`, {
+        playerStats
+      });
+
+      if (response.ok) {
+        const responseData = await response.json();
+        setIsPlayerProfilesSaved(true);
+        toast({
+          title: "✅ Player Profiles Saved!",
+          description: `Successfully updated career statistics for ${playerStats.length} players.`,
+          duration: 6000,
+        });
+        
+        // Invalidate player caches for immediate profile updates
+        if (responseData.cacheInvalidation?.players) {
+          responseData.cacheInvalidation.players.forEach((playerId: string) => {
+            queryClient.invalidateQueries({ queryKey: ['/api/players', playerId] });
+            queryClient.invalidateQueries({ queryKey: ['/api/players', playerId, 'stats'] });
+          });
+        }
+        queryClient.invalidateQueries({ queryKey: ['/api/players'] });
+        
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Failed to save player profiles');
+      }
+
+    } catch (error: any) {
+      console.error('Error saving player profiles:', error);
+      toast({
+        title: "❌ Save Player Profiles Failed",
+        description: "Failed to save player profiles. Please try again.",
+        variant: "destructive",
+        duration: 5000,
+      });
+    } finally {
+      setIsSavingPlayerProfiles(false);
+    }
   };
 
   // Handle saving match to MongoDB with complete scorecard and stats
@@ -3697,17 +3805,29 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
                 </div>
               )}
               
-              <div className="flex gap-3">
-                {!isMatchSaved && (
-                  <Button 
-                    onClick={handleSaveMatch}
-                    disabled={isSavingMatch}
-                    className="flex-1 bg-green-600 hover:bg-green-700 text-white"
-                    data-testid="button-save-match"
-                  >
-                    {isSavingMatch ? "Saving..." : "💾 Save Match"}
-                  </Button>
-                )}
+              <div className="flex flex-col gap-3">
+                <div className="flex gap-3">
+                  {!isMatchSaved && (
+                    <Button 
+                      onClick={handleSaveMatch}
+                      disabled={isSavingMatch}
+                      className="flex-1 bg-green-600 hover:bg-green-700 text-white"
+                      data-testid="button-save-match"
+                    >
+                      {isSavingMatch ? "Saving..." : "💾 Save Match"}
+                    </Button>
+                  )}
+                  {!isPlayerProfilesSaved && (
+                    <Button 
+                      onClick={handleSavePlayerProfiles}
+                      disabled={isSavingPlayerProfiles}
+                      className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
+                      data-testid="button-save-player-profiles"
+                    >
+                      {isSavingPlayerProfiles ? "Saving..." : "👤 Save Player Profiles"}
+                    </Button>
+                  )}
+                </div>
                 <Button 
                   onClick={() => {
                     setIsMatchCompleted(false);
@@ -3715,9 +3835,10 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
                     setSelectedManOfMatch('');
                     setManOfMatchSelected(false);
                     setIsMatchSaved(false);
+                    setIsPlayerProfilesSaved(false);
                   }}
-                  className={isMatchSaved ? "w-full" : "flex-1"}
-                  variant={isMatchSaved ? "default" : "outline"}
+                  className="w-full"
+                  variant={(isMatchSaved || isPlayerProfilesSaved) ? "default" : "outline"}
                   data-testid="button-close-result"
                 >
                   Close

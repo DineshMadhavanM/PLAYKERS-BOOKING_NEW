@@ -872,6 +872,78 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Save player profiles with match statistics
+  app.post('/api/matches/:id/save-player-profiles', requireAuth, async (req, res) => {
+    try {
+      const matchId = req.params.id;
+      const { playerStats } = req.body;
+      
+      console.log(`🔄 Saving player profiles for match ${matchId}`);
+      
+      if (!playerStats || !Array.isArray(playerStats)) {
+        return res.status(400).json({ message: "Player stats array is required" });
+      }
+      
+      // Validate and dedupe player stats
+      const validatedPlayerStats = [];
+      const seenPlayerIds = new Set();
+      
+      for (const stat of playerStats) {
+        // Basic validation
+        if (!stat.playerId || !stat.teamId) {
+          console.warn('Skipping player stat with missing playerId or teamId:', stat);
+          continue;
+        }
+        
+        // Dedupe by playerId (keep first occurrence)
+        if (seenPlayerIds.has(stat.playerId)) {
+          console.warn(`Duplicate playerId ${stat.playerId} found, skipping`);
+          continue;
+        }
+        
+        seenPlayerIds.add(stat.playerId);
+        validatedPlayerStats.push({
+          playerId: stat.playerId,
+          teamId: stat.teamId,
+          runsScored: typeof stat.runsScored === 'number' ? stat.runsScored : 0,
+          ballsFaced: typeof stat.ballsFaced === 'number' ? stat.ballsFaced : 0,
+          fours: typeof stat.fours === 'number' ? stat.fours : 0,
+          sixes: typeof stat.sixes === 'number' ? stat.sixes : 0,
+          isOut: Boolean(stat.isOut),
+          oversBowled: typeof stat.oversBowled === 'number' ? stat.oversBowled : 0,
+          runsGiven: typeof stat.runsGiven === 'number' ? stat.runsGiven : 0,
+          wicketsTaken: typeof stat.wicketsTaken === 'number' ? stat.wicketsTaken : 0,
+          maidens: typeof stat.maidens === 'number' ? stat.maidens : 0,
+          manOfMatch: Boolean(stat.manOfMatch)
+        });
+      }
+      
+      if (validatedPlayerStats.length === 0) {
+        return res.status(400).json({ message: "No valid player statistics found" });
+      }
+      
+      // Save individual player career statistics
+      const result = await storage.updatePlayerCareerStats(matchId, validatedPlayerStats);
+      
+      if (result.success) {
+        res.json({
+          message: "Player profiles updated successfully",
+          playersUpdated: result.playersUpdated,
+          cacheInvalidation: result.cacheInvalidation
+        });
+      } else {
+        res.status(500).json({
+          message: "Failed to update some player profiles",
+          errors: result.errors
+        });
+      }
+      
+    } catch (error: any) {
+      console.error('Error saving player profiles:', error);
+      res.status(500).json({ message: "Failed to save player profiles" });
+    }
+  });
+
   // Complete a cricket match with final scorecard and statistics
   app.post('/api/matches/:id/complete', requireAuth, async (req: any, res) => {
     try {

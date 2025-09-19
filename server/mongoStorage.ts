@@ -1149,4 +1149,102 @@ export class MongoStorage implements IStorage {
     
     return matches;
   }
+
+  async updatePlayerCareerStats(matchId: string, playerStats: Array<{
+    playerId: string;
+    teamId: string;
+    runsScored?: number;
+    ballsFaced?: number;
+    fours?: number;
+    sixes?: number;
+    isOut?: boolean;
+    oversBowled?: number;
+    runsGiven?: number;
+    wicketsTaken?: number;
+    maidens?: number;
+    manOfMatch?: boolean;
+  }>): Promise<{ success: boolean; playersUpdated?: number; errors?: string[]; cacheInvalidation?: { players: string[] } }> {
+    const session = this.client.startSession();
+    const errors: string[] = [];
+    const updatedPlayerIds: string[] = [];
+    
+    try {
+      await session.withTransaction(async () => {
+        console.log(`📊 Updating career stats for ${playerStats.length} players from match ${matchId}`);
+        
+        for (const playerStat of playerStats) {
+          try {
+            // Find player by ID or name
+            const player = await this.players.findOne({ 
+              $or: [
+                { id: playerStat.playerId },
+                { playerName: playerStat.playerId },
+                { 'user.username': playerStat.playerId }
+              ]
+            } as any, { session });
+            
+            if (!player) {
+              errors.push(`Player not found: ${playerStat.playerId}`);
+              continue;
+            }
+            
+            // Update player career statistics
+            const updateData: any = {
+              $inc: {
+                // Batting stats
+                ...(playerStat.runsScored && { 'careerStats.totalRuns': playerStat.runsScored }),
+                ...(playerStat.ballsFaced && { 'careerStats.totalBalls': playerStat.ballsFaced }),
+                ...(playerStat.fours && { 'careerStats.totalFours': playerStat.fours }),
+                ...(playerStat.sixes && { 'careerStats.totalSixes': playerStat.sixes }),
+                ...(playerStat.isOut && { 'careerStats.timesOut': 1 }),
+                // Bowling stats
+                ...(playerStat.oversBowled && { 'careerStats.oversBowled': playerStat.oversBowled }),
+                ...(playerStat.runsGiven && { 'careerStats.runsConceded': playerStat.runsGiven }),
+                ...(playerStat.wicketsTaken && { 'careerStats.wicketsTaken': playerStat.wicketsTaken }),
+                ...(playerStat.maidens && { 'careerStats.maidenOvers': playerStat.maidens }),
+                // Match awards
+                ...(playerStat.manOfMatch && { 'careerStats.manOfMatchAwards': 1 }),
+                // Total matches
+                'careerStats.totalMatches': 1
+              },
+              $set: {
+                updatedAt: new Date()
+              }
+            };
+            
+            await this.players.updateOne(
+              { id: player.id } as any,
+              updateData,
+              { session }
+            );
+            
+            updatedPlayerIds.push(player.id);
+            
+          } catch (playerError) {
+            errors.push(`Failed to update ${playerStat.playerId}: ${playerError instanceof Error ? playerError.message : 'Unknown error'}`);
+          }
+        }
+      });
+      
+      console.log(`✅ Successfully updated career stats for ${updatedPlayerIds.length} players`);
+      
+      return {
+        success: true,
+        playersUpdated: updatedPlayerIds.length,
+        errors: errors.length > 0 ? errors : undefined,
+        cacheInvalidation: {
+          players: updatedPlayerIds
+        }
+      };
+      
+    } catch (error) {
+      console.error('Error updating player career stats:', error);
+      return {
+        success: false,
+        errors: [`Failed to update player career stats: ${error instanceof Error ? error.message : 'Unknown error'}`]
+      };
+    } finally {
+      await session.endSession();
+    }
+  }
 }

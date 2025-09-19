@@ -140,6 +140,22 @@ export interface IStorage {
   getPlayerMatchHistory(playerId: string): Promise<Match[]>;
   getTeamMatchHistory(teamId: string): Promise<Match[]>;
   
+  // Player career stats bulk update
+  updatePlayerCareerStats(matchId: string, playerStats: Array<{
+    playerId: string;
+    teamId: string;
+    runsScored?: number;
+    ballsFaced?: number;
+    fours?: number;
+    sixes?: number;
+    isOut?: boolean;
+    oversBowled?: number;
+    runsGiven?: number;
+    wicketsTaken?: number;
+    maidens?: number;
+    manOfMatch?: boolean;
+  }>): Promise<{ success: boolean; playersUpdated?: number; errors?: string[]; cacheInvalidation?: { players: string[] } }>;
+
   // Match completion operations
   applyMatchResults(matchData: {
     matchId: string;
