@@ -12,7 +12,7 @@ export interface Player {
   id: string;
   name: string;
   email: string;
-  role: "captain" | "vice-captain" | "wicket-keeper" | "player";
+  role: "captain" | "vice-captain" | "wicket-keeper" | "captain-wicket-keeper" | "vice-captain-wicket-keeper" | "player";
   position: number;
   battingStyle?: "right-handed" | "left-handed";
   bowlingStyle?: "right-arm-fast" | "left-arm-fast" | "right-arm-medium" | "left-arm-medium" | "right-arm-spin" | "left-arm-spin" | "leg-spin" | "off-spin";
@@ -88,13 +88,28 @@ export default function CricketTeamRoster({
   };
 
   const updatePlayerRole = (playerId: string, newRole: Player["role"]) => {
-    // Check if role is already taken (except for regular player)
+    // Check for role conflicts (except for regular player)
     if (newRole !== "player") {
-      const roleExists = players.some(p => p.id !== playerId && p.role === newRole);
-      if (roleExists) {
+      // Define conflicting roles
+      const roleConflicts: Record<string, string[]> = {
+        "captain": ["captain", "captain-wicket-keeper"],
+        "vice-captain": ["vice-captain", "vice-captain-wicket-keeper"],
+        "wicket-keeper": ["wicket-keeper", "captain-wicket-keeper", "vice-captain-wicket-keeper"],
+        "captain-wicket-keeper": ["captain", "vice-captain", "wicket-keeper", "captain-wicket-keeper", "vice-captain-wicket-keeper"],
+        "vice-captain-wicket-keeper": ["captain", "vice-captain", "wicket-keeper", "captain-wicket-keeper", "vice-captain-wicket-keeper"]
+      };
+
+      const conflictingRoles = roleConflicts[newRole] || [newRole];
+      const conflict = players.find(p => p.id !== playerId && conflictingRoles.includes(p.role));
+      
+      if (conflict) {
+        const conflictDescription = conflict.role === newRole 
+          ? `This team already has a ${newRole.replace(/-/g, " ")}`
+          : `This role conflicts with ${conflict.name}'s role (${conflict.role.replace(/-/g, " ")})`;
+        
         toast({
-          title: "Role already assigned",
-          description: `This team already has a ${newRole.replace("-", " ")}`,
+          title: "Role conflict",
+          description: conflictDescription,
           variant: "destructive",
         });
         return;
@@ -130,6 +145,8 @@ export default function CricketTeamRoster({
       case "captain": return <Crown className="h-4 w-4 text-yellow-600" />;
       case "vice-captain": return <Shield className="h-4 w-4 text-blue-600" />;
       case "wicket-keeper": return <Target className="h-4 w-4 text-green-600" />;
+      case "captain-wicket-keeper": return <div className="flex items-center gap-1"><Crown className="h-3 w-3 text-yellow-600" /><Target className="h-3 w-3 text-green-600" /></div>;
+      case "vice-captain-wicket-keeper": return <div className="flex items-center gap-1"><Shield className="h-3 w-3 text-blue-600" /><Target className="h-3 w-3 text-green-600" /></div>;
       default: return <Users className="h-4 w-4 text-gray-600" />;
     }
   };
@@ -139,6 +156,8 @@ export default function CricketTeamRoster({
       case "captain": return "default";
       case "vice-captain": return "secondary";
       case "wicket-keeper": return "outline";
+      case "captain-wicket-keeper": return "default";
+      case "vice-captain-wicket-keeper": return "secondary";
       default: return "outline";
     }
   };
@@ -262,6 +281,8 @@ export default function CricketTeamRoster({
                           <SelectItem value="captain">Captain</SelectItem>
                           <SelectItem value="vice-captain">Vice Captain</SelectItem>
                           <SelectItem value="wicket-keeper">Wicket Keeper</SelectItem>
+                          <SelectItem value="captain-wicket-keeper">Captain + Wicket Keeper</SelectItem>
+                          <SelectItem value="vice-captain-wicket-keeper">Vice Captain + Wicket Keeper</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -273,7 +294,7 @@ export default function CricketTeamRoster({
                       className="flex items-center gap-1 text-xs"
                     >
                       {getRoleIcon(player.role)}
-                      {player.role.replace("-", " ").replace(/\b\w/g, l => l.toUpperCase())}
+                      {player.role.replace(/-/g, " ").replace(/\b\w/g, l => l.toUpperCase())}
                     </Badge>
                     
                     <Button
