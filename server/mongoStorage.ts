@@ -1188,22 +1188,21 @@ export class MongoStorage implements IStorage {
               continue;
             }
             
-            // Update player career statistics
+            // Update player career statistics with correct field names
             const updateData: any = {
               $inc: {
-                // Batting stats
-                ...(playerStat.runsScored && { 'careerStats.totalRuns': playerStat.runsScored }),
-                ...(playerStat.ballsFaced && { 'careerStats.totalBalls': playerStat.ballsFaced }),
-                ...(playerStat.fours && { 'careerStats.totalFours': playerStat.fours }),
-                ...(playerStat.sixes && { 'careerStats.totalSixes': playerStat.sixes }),
-                ...(playerStat.isOut && { 'careerStats.timesOut': 1 }),
-                // Bowling stats
-                ...(playerStat.oversBowled && { 'careerStats.oversBowled': playerStat.oversBowled }),
-                ...(playerStat.runsGiven && { 'careerStats.runsConceded': playerStat.runsGiven }),
-                ...(playerStat.wicketsTaken && { 'careerStats.wicketsTaken': playerStat.wicketsTaken }),
-                ...(playerStat.maidens && { 'careerStats.maidenOvers': playerStat.maidens }),
+                // Batting stats - use correct schema field names and handle 0 values
+                ...(typeof playerStat.runsScored === 'number' && { 'careerStats.totalRuns': playerStat.runsScored }),
+                ...(typeof playerStat.ballsFaced === 'number' && { 'careerStats.totalBallsFaced': playerStat.ballsFaced }),
+                ...(typeof playerStat.fours === 'number' && { 'careerStats.totalFours': playerStat.fours }),
+                ...(typeof playerStat.sixes === 'number' && { 'careerStats.totalSixes': playerStat.sixes }),
+                // Bowling stats - use correct schema field names
+                ...(typeof playerStat.oversBowled === 'number' && { 'careerStats.totalOvers': playerStat.oversBowled }),
+                ...(typeof playerStat.runsGiven === 'number' && { 'careerStats.totalRunsGiven': playerStat.runsGiven }),
+                ...(typeof playerStat.wicketsTaken === 'number' && { 'careerStats.totalWickets': playerStat.wicketsTaken }),
+                ...(typeof playerStat.maidens === 'number' && { 'careerStats.totalMaidens': playerStat.maidens }),
                 // Match awards
-                ...(playerStat.manOfMatch && { 'careerStats.manOfMatchAwards': 1 }),
+                ...(playerStat.manOfMatch && { 'careerStats.manOfTheMatchAwards': 1 }),
                 // Total matches
                 'careerStats.totalMatches': 1
               },
@@ -1211,12 +1210,32 @@ export class MongoStorage implements IStorage {
                 updatedAt: new Date()
               }
             };
+
+            // Handle centuries and half-centuries
+            if (typeof playerStat.runsScored === 'number') {
+              if (playerStat.runsScored >= 100) {
+                updateData.$inc['careerStats.centuries'] = 1;
+              } else if (playerStat.runsScored >= 50) {
+                updateData.$inc['careerStats.halfCenturies'] = 1;
+              }
+              // Update highest score if needed
+              if (playerStat.runsScored > (player.careerStats?.highestScore || 0)) {
+                updateData.$set['careerStats.highestScore'] = playerStat.runsScored;
+              }
+            }
+
+            // Handle five-wicket hauls
+            if (typeof playerStat.wicketsTaken === 'number' && playerStat.wicketsTaken >= 5) {
+              updateData.$inc['careerStats.fiveWicketHauls'] = 1;
+            }
             
             await this.players.updateOne(
               { id: player.id } as any,
               updateData,
               { session }
             );
+            
+            // Note: Recalculation moved outside transaction to avoid session conflicts
             
             updatedPlayerIds.push(player.id);
             
@@ -1225,6 +1244,17 @@ export class MongoStorage implements IStorage {
           }
         }
       });
+      
+      // Recalculate derived metrics (averages, rates) after transaction commits for data consistency
+      console.log(`🔄 Recalculating derived metrics for ${updatedPlayerIds.length} players`);
+      for (const playerId of updatedPlayerIds) {
+        try {
+          await this.recalculatePlayerAverages(playerId);
+        } catch (error) {
+          console.warn(`⚠️ Failed to recalculate averages for player ${playerId}:`, error);
+          // Don't fail the whole operation for recalculation errors
+        }
+      }
       
       console.log(`✅ Successfully updated career stats for ${updatedPlayerIds.length} players`);
       
