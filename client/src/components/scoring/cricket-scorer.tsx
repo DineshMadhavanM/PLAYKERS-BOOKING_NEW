@@ -577,11 +577,9 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
             duration: 8000,
           });
         } else {
-          toast({
-            title: "Innings Complete",
-            description: `${totalOvers} overs completed. No more balls can be bowled.`,
-            variant: "destructive",
-          });
+          // Second innings completed due to overs - end the match immediately
+          handleInningsCompletion();
+          return;
         }
       } else {
         toast({
@@ -1061,11 +1059,9 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
             duration: 8000,
           });
         } else {
-          toast({
-            title: "Innings Complete",
-            description: `${totalOvers} overs completed. No more balls can be bowled.`,
-            variant: "destructive",
-          });
+          // Second innings completed due to overs - end the match immediately
+          handleInningsCompletion();
+          return;
         }
         return;
       }
