@@ -1238,19 +1238,24 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
     const currentTeamBalls = currentInning === 1 ? team1Balls : team2Balls;
     const oversCompleted = Math.floor(currentTeamBalls / 6);
     
-    // End innings if max overs reached (exactly totalOvers * 6 balls) or all 10 wickets fall
-    if (currentTeamBalls >= totalOvers * 6 || currentTeamWickets >= maxWickets) {
-      return true;
+    // For first innings: End if max overs reached or all wickets fall
+    if (currentInning === 1) {
+      if (currentTeamBalls >= totalOvers * 6 || currentTeamWickets >= maxWickets) {
+        return true;
+      }
     }
     
-    // For second innings, also check if target is reached immediately
+    // For second innings: End if target reached, OR overs completed, OR all wickets fall
     if (currentInning === 2) {
       const target = team1Runs + 1;
+      
+      // Target reached - batting team wins
       if (team2Runs >= target) {
         return true;
       }
-      // Check for tie when overs completed or all wickets fall
-      if ((currentTeamBalls >= totalOvers * 6 || currentTeamWickets >= maxWickets) && team2Runs === team1Runs) {
+      
+      // Overs completed or all wickets fall - determine winner based on scores
+      if (currentTeamBalls >= totalOvers * 6 || currentTeamWickets >= maxWickets) {
         return true;
       }
     }
