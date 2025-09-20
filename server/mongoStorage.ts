@@ -1173,19 +1173,52 @@ export class MongoStorage implements IStorage {
         console.log(`📊 Updating career stats for ${playerStats.length} players from match ${matchId}`);
         
         for (const playerStat of playerStats) {
+          const playerLogId = `Player[${playerStat.playerId}]`;
           try {
-            // Find player by ID or name
+            console.log(`🔄 Processing career stats for ${playerLogId}`);
+            
+            // Detailed logging only in debug mode to avoid log flooding
+            if (process.env.LOG_LEVEL === 'debug') {
+              console.log(`📊 Input stats:`, {
+                runsScored: playerStat.runsScored,
+                ballsFaced: playerStat.ballsFaced,
+                fours: playerStat.fours,
+                sixes: playerStat.sixes,
+                wicketsTaken: playerStat.wicketsTaken,
+                oversBowled: playerStat.oversBowled,
+                runsGiven: playerStat.runsGiven,
+                maidens: playerStat.maidens,
+                manOfMatch: playerStat.manOfMatch
+              });
+            }
+            
+            // Input validation
+            if (!playerStat.playerId) {
+              const errorMsg = `${playerLogId}: Missing playerId`;
+              console.error(`❌ ${errorMsg}`);
+              errors.push(errorMsg);
+              continue;
+            }
+            
+            // Find player by ID or name with detailed logging
+            console.log(`🔍 Searching for player with ID: ${playerStat.playerId}`);
             const player = await this.players.findOne({ 
               $or: [
                 { id: playerStat.playerId },
-                { playerName: playerStat.playerId },
-                { 'user.username': playerStat.playerId }
+                { name: playerStat.playerId }
               ]
             } as any, { session });
             
             if (!player) {
-              errors.push(`Player not found: ${playerStat.playerId}`);
+              const errorMsg = `${playerLogId}: Player not found in database`;
+              console.error(`❌ ${errorMsg}`);
+              errors.push(errorMsg);
               continue;
+            }
+            
+            console.log(`✅ Found player: [REDACTED] (ID: ${player.id})`);
+            if (process.env.LOG_LEVEL === 'debug') {
+              console.log(`📈 Current career stats before update:`, player.careerStats || {});
             }
             
             // Update player career statistics with correct field names
@@ -1229,39 +1262,115 @@ export class MongoStorage implements IStorage {
               updateData.$inc['careerStats.fiveWicketHauls'] = 1;
             }
             
-            await this.players.updateOne(
+            // Log the update operation about to be performed (debug mode only)
+            if (process.env.LOG_LEVEL === 'debug') {
+              console.log(`🔧 Update operation:`, JSON.stringify(updateData, null, 2));
+            }
+            
+            const updateResult = await this.players.updateOne(
               { id: player.id } as any,
               updateData,
               { session }
             );
             
-            // Note: Recalculation moved outside transaction to avoid session conflicts
+            // Validate update result
+            if (updateResult.matchedCount === 0) {
+              const errorMsg = `${playerLogId}: Player document not matched during update (ID: ${player.id})`;
+              console.error(`❌ ${errorMsg}`);
+              errors.push(errorMsg);
+              continue;
+            }
             
+            if (updateResult.modifiedCount === 0) {
+              console.warn(`⚠️ ${playerLogId}: No fields were modified`);
+              console.log(`🔍 This could indicate no actual stat changes or update conflicts`);
+            } else {
+              console.log(`✅ ${playerLogId}: Successfully updated career stats (${updateResult.modifiedCount} document modified)`);
+            }
+            
+            // Verify the update by checking actual field changes
+            const updatedPlayer = await this.players.findOne({ id: player.id } as any, { session });
+            if (updatedPlayer && process.env.LOG_LEVEL === 'debug') {
+              console.log(`📈 Career stats after update:`, updatedPlayer.careerStats || {});
+              
+              // Validate specific field updates
+              const validateField = (fieldName: string, expectedIncrease: number, actualValue: number, previousValue: number) => {
+                if (expectedIncrease !== 0) {
+                  const actualIncrease = actualValue - (previousValue || 0);
+                  if (Math.abs(actualIncrease - expectedIncrease) > 0.001) {
+                    console.warn(`⚠️ ${playerLogId}: ${fieldName} increment mismatch. Expected: +${expectedIncrease}, Actual: +${actualIncrease}`);
+                  } else {
+                    console.log(`✅ ${playerLogId}: ${fieldName} correctly updated: ${previousValue || 0} → ${actualValue} (+${expectedIncrease})`);
+                  }
+                }
+              };
+              
+              // Validate key field updates
+              if (typeof playerStat.runsScored === 'number') {
+                validateField('totalRuns', playerStat.runsScored, 
+                  updatedPlayer.careerStats?.totalRuns || 0, 
+                  player.careerStats?.totalRuns || 0);
+              }
+              if (typeof playerStat.wicketsTaken === 'number') {
+                validateField('totalWickets', playerStat.wicketsTaken, 
+                  updatedPlayer.careerStats?.totalWickets || 0, 
+                  player.careerStats?.totalWickets || 0);
+              }
+            }
+            
+            // Note: Recalculation moved outside transaction to avoid session conflicts
             updatedPlayerIds.push(player.id);
+            console.log(`🎯 ${playerLogId}: Added to recalculation queue`);
             
           } catch (playerError) {
-            errors.push(`Failed to update ${playerStat.playerId}: ${playerError instanceof Error ? playerError.message : 'Unknown error'}`);
+            const errorMsg = `${playerLogId}: Failed to update career stats - ${playerError instanceof Error ? playerError.message : 'Unknown error'}`;
+            console.error(`❌ ${errorMsg}`);
+            console.error(`🔍 Error details:`, playerError);
+            errors.push(errorMsg);
           }
         }
       });
       
       // Recalculate derived metrics (averages, rates) after transaction commits for data consistency
       console.log(`🔄 Recalculating derived metrics for ${updatedPlayerIds.length} players`);
+      const recalculationErrors: string[] = [];
+      
       for (const playerId of updatedPlayerIds) {
         try {
+          console.log(`📊 Recalculating averages for player: ${playerId}`);
           await this.recalculatePlayerAverages(playerId);
+          console.log(`✅ Averages recalculated successfully for player: ${playerId}`);
         } catch (error) {
-          console.warn(`⚠️ Failed to recalculate averages for player ${playerId}:`, error);
+          const errorMsg = `Failed to recalculate averages for player ${playerId}: ${error instanceof Error ? error.message : 'Unknown error'}`;
+          console.warn(`⚠️ ${errorMsg}`);
+          recalculationErrors.push(errorMsg);
           // Don't fail the whole operation for recalculation errors
         }
       }
       
-      console.log(`✅ Successfully updated career stats for ${updatedPlayerIds.length} players`);
+      // Final summary
+      console.log(`\n📋 PLAYER STATS UPDATE SUMMARY:`);
+      console.log(`  Total players processed: ${playerStats.length}`);
+      console.log(`  Successfully updated: ${updatedPlayerIds.length}`);
+      console.log(`  Update errors: ${errors.length}`);
+      console.log(`  Recalculation errors: ${recalculationErrors.length}`);
+      
+      if (errors.length > 0) {
+        console.log(`\n❌ Update errors:`);
+        errors.forEach((error, index) => console.log(`  ${index + 1}. ${error}`));
+      }
+      
+      if (recalculationErrors.length > 0) {
+        console.log(`\n⚠️ Recalculation errors:`);
+        recalculationErrors.forEach((error, index) => console.log(`  ${index + 1}. ${error}`));
+      }
+      
+      console.log(`✅ Career stats update operation completed: ${updatedPlayerIds.length}/${playerStats.length} players updated successfully`);
       
       return {
         success: true,
         playersUpdated: updatedPlayerIds.length,
-        errors: errors.length > 0 ? errors : undefined,
+        errors: [...errors, ...recalculationErrors].length > 0 ? [...errors, ...recalculationErrors] : undefined,
         cacheInvalidation: {
           players: updatedPlayerIds
         }
