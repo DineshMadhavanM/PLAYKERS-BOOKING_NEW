@@ -1615,6 +1615,14 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
     return teamKey === 'team1' ? (matchData?.team1Id || 'team1') : (matchData?.team2Id || 'team2');
   };
   
+  // Helper function to find player ID from roster by name
+  const findPlayerIdByName = (playerName: string): string => {
+    const player = rosterPlayers.find((p: any) => 
+      (p.name === playerName || p.playerName === playerName)
+    );
+    return player?.id || playerName; // Fallback to name if ID not found
+  };
+
   // Build scorecard in format expected by backend scorecardUpdateSchema
   const buildProperScorecardFormat = (allInnings: any[]) => {
     const team1Innings: any[] = [];
@@ -1638,7 +1646,7 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
           penalties: 0,
         },
         batsmen: (inning.batsmen || []).map((batsman: any) => ({
-          playerId: batsman.name || `player-${Date.now()}`, // Use name as ID for now
+          playerId: findPlayerIdByName(batsman.name || ''), // Use proper player ID from roster
           runsScored: batsman.runs || 0,
           ballsFaced: batsman.balls || 0,
           fours: batsman.fours || 0,
@@ -1649,7 +1657,7 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
           fielderOut: batsman.fielderOut,
         })),
         bowlers: (inning.bowlers || []).map((bowler: any) => ({
-          playerId: bowler.name || `bowler-${Date.now()}`, // Use name as ID for now
+          playerId: findPlayerIdByName(bowler.name || ''), // Use proper player ID from roster
           overs: parseFloat(bowler.oversBowled) || 0,
           maidens: bowler.maidenOvers || 0,
           runsGiven: bowler.runsConceded || 0,
