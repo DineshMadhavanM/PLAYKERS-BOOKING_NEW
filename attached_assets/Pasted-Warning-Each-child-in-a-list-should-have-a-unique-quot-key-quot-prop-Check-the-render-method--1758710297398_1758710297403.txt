@@ -1,0 +1,58 @@
+Warning: Each child in a list should have a unique &quot;key&quot; prop.
+
+Check the render method of `CricketScorer`. See https://reactjs.org/link/warning-keys for more information.
+    at _c11 (https://cbd0e2a8-519b-4dc7-bb8b-c364f14f08b1-00-b30p416s6r8p.pike.replit.dev/src/components/ui/select.tsx:208:13)
+    at CricketScorer (https://cbd0e2a8-519b-4dc7-bb8b-c364f14f08b1-00-b30p416s6r8p.pike.replit.dev/src/components/scoring/cricket-scorer.tsx:29:41)
+    at div
+    at div
+    at MatchScorer (https://cbd0e2a8-519b-4dc7-bb8b-c364f14f08b1-00-b30p416s6r8p.pike.replit.dev/src/pages/match-scorer.tsx:40:22)
+    at Route (https://cbd0e2a8-519b-4dc7-bb8b-c364f14f08b1-00-b30p416s6r8p.pike.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=eb894fd6:323:16)
+    at Switch (https://cbd0e2a8-519b-4dc7-bb8b-c364f14f08b1-00-b30p416s6r8p.pike.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=eb894fd6:379:17)
+    at Router (https://cbd0e2a8-519b-4dc7-bb8b-c364f14f08b1-00-b30p416s6r8p.pike.replit.dev/src/App.tsx?v=4hPnusygZICMtqoKHKiV:41:42)
+    at Provider (https://cbd0e2a8-519b-4dc7-bb8b-c364f14f08b1-00-b30p416s6r8p.pike.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-VJRUVGTI.js?v=eb894fd6:38:15)
+    at TooltipProvider (https://cbd0e2a8-519b-4dc7-bb8b-c364f14f08b1-00-b30p416s6r8p.pike.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=eb894fd6:61:5)
+    at QueryClientProvider (https://cbd0e2a8-519b-4dc7-bb8b-c364f14f08b1-00-b30p416s6r8p.pike.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@tanstack_react-query.js?v=eb894fd6:2805:3)
+    at App
+
+Check the render method of &#x60;CricketScorer&#x60;. See https://reactjs.org/link/warning-keys for more information.
+at _c11 (https://cbd0e2a8-519b-4dc7-bb8b-c364f14f08b1-00-b30p416s6r8p.pike.replit.dev/src/components/ui/select.tsx:208:13)
+at CricketScorer (https://cbd0e2a8-519b-4dc7-bb8b-c364f14f08b1-00-b30p416s6r8p.pike.replit.dev/src/components/scoring/cricket-scorer.tsx:29:41)
+at div
+at div
+at MatchScorer (https://cbd0e2a8-519b-4dc7-bb8b-c364f14f08b1-00-b30p416s6r8p.pike.replit.dev/src/pages/match-scorer.tsx:40:22)
+at Route (https://cbd0e2a8-519b-4dc7-bb8b-c364f14f08b1-00-b30p416s6r8p.pike.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=eb894fd6:323:16)
+at Switch (https://cbd0e2a8-519b-4dc7-bb8b-c364f14f08b1-00-b30p416s6r8p.pike.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=eb894fd6:379:17)
+at Router (https://cbd0e2a8-519b-4dc7-bb8b-c364f14f08b1-00-b30p416s6r8p.pike.replit.dev/src/App.tsx?v=4hPnusygZICMtqoKHKiV:41:42)
+at Provider (https://cbd0e2a8-519b-4dc7-bb8b-c364f14f08b1-00-b30p416s6r8p.pike.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-VJRUVGTI.js?v=eb894fd6:38:15)
+at TooltipProvider (https://cbd0e2a8-519b-4dc7-bb8b-c364f14f08b1-00-b30p416s6r8p.pike.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=eb894fd6:61:5)
+at QueryClientProvider (https://cbd0e2a8-519b-4dc7-bb8b-c364f14f08b1-00-b30p416s6r8p.pike.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@tanstack_react-query.js?v=eb894fd6:2805:3)
+at App
+at t.value (https://cbd0e2a8-519b-4dc7-bb8b-c364f14f08b1-00-b30p416s6r8p.pike.replit.dev/__replco/static/devtools/eruda/3.2.3/eruda.js:2:17465)
+at new t (https://cbd0e2a8-519b-4dc7-bb8b-c364f14f08b1-00-b30p416s6r8p.pike.replit.dev/__replco/static/devtools/eruda/3.2.3/eruda.js:2:12630)
+at t.value (https://cbd0e2a8-519b-4dc7-bb8b-c364f14f08b1-00-b30p416s6r8p.pike.replit.dev/__replco/static/devtools/eruda/3.2.3/eruda.js:2:32766)
+at https://cbd0e2a8-519b-4dc7-bb8b-c364f14f08b1-00-b30p416s6r8p.pike.replit.dev/__replco/static/devtools/eruda/3.2.3/eruda.js:2:34400
+Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+Over completed! Current bowler: Raina Current over: 0
+Eligible bowlers: 
+(10) ["Praveen", "Kulkarani", "Kowshick", "Bravo", "Jadeja", "Dinesh Karthick", "Ishan", "Mccullam", "Smith", "Finch"]
+Fielding roster: 
+(11) [{…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}]
+Previous bowler to exclude: Raina
+Setting showBowlerDialog to true
+Over completed! Current bowler: Jadeja Current over: 1
+Eligible bowlers: 
+(10) ["Praveen", "Kulkarani", "Kowshick", "Bravo", "Dinesh Karthick", "Ishan", "Mccullam", "Smith", "Finch", "Raina"]
+Fielding roster: 
+(11) [{…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}]
+Previous bowler to exclude: Jadeja
+Setting showBowlerDialog to true
+Over completed! Current bowler: Kowshick Current over: 2
+Eligible bowlers: 
+(10) ["Praveen", "Kulkarani", "Bravo", "Jadeja", "Dinesh Karthick", "Ishan", "Mccullam", "Smith", "Finch", "Raina"]
+Fielding roster: 
+(11) [{…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}]
+Previous bowler to exclude: Kowshick
+Setting showBowlerDialog to true
+Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+🔄 Invalidating caches for: 
+Object {teams: Array(2), players: Array(7), matches: Array(1)}

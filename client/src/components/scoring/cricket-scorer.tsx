@@ -3241,7 +3241,7 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
                     
                     return (
                       <SelectItem 
-                        key={player.id} 
+                        key={player.id || `bowler-${playerName}`} 
                         value={playerName}
                         disabled={!isEligible}
                         data-testid={`bowler-option-${playerName.replace(/\s+/g, '-').toLowerCase()}`}
