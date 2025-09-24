@@ -630,8 +630,8 @@ export default function MatchScorer() {
                           <SelectValue placeholder="Select striker" />
                         </SelectTrigger>
                         <SelectContent>
-                          {battingPlayers.map((player: any) => (
-                            <SelectItem key={player.id} value={player.name}>
+                          {battingPlayers.map((player: any, index: number) => (
+                            <SelectItem key={player.id || `striker-${index}`} value={player.name}>
                               {player.name} {player.role === 'captain' ? '(C)' : ''} {player.role === 'wicket-keeper' ? '(WK)' : ''}
                             </SelectItem>
                           ))}
@@ -646,8 +646,8 @@ export default function MatchScorer() {
                           <SelectValue placeholder="Select non-striker" />
                         </SelectTrigger>
                         <SelectContent>
-                          {battingPlayers.map((player: any) => (
-                            <SelectItem key={player.id} value={player.name}>
+                          {battingPlayers.map((player: any, index: number) => (
+                            <SelectItem key={player.id || `non-striker-${index}`} value={player.name}>
                               {player.name} {player.role === 'captain' ? '(C)' : ''} {player.role === 'wicket-keeper' ? '(WK)' : ''}
                             </SelectItem>
                           ))}
@@ -668,8 +668,8 @@ export default function MatchScorer() {
                           <SelectValue placeholder="Select opening bowler" />
                         </SelectTrigger>
                         <SelectContent>
-                          {bowlingPlayers.map((player: any) => (
-                            <SelectItem key={player.id} value={player.name}>
+                          {bowlingPlayers.map((player: any, index: number) => (
+                            <SelectItem key={player.id || `bowler-${index}`} value={player.name}>
                               {player.name} {player.role === 'captain' ? '(C)' : ''} {player.role === 'wicket-keeper' ? '(WK)' : ''}
                             </SelectItem>
                           ))}
