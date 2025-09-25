@@ -849,6 +849,98 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Player merge endpoint
+  app.post('/api/players/merge', requireAuth, async (req: any, res) => {
+    try {
+      const mergeSchema = z.object({
+        targetPlayerId: z.string().min(1, "Target player ID is required"),
+        sourcePlayerId: z.string().min(1, "Source player ID is required"),
+        mergeCareerStats: z.boolean().default(true),
+        fieldsToUpdate: z.object({
+          name: z.string().optional(),
+          email: z.string().email().optional(),
+          teamName: z.string().optional(),
+          role: z.enum(["batsman", "bowler", "all-rounder", "wicket-keeper"]).optional(),
+          battingStyle: z.enum(["right-handed", "left-handed"]).optional(),
+          bowlingStyle: z.enum(["right-arm-fast", "left-arm-fast", "right-arm-medium", "left-arm-medium", "right-arm-spin", "left-arm-spin", "leg-spin", "off-spin"]).optional(),
+          jerseyNumber: z.number().int().optional()
+        }).optional()
+      });
+
+      const { targetPlayerId, sourcePlayerId, mergeCareerStats, fieldsToUpdate } = mergeSchema.parse(req.body);
+
+      // Validate that the players are different
+      if (targetPlayerId === sourcePlayerId) {
+        return res.status(400).json({ 
+          message: "Cannot merge a player with itself" 
+        });
+      }
+
+      // Verify both players exist before attempting merge
+      const [targetPlayer, sourcePlayer] = await Promise.all([
+        storage.getPlayer(targetPlayerId),
+        storage.getPlayer(sourcePlayerId)
+      ]);
+
+      if (!targetPlayer) {
+        return res.status(404).json({ message: "Target player not found" });
+      }
+      if (!sourcePlayer) {
+        return res.status(404).json({ message: "Source player not found" });
+      }
+
+      // Execute the merge with transactional safety
+      const mergeResult = await storage.mergePlayer(
+        targetPlayerId,
+        sourcePlayerId,
+        fieldsToUpdate || {},
+        mergeCareerStats
+      );
+
+      if (!mergeResult.success) {
+        return res.status(500).json({
+          message: "Failed to merge players",
+          errors: mergeResult.errors
+        });
+      }
+
+      // Return success response with detailed merge information
+      res.status(200).json({
+        message: "Players merged successfully",
+        mergedPlayer: mergeResult.mergedPlayer,
+        mergeMetadata: {
+          targetPlayerId,
+          sourcePlayerId,
+          mergeCareerStats,
+          fieldsUpdated: fieldsToUpdate ? Object.keys(fieldsToUpdate) : [],
+          mergeTimestamp: new Date().toISOString()
+        },
+        cacheInvalidation: {
+          players: [targetPlayerId, sourcePlayerId],
+          teams: [
+            targetPlayer.teamId,
+            sourcePlayer.teamId
+          ].filter(Boolean),
+          matches: [], // Matches will need invalidation if they reference the merged players
+          message: "Frontend should invalidate player and team caches"
+        }
+      });
+
+    } catch (error: any) {
+      console.error("Error merging players:", error);
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ 
+          message: "Validation error", 
+          issues: error.issues 
+        });
+      }
+      res.status(500).json({ 
+        message: "Failed to merge players",
+        error: error.message 
+      });
+    }
+  });
+
   // Get player match history
   app.get('/api/players/:id/matches', async (req, res) => {
     try {
