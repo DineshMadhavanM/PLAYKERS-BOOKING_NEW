@@ -586,9 +586,10 @@ export class MongoStorage implements IStorage {
     const player: Player = {
       id,
       ...playerData,
-      email: playerData.email || null,
+      email: playerData.email ? playerData.email.toLowerCase() : null,
       userId: playerData.userId || null,
       teamId: playerData.teamId || null,
+      teamName: playerData.teamName || null,
       role: playerData.role || null,
       battingStyle: playerData.battingStyle || null,
       bowlingStyle: playerData.bowlingStyle || null,
@@ -639,9 +640,13 @@ export class MongoStorage implements IStorage {
   }
 
   async updatePlayer(id: string, playerData: Partial<InsertPlayer>): Promise<Player | undefined> {
+    const updateData = { ...playerData };
+    if (updateData.email) {
+      updateData.email = updateData.email.toLowerCase();
+    }
     const result = await this.players.findOneAndUpdate(
       { id } as any,
-      { $set: { ...playerData, updatedAt: new Date() } },
+      { $set: { ...updateData, updatedAt: new Date() } },
       { returnDocument: 'after' }
     );
     return result as Player || undefined;
@@ -650,6 +655,256 @@ export class MongoStorage implements IStorage {
   async deletePlayer(id: string): Promise<boolean> {
     const result = await this.players.deleteOne({ id } as any);
     return result.deletedCount > 0;
+  }
+
+  // Player merge operations
+  async getPlayerByEmail(email: string, excludePlayerId?: string): Promise<Player | undefined> {
+    const query: any = { 
+      email: { 
+        $regex: new RegExp(`^${email.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') 
+      } 
+    };
+    if (excludePlayerId) {
+      query.id = { $ne: excludePlayerId };
+    }
+    const player = await this.players.findOne(query);
+    return player || undefined;
+  }
+
+  async mergePlayer(
+    targetPlayerId: string, 
+    sourcePlayerId: string, 
+    mergedData: Partial<InsertPlayer>, 
+    mergeCareerStats: boolean = true
+  ): Promise<{ success: boolean; mergedPlayer?: Player; errors?: string[]; }> {
+    const session = this.client.startSession();
+    
+    try {
+      return await session.withTransaction(async () => {
+        // Get both players
+        const targetPlayer = await this.players.findOne({ id: targetPlayerId }, { session });
+        const sourcePlayer = await this.players.findOne({ id: sourcePlayerId }, { session });
+        
+        if (!targetPlayer || !sourcePlayer) {
+          return { 
+            success: false, 
+            errors: [`Player not found: ${!targetPlayer ? targetPlayerId : sourcePlayerId}`] 
+          };
+        }
+
+        // Ensure both players have careerStats initialized
+        const defaultCareerStats = {
+          totalRuns: 0, totalBallsFaced: 0, totalFours: 0, totalSixes: 0,
+          highestScore: 0, centuries: 0, halfCenturies: 0, battingAverage: 0, strikeRate: 0,
+          totalOvers: 0, totalRunsGiven: 0, totalWickets: 0, totalMaidens: 0,
+          bestBowlingFigures: null, fiveWicketHauls: 0, bowlingAverage: 0, economy: 0,
+          catches: 0, runOuts: 0, stumpings: 0, totalMatches: 0, matchesWon: 0,
+          manOfTheMatchAwards: 0, bestBatsmanAwards: 0, bestBowlerAwards: 0, bestFielderAwards: 0
+        };
+
+        const targetStats = targetPlayer.careerStats || defaultCareerStats;
+        const sourceStats = sourcePlayer.careerStats || defaultCareerStats;
+
+        // Merge career stats if requested
+        let mergedCareerStats = targetStats;
+        if (mergeCareerStats) {
+          mergedCareerStats = {
+            // Batting Stats
+            totalRuns: targetStats.totalRuns + sourceStats.totalRuns,
+            totalBallsFaced: targetStats.totalBallsFaced + sourceStats.totalBallsFaced,
+            totalFours: targetStats.totalFours + sourceStats.totalFours,
+            totalSixes: targetStats.totalSixes + sourceStats.totalSixes,
+            highestScore: Math.max(targetStats.highestScore, sourceStats.highestScore),
+            centuries: targetStats.centuries + sourceStats.centuries,
+            halfCenturies: targetStats.halfCenturies + sourceStats.halfCenturies,
+            battingAverage: 0, // Will be recalculated
+            strikeRate: 0, // Will be recalculated
+            
+            // Bowling Stats
+            totalOvers: targetStats.totalOvers + sourceStats.totalOvers,
+            totalRunsGiven: targetStats.totalRunsGiven + sourceStats.totalRunsGiven,
+            totalWickets: targetStats.totalWickets + sourceStats.totalWickets,
+            totalMaidens: targetStats.totalMaidens + sourceStats.totalMaidens,
+            bestBowlingFigures: targetStats.bestBowlingFigures || sourceStats.bestBowlingFigures,
+            fiveWicketHauls: targetStats.fiveWicketHauls + sourceStats.fiveWicketHauls,
+            bowlingAverage: 0, // Will be recalculated
+            economy: 0, // Will be recalculated
+            
+            // Fielding Stats
+            catches: targetStats.catches + sourceStats.catches,
+            runOuts: targetStats.runOuts + sourceStats.runOuts,
+            stumpings: targetStats.stumpings + sourceStats.stumpings,
+            
+            // Match Records
+            totalMatches: targetStats.totalMatches + sourceStats.totalMatches,
+            matchesWon: targetStats.matchesWon + sourceStats.matchesWon,
+            
+            // Awards
+            manOfTheMatchAwards: targetStats.manOfTheMatchAwards + sourceStats.manOfTheMatchAwards,
+            bestBatsmanAwards: targetStats.bestBatsmanAwards + sourceStats.bestBatsmanAwards,
+            bestBowlerAwards: targetStats.bestBowlerAwards + sourceStats.bestBowlerAwards,
+            bestFielderAwards: targetStats.bestFielderAwards + sourceStats.bestFielderAwards,
+          };
+
+          // Recalculate averages
+          if (mergedCareerStats.totalBallsFaced > 0 && mergedCareerStats.totalMatches > 0) {
+            mergedCareerStats.battingAverage = mergedCareerStats.totalRuns / mergedCareerStats.totalMatches;
+            mergedCareerStats.strikeRate = (mergedCareerStats.totalRuns / mergedCareerStats.totalBallsFaced) * 100;
+          }
+          if (mergedCareerStats.totalWickets > 0) {
+            mergedCareerStats.bowlingAverage = mergedCareerStats.totalRunsGiven / mergedCareerStats.totalWickets;
+          }
+          if (mergedCareerStats.totalOvers > 0) {
+            mergedCareerStats.economy = mergedCareerStats.totalRunsGiven / mergedCareerStats.totalOvers;
+          }
+        }
+
+        // Prepare merge history
+        const mergeHistoryEntry = {
+          timestamp: new Date(),
+          sourcePlayerId: sourcePlayerId,
+          mergedBy: null, // Could be set by the caller
+          mergedFields: Object.keys(mergedData)
+        };
+
+        // Update the target player with merged data
+        const updatedPlayer = {
+          ...targetPlayer,
+          ...mergedData,
+          careerStats: mergedCareerStats,
+          mergedFromPlayerIds: [...(targetPlayer.mergedFromPlayerIds || []), sourcePlayerId],
+          mergeHistory: [...(targetPlayer.mergeHistory || []), mergeHistoryEntry],
+          updatedAt: new Date()
+        };
+
+        // Update the target player
+        await this.players.findOneAndUpdate(
+          { id: targetPlayerId },
+          { $set: updatedPlayer },
+          { session }
+        );
+
+        // Update all references to source player
+        await this.updatePlayerReferencesInternal(sourcePlayerId, targetPlayerId, session);
+
+        // Delete the source player
+        await this.players.deleteOne({ id: sourcePlayerId }, { session });
+
+        return { 
+          success: true, 
+          mergedPlayer: updatedPlayer as Player 
+        };
+      });
+    } catch (error) {
+      return { 
+        success: false, 
+        errors: [`Merge failed: ${error instanceof Error ? error.message : 'Unknown error'}`] 
+      };
+    } finally {
+      await session.endSession();
+    }
+  }
+
+  async updatePlayerReferences(oldPlayerId: string, newPlayerId: string): Promise<{
+    success: boolean;
+    collectionsUpdated: string[];
+    errors?: string[];
+  }> {
+    const session = this.client.startSession();
+    
+    try {
+      return await session.withTransaction(async () => {
+        return await this.updatePlayerReferencesInternal(oldPlayerId, newPlayerId, session);
+      });
+    } catch (error) {
+      return {
+        success: false,
+        collectionsUpdated: [],
+        errors: [`Failed to update player references: ${error instanceof Error ? error.message : 'Unknown error'}`]
+      };
+    } finally {
+      await session.endSession();
+    }
+  }
+
+  private async updatePlayerReferencesInternal(oldPlayerId: string, newPlayerId: string, session?: any): Promise<{
+    success: boolean;
+    collectionsUpdated: string[];
+    errors?: string[];
+  }> {
+    const collectionsUpdated: string[] = [];
+    const errors: string[] = [];
+
+    try {
+      // Update team player arrays
+      const teamUpdateResult = await this.teams.updateMany(
+        { players: oldPlayerId },
+        { $set: { "players.$": newPlayerId } },
+        { session }
+      );
+      if (teamUpdateResult.modifiedCount > 0) {
+        collectionsUpdated.push('teams');
+      }
+
+      // Update match participants
+      const matchParticipantResult = await this.matchParticipants.updateMany(
+        { playerId: oldPlayerId },
+        { $set: { playerId: newPlayerId } },
+        { session }
+      );
+      if (matchParticipantResult.modifiedCount > 0) {
+        collectionsUpdated.push('matchParticipants');
+      }
+
+      // Update match scorecard references (if they exist)
+      const matchUpdateResult = await this.matches.updateMany(
+        { 
+          $or: [
+            { "team1Players": oldPlayerId },
+            { "team2Players": oldPlayerId },
+            { "scorecard.team1Innings.batsmen.playerId": oldPlayerId },
+            { "scorecard.team1Innings.bowlers.playerId": oldPlayerId },
+            { "scorecard.team2Innings.batsmen.playerId": oldPlayerId },
+            { "scorecard.team2Innings.bowlers.playerId": oldPlayerId }
+          ]
+        },
+        { 
+          $set: { 
+            "team1Players.$[elem1]": newPlayerId,
+            "team2Players.$[elem2]": newPlayerId,
+            "scorecard.team1Innings.$[].batsmen.$[batsman].playerId": newPlayerId,
+            "scorecard.team1Innings.$[].bowlers.$[bowler].playerId": newPlayerId,
+            "scorecard.team2Innings.$[].batsmen.$[batsman2].playerId": newPlayerId,
+            "scorecard.team2Innings.$[].bowlers.$[bowler2].playerId": newPlayerId
+          }
+        },
+        { 
+          session,
+          arrayFilters: [
+            { "elem1": oldPlayerId },
+            { "elem2": oldPlayerId },
+            { "batsman.playerId": oldPlayerId },
+            { "bowler.playerId": oldPlayerId },
+            { "batsman2.playerId": oldPlayerId },
+            { "bowler2.playerId": oldPlayerId }
+          ]
+        }
+      );
+      if (matchUpdateResult.modifiedCount > 0) {
+        collectionsUpdated.push('matches');
+      }
+
+      return {
+        success: true,
+        collectionsUpdated
+      };
+    } catch (error) {
+      return {
+        success: false,
+        collectionsUpdated,
+        errors: [`Failed to update references: ${error instanceof Error ? error.message : 'Unknown error'}`]
+      };
+    }
   }
 
   async updatePlayerStats(playerId: string, matchStats: {

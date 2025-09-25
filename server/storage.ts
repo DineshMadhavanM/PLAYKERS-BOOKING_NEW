@@ -156,6 +156,19 @@ export interface IStorage {
     manOfMatch?: boolean;
   }>): Promise<{ success: boolean; playersUpdated?: number; errors?: string[]; cacheInvalidation?: { players: string[] } }>;
 
+  // Player merge operations
+  getPlayerByEmail(email: string, excludePlayerId?: string): Promise<Player | undefined>;
+  mergePlayer(targetPlayerId: string, sourcePlayerId: string, mergedData: Partial<InsertPlayer>, mergeCareerStats?: boolean): Promise<{
+    success: boolean;
+    mergedPlayer?: Player;
+    errors?: string[];
+  }>;
+  updatePlayerReferences(oldPlayerId: string, newPlayerId: string): Promise<{
+    success: boolean;
+    collectionsUpdated: string[];
+    errors?: string[];
+  }>;
+
   // Match completion operations
   applyMatchResults(matchData: {
     matchId: string;
