@@ -16,6 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import { insertPlayerSchema } from "@shared/schema";
 import type { InsertPlayer, Player } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import PlayerConflictModal from "./player-conflict-modal";
 
 interface PlayerManagementProps {
   teamId: string;
@@ -28,6 +29,11 @@ export default function PlayerManagement({ teamId, teamName, players, isLoading 
   const { toast } = useToast();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [editingPlayer, setEditingPlayer] = useState<Player | null>(null);
+  
+  // Conflict resolution state
+  const [conflictData, setConflictData] = useState<any>(null);
+  const [pendingPlayerData, setPendingPlayerData] = useState<Partial<InsertPlayer> | null>(null);
+  const [isConflictModalOpen, setIsConflictModalOpen] = useState(false);
 
   // Add player form
   const addForm = useForm<InsertPlayer>({
@@ -52,8 +58,22 @@ export default function PlayerManagement({ teamId, teamName, players, isLoading 
   // Add player mutation
   const addPlayerMutation = useMutation({
     mutationFn: async (playerData: InsertPlayer): Promise<Player> => {
-      const response = await apiRequest('POST', '/api/players', playerData);
-      return response.json();
+      try {
+        const response = await apiRequest('POST', '/api/players', playerData);
+        return response.json();
+      } catch (error: any) {
+        // Check if it's a 409 conflict error from the error message
+        if (error.message && error.message.startsWith('409:')) {
+          try {
+            const conflictData = JSON.parse(error.message.substring(4)); // Remove "409: " prefix
+            throw { isConflict: true, conflictData, playerData };
+          } catch {
+            // If JSON parsing fails, re-throw original error
+            throw error;
+          }
+        }
+        throw error; // Re-throw other errors
+      }
     },
     onSuccess: (newPlayer) => {
       queryClient.invalidateQueries({ queryKey: ['/api/players'] });
@@ -65,6 +85,15 @@ export default function PlayerManagement({ teamId, teamName, players, isLoading 
       addForm.reset();
     },
     onError: (error: any) => {
+      // Handle email conflict
+      if (error.isConflict) {
+        setConflictData(error.conflictData);
+        setPendingPlayerData(error.playerData);
+        setIsConflictModalOpen(true);
+        setIsAddDialogOpen(false); // Close add dialog
+        return;
+      }
+      
       toast({
         title: "Error adding player",
         description: error.message || "Failed to add player. Please try again.",
@@ -76,8 +105,22 @@ export default function PlayerManagement({ teamId, teamName, players, isLoading 
   // Update player mutation
   const updatePlayerMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Partial<InsertPlayer> }): Promise<Player> => {
-      const response = await apiRequest('PUT', `/api/players/${id}`, data);
-      return response.json();
+      try {
+        const response = await apiRequest('PUT', `/api/players/${id}`, data);
+        return response.json();
+      } catch (error: any) {
+        // Check if it's a 409 conflict error from the error message
+        if (error.message && error.message.startsWith('409:')) {
+          try {
+            const conflictData = JSON.parse(error.message.substring(4)); // Remove "409: " prefix
+            throw { isConflict: true, conflictData, playerData: data, playerId: id };
+          } catch {
+            // If JSON parsing fails, re-throw original error
+            throw error;
+          }
+        }
+        throw error; // Re-throw other errors
+      }
     },
     onSuccess: (updatedPlayer) => {
       queryClient.invalidateQueries({ queryKey: ['/api/players'] });
@@ -89,6 +132,15 @@ export default function PlayerManagement({ teamId, teamName, players, isLoading 
       editForm.reset();
     },
     onError: (error: any) => {
+      // Handle email conflict
+      if (error.isConflict) {
+        setConflictData(error.conflictData);
+        setPendingPlayerData(error.playerData);
+        setIsConflictModalOpen(true);
+        setEditingPlayer(null); // Close edit dialog
+        return;
+      }
+      
       toast({
         title: "Error updating player",
         description: error.message || "Failed to update player. Please try again.",
@@ -648,6 +700,24 @@ export default function PlayerManagement({ teamId, teamName, players, isLoading 
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Conflict Resolution Modal */}
+      <PlayerConflictModal
+        isOpen={isConflictModalOpen}
+        onClose={() => {
+          setIsConflictModalOpen(false);
+          setConflictData(null);
+          setPendingPlayerData(null);
+        }}
+        conflictData={conflictData}
+        newPlayerData={pendingPlayerData || {}}
+        onResolutionComplete={() => {
+          setIsConflictModalOpen(false);
+          setConflictData(null);
+          setPendingPlayerData(null);
+          queryClient.invalidateQueries({ queryKey: ['/api/players'] });
+        }}
+      />
     </div>
   );
 }
