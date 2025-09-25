@@ -768,6 +768,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/players', requireAuth, async (req: any, res) => {
     try {
       const playerData = insertPlayerSchema.parse(req.body);
+      
+      // Check for email conflicts if email is provided
+      if (playerData.email) {
+        const existingPlayer = await storage.getPlayerByEmail(playerData.email);
+        if (existingPlayer) {
+          return res.status(409).json({
+            message: "Email conflict detected",
+            conflictType: "email_exists",
+            existingPlayer: {
+              id: existingPlayer.id,
+              name: existingPlayer.name,
+              email: existingPlayer.email,
+              teamName: existingPlayer.teamName,
+              role: existingPlayer.role
+            },
+            suggestedAction: "merge_profiles"
+          });
+        }
+      }
+      
       const player = await storage.createPlayer(playerData);
       res.status(201).json(player);
     } catch (error: any) {
@@ -782,6 +802,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put('/api/players/:id', requireAuth, async (req, res) => {
     try {
       const playerData = insertPlayerSchema.partial().parse(req.body);
+      
+      // Check for email conflicts if email is being updated
+      if (playerData.email) {
+        const existingPlayer = await storage.getPlayerByEmail(playerData.email, req.params.id);
+        if (existingPlayer) {
+          return res.status(409).json({
+            message: "Email conflict detected",
+            conflictType: "email_exists",
+            existingPlayer: {
+              id: existingPlayer.id,
+              name: existingPlayer.name,
+              email: existingPlayer.email,
+              teamName: existingPlayer.teamName,
+              role: existingPlayer.role
+            },
+            suggestedAction: "merge_profiles"
+          });
+        }
+      }
+      
       const player = await storage.updatePlayer(req.params.id, playerData);
       if (!player) {
         return res.status(404).json({ message: "Player not found" });
