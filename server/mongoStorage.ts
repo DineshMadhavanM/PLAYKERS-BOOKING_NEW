@@ -582,10 +582,20 @@ export class MongoStorage implements IStorage {
   }
 
   async createPlayer(playerData: InsertPlayer): Promise<Player> {
+    // Check for username uniqueness if provided
+    if (playerData.username && playerData.username.trim()) {
+      const normalizedUsername = playerData.username.trim().toLowerCase();
+      const existingPlayer = await this.players.findOne({ username: normalizedUsername } as any);
+      if (existingPlayer) {
+        throw new Error(`Username "${playerData.username}" is already taken. Please choose a different username.`);
+      }
+    }
+
     const id = `player-${this.generateId()}`;
     const player: Player = {
       id,
-      ...playerData,
+      name: playerData.name,
+      username: playerData.username && playerData.username.trim() ? playerData.username.trim().toLowerCase() : null,
       email: playerData.email ? playerData.email.toLowerCase() : null,
       userId: playerData.userId || null,
       teamId: playerData.teamId || null,
@@ -640,9 +650,24 @@ export class MongoStorage implements IStorage {
   }
 
   async updatePlayer(id: string, playerData: Partial<InsertPlayer>): Promise<Player | undefined> {
+    // Check for username uniqueness if provided and changed
+    if (playerData.username && playerData.username.trim()) {
+      const normalizedUsername = playerData.username.trim().toLowerCase();
+      const existingPlayer = await this.players.findOne({ 
+        username: normalizedUsername,
+        id: { $ne: id } // Exclude current player from search
+      } as any);
+      if (existingPlayer) {
+        throw new Error(`Username "${playerData.username}" is already taken. Please choose a different username.`);
+      }
+    }
+
     const updateData = { ...playerData };
     if (updateData.email) {
       updateData.email = updateData.email.toLowerCase();
+    }
+    if (updateData.username) {
+      updateData.username = updateData.username.trim() ? updateData.username.trim().toLowerCase() : null;
     }
     const result = await this.players.findOneAndUpdate(
       { id } as any,

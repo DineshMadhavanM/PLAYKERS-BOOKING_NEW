@@ -40,6 +40,7 @@ export default function PlayerManagement({ teamId, teamName, players, isLoading 
     resolver: zodResolver(insertPlayerSchema),
     defaultValues: {
       name: "",
+      username: "",
       email: "",
       teamId: teamId,
       teamName: teamName,
@@ -184,6 +185,7 @@ export default function PlayerManagement({ teamId, teamName, players, isLoading 
     setEditingPlayer(player);
     editForm.reset({
       name: player.name,
+      username: player.username || "",
       email: player.email || "",
       teamName: player.teamName || "",
       role: (player.role as any) || undefined,
@@ -272,6 +274,20 @@ export default function PlayerManagement({ teamId, teamName, players, isLoading 
                       <FormLabel>Player Name *</FormLabel>
                       <FormControl>
                         <Input placeholder="Enter player name" data-testid="input-player-name" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={addForm.control}
+                  name="username"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Username (optional)</FormLabel>
+                      <FormControl>
+                        <Input placeholder="unique_player_name" {...field} data-testid="input-player-username" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -552,6 +568,20 @@ export default function PlayerManagement({ teamId, teamName, players, isLoading 
                       <FormLabel>Player Name *</FormLabel>
                       <FormControl>
                         <Input placeholder="Enter player name" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={editForm.control}
+                  name="username"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Username (optional)</FormLabel>
+                      <FormControl>
+                        <Input placeholder="unique_player_name" {...field} data-testid="input-username" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>

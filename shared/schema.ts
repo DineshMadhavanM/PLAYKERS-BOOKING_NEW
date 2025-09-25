@@ -148,6 +148,7 @@ export const insertTeamSchema = z.object({
 // Player validation schemas
 export const insertPlayerSchema = z.object({
   name: z.string().min(1, "Player name is required"),
+  username: z.string().min(3, "Username must be at least 3 characters").max(30, "Username must be at most 30 characters").regex(/^[a-zA-Z0-9_-]+$/, "Username can only contain letters, numbers, underscores, and hyphens").optional().or(z.literal("")),
   email: z.string().email().optional(),
   userId: z.string().optional(), // Link to registered user if available
   teamId: z.string().optional(),
@@ -849,6 +850,7 @@ export type Team = {
 export type Player = {
   id: string;
   name: string;
+  username: string | null;
   email: string | null;
   userId: string | null; // Link to registered user if available
   teamId: string | null;
