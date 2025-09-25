@@ -36,6 +36,7 @@ export default function PlayerManagement({ teamId, teamName, players, isLoading 
       name: "",
       email: "",
       teamId: teamId,
+      teamName: teamName,
       role: undefined,
       battingStyle: undefined,
       bowlingStyle: undefined,
@@ -132,6 +133,7 @@ export default function PlayerManagement({ teamId, teamName, players, isLoading 
     editForm.reset({
       name: player.name,
       email: player.email || "",
+      teamName: player.teamName || "",
       role: (player.role as any) || undefined,
       battingStyle: (player.battingStyle as any) || undefined,
       bowlingStyle: (player.bowlingStyle as any) || undefined,
@@ -232,6 +234,20 @@ export default function PlayerManagement({ teamId, teamName, players, isLoading 
                       <FormLabel>Email (optional)</FormLabel>
                       <FormControl>
                         <Input placeholder="player@example.com" data-testid="input-player-email" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={addForm.control}
+                  name="teamName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Team Name</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Enter team name" {...field} data-testid="input-add-team-name" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -498,6 +514,20 @@ export default function PlayerManagement({ teamId, teamName, players, isLoading 
                       <FormLabel>Email (optional)</FormLabel>
                       <FormControl>
                         <Input placeholder="player@example.com" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={editForm.control}
+                  name="teamName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Team Name</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Enter team name" {...field} data-testid="input-team-name" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
