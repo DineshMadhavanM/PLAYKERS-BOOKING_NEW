@@ -158,6 +158,59 @@ export const insertPlayerSchema = z.object({
   jerseyNumber: z.number().optional(),
 });
 
+// Player conflict detection and merge schemas
+export const playerConflictResponseSchema = z.object({
+  conflict: z.literal(true),
+  existingPlayer: z.object({
+    id: z.string(),
+    name: z.string(),
+    email: z.string().nullable(),
+    userId: z.string().nullable(),
+    teamId: z.string().nullable(),
+    teamName: z.string().nullable(),
+    role: z.string().nullable(),
+    battingStyle: z.string().nullable(),
+    bowlingStyle: z.string().nullable(),
+    jerseyNumber: z.number().nullable(),
+    createdAt: z.date().nullable(),
+  }),
+  message: z.string(),
+});
+
+export const playerMergeRequestSchema = z.object({
+  targetPlayerId: z.string(),
+  sourcePlayerId: z.string(),
+  mergedData: z.object({
+    name: z.string(),
+    email: z.string().nullable().optional(),
+    userId: z.string().nullable().optional(),
+    teamId: z.string().nullable().optional(),
+    teamName: z.string().nullable().optional(),
+    role: z.enum(["batsman", "bowler", "all-rounder", "wicket-keeper"]).nullable().optional(),
+    battingStyle: z.enum(["right-handed", "left-handed"]).nullable().optional(),
+    bowlingStyle: z.enum(["right-arm-fast", "left-arm-fast", "right-arm-medium", "left-arm-medium", "right-arm-spin", "left-arm-spin", "leg-spin", "off-spin"]).nullable().optional(),
+    jerseyNumber: z.number().nullable().optional(),
+  }),
+  mergeCareerStats: z.boolean().default(true),
+});
+
+export const playerMergeResponseSchema = z.object({
+  success: z.boolean(),
+  mergedPlayer: z.object({
+    id: z.string(),
+    name: z.string(),
+    email: z.string().nullable(),
+    userId: z.string().nullable(),
+    teamId: z.string().nullable(),
+    teamName: z.string().nullable(),
+    role: z.string().nullable(),
+    battingStyle: z.string().nullable(),
+    bowlingStyle: z.string().nullable(),
+    jerseyNumber: z.number().nullable(),
+  }),
+  message: z.string(),
+});
+
 // Enhanced match schema for cricket scorecards
 export const insertCricketMatchSchema = insertMatchSchema.extend({
   tossWinnerId: z.string().optional(),
@@ -805,6 +858,15 @@ export type Player = {
   bowlingStyle: string | null; // right-arm-fast, left-arm-fast, etc.
   jerseyNumber: number | null;
   
+  // Merge metadata (optional for backward compatibility)
+  mergedFromPlayerIds?: string[]; // IDs of players that were merged into this one
+  mergeHistory?: {
+    timestamp: Date;
+    sourcePlayerId: string;
+    mergedBy: string | null; // User who performed the merge
+    mergedFields: string[]; // Fields that were merged
+  }[];
+  
   // Career Statistics
   careerStats: {
     // Batting Stats
@@ -883,3 +945,8 @@ export type InsertUserStats = z.infer<typeof insertUserStatsSchema>;
 export type InsertMatchRosterPlayer = z.infer<typeof insertMatchRosterPlayerSchema>;
 export type InsertTeam = z.infer<typeof insertTeamSchema>;
 export type InsertPlayer = z.infer<typeof insertPlayerSchema>;
+
+// Player merge types
+export type PlayerConflictResponse = z.infer<typeof playerConflictResponseSchema>;
+export type PlayerMergeRequest = z.infer<typeof playerMergeRequestSchema>;
+export type PlayerMergeResponse = z.infer<typeof playerMergeResponseSchema>;
