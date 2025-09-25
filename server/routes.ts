@@ -776,13 +776,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(409).json({
             message: "Email conflict detected",
             conflictType: "email_exists",
-            existingPlayer: {
-              id: existingPlayer.id,
-              name: existingPlayer.name,
-              email: existingPlayer.email,
-              teamName: existingPlayer.teamName,
-              role: existingPlayer.role
-            },
+            existingPlayer: existingPlayer, // Include full player profile
             suggestedAction: "merge_profiles"
           });
         }
@@ -810,13 +804,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(409).json({
             message: "Email conflict detected",
             conflictType: "email_exists",
-            existingPlayer: {
-              id: existingPlayer.id,
-              name: existingPlayer.name,
-              email: existingPlayer.email,
-              teamName: existingPlayer.teamName,
-              role: existingPlayer.role
-            },
+            existingPlayer: existingPlayer, // Include full player profile
             suggestedAction: "merge_profiles"
           });
         }

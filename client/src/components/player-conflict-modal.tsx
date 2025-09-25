@@ -103,20 +103,35 @@ export default function PlayerConflictModal({
   const buildUpdateData = (): Partial<InsertPlayer> => {
     if (!conflictData) throw new Error("No conflict data available");
 
-    // Start with new player data as base
-    const updateData: Partial<InsertPlayer> = { ...newPlayerData };
+    // Start with empty object and only include fields that are explicitly changed
+    const updateData: Partial<InsertPlayer> = {};
     
     // Always use the existing email since that's what caused the conflict
     updateData.email = conflictData.existingPlayer.email;
     
-    // Override with existing values for fields the user wants to keep
+    // Only include fields that have explicit selections or need to be changed
     ['name', 'teamName', 'role', 'battingStyle', 'bowlingStyle', 'jerseyNumber'].forEach(field => {
-      const selection = selectedFields[field] || 'existing';
-      if (selection === 'existing') {
-        const existingValue = (conflictData.existingPlayer as any)[field];
-        (updateData as any)[field] = existingValue;
+      const existingValue = (conflictData.existingPlayer as any)[field];
+      const newValue = (newPlayerData as any)[field];
+      
+      // Skip fields that were not displayed in the UI (same logic as UI filter)
+      if (existingValue === newValue || (!existingValue && !newValue)) {
+        return; // Skip this field entirely
       }
-      // If 'new' is selected, we keep the newPlayerData value already in updateData
+      
+      const selection = selectedFields[field] || 'existing';
+      
+      if (selection === 'new') {
+        // Include new value since it differs from existing
+        if (newValue !== undefined) {
+          (updateData as any)[field] = newValue;
+        }
+      } else if (selection === 'existing') {
+        // Include existing value since it differs from new
+        if (existingValue !== undefined) {
+          (updateData as any)[field] = existingValue;
+        }
+      }
     });
 
     return updateData;
