@@ -487,8 +487,11 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
   const addRuns = (runs: number) => {
     if (!isLive || isMatchCompleted || showManOfMatchDialog) return;
     
-    // Capture the original striker before any rotations for end-of-over logic
+    // Track striker positions locally to avoid React state synchronization issues
     const originalStriker = currentStriker;
+    const originalNonStriker = currentNonStriker;
+    let localStriker = originalStriker;
+    let localNonStriker = originalNonStriker;
     
     // Block further scoring if first innings is complete
     if (currentInning === 1 && firstInningsComplete) {
@@ -647,8 +650,14 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
     if (currentStriker) updateBattingStats(currentStriker, runs, true, runs === 0);
     if (currentBowler) updateBowlingStats(currentBowler, runs, false, true);
 
-    // Rotate strike on odd runs
+    // Rotate strike on odd runs - update both local variables and React state
     if (runs % 2 === 1) {
+      // Update local variables for end-of-over logic
+      const temp = localStriker;
+      localStriker = localNonStriker;
+      localNonStriker = temp;
+      
+      // Update React state for UI display
       rotateStrike();
     }
 
@@ -672,12 +681,12 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
     // - If striker scores even runs on last ball: non-striker faces next over
     if (endOfOver) {
       const shouldOriginalStrikerFaceNextOver = (runs % 2 === 1);
-      const currentStrikerIsOriginal = (currentStriker === originalStriker);
+      const localStrikerIsOriginal = (localStriker === originalStriker);
       
-      if (shouldOriginalStrikerFaceNextOver && !currentStrikerIsOriginal) {
+      if (shouldOriginalStrikerFaceNextOver && !localStrikerIsOriginal) {
         // Original striker should face next over, but is currently non-striker, so rotate
         rotateStrike();
-      } else if (!shouldOriginalStrikerFaceNextOver && currentStrikerIsOriginal) {
+      } else if (!shouldOriginalStrikerFaceNextOver && localStrikerIsOriginal) {
         // Original non-striker should face next over, but original striker is currently striker, so rotate
         rotateStrike();
       }
