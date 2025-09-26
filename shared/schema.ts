@@ -839,7 +839,9 @@ export type Team = {
   matchesLost: number | null;
   matchesDrawn: number | null;
   totalRunsScored: number | null;
+  totalRunsConceded: number | null;
   totalWicketsTaken: number | null;
+  totalWicketsLost: number | null;
   tournamentPoints: number | null;
   netRunRate: number | null;
   createdAt: Date | null;

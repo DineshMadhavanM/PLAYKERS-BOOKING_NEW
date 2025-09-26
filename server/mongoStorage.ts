@@ -1031,15 +1031,24 @@ export class MongoStorage implements IStorage {
     const updateFields: any = {};
 
     // Calculate net run rate (NRR = (Runs Scored/Overs Faced) - (Runs Conceded/Overs Bowled))
-    // For simplified calculation, we'll use: NRR = (Total Runs Scored - Total Runs Given) / Total Overs
     const totalMatches = team.totalMatches || 0;
     const totalRunsScored = team.totalRunsScored || 0;
+    const totalRunsConceded = team.totalRunsConceded || 0;
     
     if (totalMatches > 0) {
-      // Simplified NRR calculation - in real implementation, should track overs separately
-      const estimatedOvers = totalMatches * 20; // Assume T20 format for calculation
-      const netRunRate = (totalRunsScored - (totalRunsScored * 0.8)) / estimatedOvers;
-      updateFields.netRunRate = Math.round(netRunRate * 100) / 100;
+      // Calculate NRR using proper cricket formula
+      // NRR = (Runs Scored / Overs Faced) - (Runs Conceded / Overs Bowled)
+      // For estimation, we assume T20 format (20 overs per innings)
+      const estimatedOversFaced = totalMatches * 20; // Each match, team faces 20 overs
+      const estimatedOversBowled = totalMatches * 20; // Each match, team bowls 20 overs
+      
+      const runRateScored = totalRunsScored / estimatedOversFaced;
+      const runRateConceded = totalRunsConceded / estimatedOversBowled;
+      const netRunRate = runRateScored - runRateConceded;
+      
+      updateFields.netRunRate = Math.round(netRunRate * 1000) / 1000; // Round to 3 decimal places
+      
+      console.log(`📊 STORAGE: Recalculated NRR for team ${teamId}: ${netRunRate.toFixed(3)} (${totalRunsScored} runs scored, ${totalRunsConceded} runs conceded, ${totalMatches} matches)`);
     }
 
     if (Object.keys(updateFields).length > 0) {
@@ -1230,36 +1239,102 @@ export class MongoStorage implements IStorage {
 
         // Update team stats
         console.log(`🏏 STORAGE: Updating team statistics`);
-        if (matchData.team1Id && matchData.team2Id && matchData.winnerTeamId) {
+        if (matchData.team1Id && matchData.team2Id) {
+          // Initialize team stats with all required fields
           const team1Stats = {
-            matchesWon: matchData.winnerTeamId === matchData.team1Id ? 1 : 0,
-            matchesLost: matchData.winnerTeamId !== matchData.team1Id ? 1 : 0,
+            matchesWon: 0,
+            matchesLost: 0,
+            matchesDrawn: 0,
             runsScored: 0,
-            wicketsTaken: 0
+            runsConceded: 0,
+            wicketsTaken: 0,
+            wicketsLost: 0,
+            tournamentPoints: 0
           };
 
           const team2Stats = {
-            matchesWon: matchData.winnerTeamId === matchData.team2Id ? 1 : 0,
-            matchesLost: matchData.winnerTeamId !== matchData.team2Id ? 1 : 0,
+            matchesWon: 0,
+            matchesLost: 0,
+            matchesDrawn: 0,
             runsScored: 0,
-            wicketsTaken: 0
+            runsConceded: 0,
+            wicketsTaken: 0,
+            wicketsLost: 0,
+            tournamentPoints: 0
           };
 
-          // Calculate team runs and wickets from player stats
-          matchData.playerStats.forEach(playerStat => {
-            if (playerStat.teamId === matchData.team1Id) {
-              team1Stats.runsScored += playerStat.runsScored || 0;
-              team1Stats.wicketsTaken += playerStat.wicketsTaken || 0;
-            } else if (playerStat.teamId === matchData.team2Id) {
-              team2Stats.runsScored += playerStat.runsScored || 0;
-              team2Stats.wicketsTaken += playerStat.wicketsTaken || 0;
+          // Handle match result (wins/losses/draws and tournament points)
+          if (matchData.resultSummary?.resultType === 'tied') {
+            // Tied match - both teams get a draw and 1 point each
+            team1Stats.matchesDrawn = 1;
+            team2Stats.matchesDrawn = 1;
+            team1Stats.tournamentPoints = 1;
+            team2Stats.tournamentPoints = 1;
+          } else if (matchData.winnerTeamId) {
+            // One team won - winner gets 2 points, loser gets 0
+            if (matchData.winnerTeamId === matchData.team1Id) {
+              team1Stats.matchesWon = 1;
+              team2Stats.matchesLost = 1;
+              team1Stats.tournamentPoints = 2;
+            } else {
+              team2Stats.matchesWon = 1;
+              team1Stats.matchesLost = 1;
+              team2Stats.tournamentPoints = 2;
             }
-          });
-          
-          console.log(`📊 STORAGE: Team1 (${matchData.team1Id}): +${team1Stats.runsScored} runs, +${team1Stats.wicketsTaken} wickets`);
-          console.log(`📊 STORAGE: Team2 (${matchData.team2Id}): +${team2Stats.runsScored} runs, +${team2Stats.wicketsTaken} wickets`);
+          }
 
-          // Update both teams atomically
+          // Extract comprehensive statistics from scorecard
+          if (matchData.scorecard) {
+            const scorecard = matchData.scorecard;
+            
+            // Process team1 innings (team1 batting, team2 bowling)
+            if (scorecard.team1Innings && Array.isArray(scorecard.team1Innings)) {
+              scorecard.team1Innings.forEach((innings: any) => {
+                if (innings.battingTeamId === matchData.team1Id) {
+                  // Team1 was batting
+                  team1Stats.runsScored += innings.totalRuns || 0;
+                  team1Stats.wicketsLost += innings.totalWickets || 0;
+                  // Team2 was bowling (conceding runs, taking wickets)
+                  team2Stats.runsConceded += innings.totalRuns || 0;
+                  team2Stats.wicketsTaken += innings.totalWickets || 0;
+                }
+              });
+            }
+            
+            // Process team2 innings (team2 batting, team1 bowling)
+            if (scorecard.team2Innings && Array.isArray(scorecard.team2Innings)) {
+              scorecard.team2Innings.forEach((innings: any) => {
+                if (innings.battingTeamId === matchData.team2Id) {
+                  // Team2 was batting
+                  team2Stats.runsScored += innings.totalRuns || 0;
+                  team2Stats.wicketsLost += innings.totalWickets || 0;
+                  // Team1 was bowling (conceding runs, taking wickets)
+                  team1Stats.runsConceded += innings.totalRuns || 0;
+                  team1Stats.wicketsTaken += innings.totalWickets || 0;
+                }
+              });
+            }
+          }
+          
+          // Fallback: Calculate team runs and wickets from player stats if scorecard data is incomplete
+          if (team1Stats.runsScored === 0 && team2Stats.runsScored === 0) {
+            matchData.playerStats.forEach(playerStat => {
+              if (playerStat.teamId === matchData.team1Id) {
+                team1Stats.runsScored += playerStat.runsScored || 0;
+                team1Stats.wicketsTaken += playerStat.wicketsTaken || 0;
+                team2Stats.runsConceded += playerStat.runsGiven || 0;
+              } else if (playerStat.teamId === matchData.team2Id) {
+                team2Stats.runsScored += playerStat.runsScored || 0;
+                team2Stats.wicketsTaken += playerStat.wicketsTaken || 0;
+                team1Stats.runsConceded += playerStat.runsGiven || 0;
+              }
+            });
+          }
+          
+          console.log(`📊 STORAGE: Team1 (${matchData.team1Id}): +${team1Stats.runsScored} runs scored, +${team1Stats.runsConceded} runs conceded, +${team1Stats.wicketsTaken} wickets taken, +${team1Stats.wicketsLost} wickets lost, +${team1Stats.tournamentPoints} points`);
+          console.log(`📊 STORAGE: Team2 (${matchData.team2Id}): +${team2Stats.runsScored} runs scored, +${team2Stats.runsConceded} runs conceded, +${team2Stats.wicketsTaken} wickets taken, +${team2Stats.wicketsLost} wickets lost, +${team2Stats.tournamentPoints} points`);
+
+          // Update both teams atomically with comprehensive statistics
           await Promise.all([
             this.teams.updateOne(
               { id: matchData.team1Id },
@@ -1268,8 +1343,12 @@ export class MongoStorage implements IStorage {
                   totalMatches: 1,
                   matchesWon: team1Stats.matchesWon,
                   matchesLost: team1Stats.matchesLost,
+                  matchesDrawn: team1Stats.matchesDrawn,
                   totalRunsScored: team1Stats.runsScored,
-                  totalWicketsTaken: team1Stats.wicketsTaken
+                  totalRunsConceded: team1Stats.runsConceded,
+                  totalWicketsTaken: team1Stats.wicketsTaken,
+                  totalWicketsLost: team1Stats.wicketsLost,
+                  tournamentPoints: team1Stats.tournamentPoints
                 },
                 $set: { updatedAt: new Date() }
               },
@@ -1282,8 +1361,12 @@ export class MongoStorage implements IStorage {
                   totalMatches: 1,
                   matchesWon: team2Stats.matchesWon,
                   matchesLost: team2Stats.matchesLost,
+                  matchesDrawn: team2Stats.matchesDrawn,
                   totalRunsScored: team2Stats.runsScored,
-                  totalWicketsTaken: team2Stats.wicketsTaken
+                  totalRunsConceded: team2Stats.runsConceded,
+                  totalWicketsTaken: team2Stats.wicketsTaken,
+                  totalWicketsLost: team2Stats.wicketsLost,
+                  tournamentPoints: team2Stats.tournamentPoints
                 },
                 $set: { updatedAt: new Date() }
               },
