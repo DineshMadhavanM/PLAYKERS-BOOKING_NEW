@@ -487,11 +487,9 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
   const addRuns = (runs: number) => {
     if (!isLive || isMatchCompleted || showManOfMatchDialog) return;
     
-    // Track striker positions locally to avoid React state synchronization issues
+    // Capture original striker positions for end-of-over logic
     const originalStriker = currentStriker;
     const originalNonStriker = currentNonStriker;
-    let localStriker = originalStriker;
-    let localNonStriker = originalNonStriker;
     
     // Block further scoring if first innings is complete
     if (currentInning === 1 && firstInningsComplete) {
@@ -650,15 +648,21 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
     if (currentStriker) updateBattingStats(currentStriker, runs, true, runs === 0);
     if (currentBowler) updateBowlingStats(currentBowler, runs, false, true);
 
-    // Rotate strike on odd runs - update both local variables and React state
-    if (runs % 2 === 1) {
-      // Update local variables for end-of-over logic
-      const temp = localStriker;
-      localStriker = localNonStriker;
-      localNonStriker = temp;
-      
-      // Update React state for UI display
-      rotateStrike();
+    // Handle strike rotation with special end-of-over rules
+    const isLastBallOfOver = currentBall === 5;
+    
+    if (isLastBallOfOver) {
+      // End-of-over cricket rule: 
+      // - Odd runs on last ball: striker faces next over (no rotation)
+      // - Even runs on last ball: non-striker faces next over (rotate)
+      if (runs % 2 === 0) {
+        rotateStrike();
+      }
+    } else {
+      // Normal mid-over rotation for odd runs
+      if (runs % 2 === 1) {
+        rotateStrike();
+      }
     }
 
     // Track runs from this legal ball for end-of-over rotation
@@ -676,21 +680,8 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
     // All legal deliveries (including dot balls) advance to next ball
     const endOfOver = nextBall();
     
-    // Handle strike rotation at end of over according to cricket rules:
-    // - If striker scores odd runs on last ball: striker faces next over
-    // - If striker scores even runs on last ball: non-striker faces next over
+    // Handle over completion
     if (endOfOver) {
-      const shouldOriginalStrikerFaceNextOver = (runs % 2 === 1);
-      const localStrikerIsOriginal = (localStriker === originalStriker);
-      
-      if (shouldOriginalStrikerFaceNextOver && !localStrikerIsOriginal) {
-        // Original striker should face next over, but is currently non-striker, so rotate
-        rotateStrike();
-      } else if (!shouldOriginalStrikerFaceNextOver && localStrikerIsOriginal) {
-        // Original non-striker should face next over, but original striker is currently striker, so rotate
-        rotateStrike();
-      }
-      
       handleOverCompletion();
     }
 
