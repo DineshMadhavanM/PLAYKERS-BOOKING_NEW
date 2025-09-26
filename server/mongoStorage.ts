@@ -482,7 +482,9 @@ export class MongoStorage implements IStorage {
       matchesLost: 0,
       matchesDrawn: 0,
       totalRunsScored: 0,
+      totalRunsConceded: 0,
       totalWicketsTaken: 0,
+      totalWicketsLost: 0,
       tournamentPoints: 0,
       netRunRate: 0.0,
       createdAt: new Date(),
@@ -512,7 +514,9 @@ export class MongoStorage implements IStorage {
     matchesLost?: number; 
     matchesDrawn?: number; 
     runsScored?: number; 
+    runsConceded?: number;
     wicketsTaken?: number; 
+    wicketsLost?: number;
     tournamentPoints?: number;
   }): Promise<Team | undefined> {
     const updateFields: any = { updatedAt: new Date() };
@@ -523,7 +527,9 @@ export class MongoStorage implements IStorage {
     if (stats.matchesLost !== undefined) incrementFields.matchesLost = stats.matchesLost;
     if (stats.matchesDrawn !== undefined) incrementFields.matchesDrawn = stats.matchesDrawn;
     if (stats.runsScored !== undefined) incrementFields.totalRunsScored = stats.runsScored;
+    if (stats.runsConceded !== undefined) incrementFields.totalRunsConceded = stats.runsConceded;
     if (stats.wicketsTaken !== undefined) incrementFields.totalWicketsTaken = stats.wicketsTaken;
+    if (stats.wicketsLost !== undefined) incrementFields.totalWicketsLost = stats.wicketsLost;
     if (stats.tournamentPoints !== undefined) incrementFields.tournamentPoints = stats.tournamentPoints;
 
     // Calculate total matches increment
