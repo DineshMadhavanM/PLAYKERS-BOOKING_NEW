@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation, useParams } from "wouter";
-import { ArrowLeft, User, Calendar, MapPin, Trophy, Target, BarChart3, Star } from "lucide-react";
+import { ArrowLeft, User, Calendar, MapPin, Trophy, Target, BarChart3, Star, UserCheck, UserX, Link2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -166,6 +166,101 @@ export default function PlayerProfile() {
               </div>
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* User Account Linkage Status */}
+      <Card className="mb-8" data-testid="card-user-linkage">
+        <CardContent className="p-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className={`p-2 rounded-full ${
+                player.userId 
+                  ? 'bg-green-100 text-green-600 dark:bg-green-900 dark:text-green-400' 
+                  : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
+              }`}>
+                {player.userId ? (
+                  <UserCheck className="h-5 w-5" />
+                ) : (
+                  <UserX className="h-5 w-5" />
+                )}
+              </div>
+              <div>
+                <h3 className="font-semibold text-gray-900 dark:text-white">
+                  User Account Linkage
+                </h3>
+                <p className="text-sm text-gray-600 dark:text-gray-300" data-testid="text-linkage-status">
+                  {player.userId ? (
+                    <>
+                      This player is linked to a registered user account.
+                      <br />
+                      <span className="text-xs text-gray-500 dark:text-gray-400">
+                        Match statistics are automatically saved to their user profile.
+                      </span>
+                    </>
+                  ) : player.email ? (
+                    <>
+                      Player has email but is not linked to a user account.
+                      <br />
+                      <span className="text-xs text-gray-500 dark:text-gray-400">
+                        If they register with email "{player.email}", their statistics can be linked.
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      Player is not linked to any user account.
+                      <br />
+                      <span className="text-xs text-gray-500 dark:text-gray-400">
+                        No email address available for linking.
+                      </span>
+                    </>
+                  )}
+                </p>
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-2">
+              {player.userId && (
+                <Badge 
+                  variant="default" 
+                  className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+                  data-testid="badge-linked"
+                >
+                  <Link2 className="h-3 w-3 mr-1" />
+                  Linked
+                </Badge>
+              )}
+              {player.email && !player.userId && (
+                <Badge 
+                  variant="outline" 
+                  className="text-orange-600 border-orange-300"
+                  data-testid="badge-email-available"
+                >
+                  <User className="h-3 w-3 mr-1" />
+                  Email Available
+                </Badge>
+              )}
+              {!player.email && !player.userId && (
+                <Badge 
+                  variant="secondary" 
+                  className="text-gray-600"
+                  data-testid="badge-not-linked"
+                >
+                  <UserX className="h-3 w-3 mr-1" />
+                  Not Linked
+                </Badge>
+              )}
+            </div>
+          </div>
+          
+          {player.email && (
+            <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+              <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+                <span className="font-medium">Player Email:</span>
+                <span className="font-mono" data-testid="text-player-email">{player.email}</span>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
