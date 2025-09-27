@@ -654,6 +654,152 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Check player email registrations
+  app.get('/api/admin/check-player-emails', requireAdmin, async (req: any, res) => {
+    try {
+      const players = await storage.getPlayers({});
+      
+      if (!storage.getAllUsers) {
+        return res.status(501).json({ message: "Admin functionality not available" });
+      }
+      
+      const users = await storage.getAllUsers();
+      
+      // Create case-insensitive email map for efficient lookup
+      const emailToUserMap = new Map();
+      users.forEach(user => {
+        emailToUserMap.set(user.email.toLowerCase().trim(), user);
+      });
+      
+      const playersWithEmailStatus = [];
+      
+      for (const player of players) {
+        if (player.email) {
+          const normalizedEmail = player.email.toLowerCase().trim();
+          const matchingUser = emailToUserMap.get(normalizedEmail);
+          const isLinked = !!player.userId;
+          const matchedLinked = isLinked && matchingUser && player.userId === matchingUser.id;
+          
+          playersWithEmailStatus.push({
+            player: {
+              id: player.id,
+              name: player.name,
+              email: player.email,
+              userId: player.userId,
+              teamId: player.teamId,
+              teamName: player.teamName
+            },
+            isRegistered: !!matchingUser,
+            matchingUser: matchingUser ? sanitizeUser(matchingUser) : null,
+            isLinked: isLinked,
+            matchedLinked: !!matchedLinked
+          });
+        }
+      }
+      
+      const summary = {
+        totalPlayers: players.length,
+        playersWithEmail: playersWithEmailStatus.length,
+        registeredEmails: playersWithEmailStatus.filter(p => p.isRegistered).length,
+        linkedPlayers: playersWithEmailStatus.filter(p => p.isLinked).length,
+        matchedLinkedPlayers: playersWithEmailStatus.filter(p => p.matchedLinked).length,
+        unlinkableRegisteredPlayers: playersWithEmailStatus.filter(p => p.isRegistered && !p.isLinked).length
+      };
+      
+      res.json({ summary, players: playersWithEmailStatus });
+    } catch (error) {
+      console.error("Error checking player emails:", error);
+      res.status(500).json({ message: "Failed to check player emails" });
+    }
+  });
+
+  // Link player to user account
+  app.post('/api/admin/link-player/:playerId', requireAdmin, async (req: any, res) => {
+    try {
+      const { playerId } = req.params;
+      
+      // Get player
+      const player = await storage.getPlayer(playerId);
+      if (!player) {
+        return res.status(404).json({ message: "Player not found" });
+      }
+      
+      if (!player.email) {
+        return res.status(400).json({ message: "Player has no email address" });
+      }
+      
+      // Find matching user by email
+      const matchingUser = await storage.getUserByEmail(player.email);
+      if (!matchingUser) {
+        return res.status(404).json({ message: "No registered user found with this email" });
+      }
+      
+      // Check if player is already linked
+      if (player.userId && player.userId === matchingUser.id) {
+        return res.status(400).json({ message: "Player is already linked to this user" });
+      }
+      
+      // Check if user already has a linked player
+      const existingPlayer = await storage.getPlayerByUserId(matchingUser.id);
+      if (existingPlayer && existingPlayer.id !== playerId) {
+        return res.status(409).json({ 
+          message: "User already has a linked player", 
+          existingPlayer: {
+            id: existingPlayer.id,
+            name: existingPlayer.name,
+            email: existingPlayer.email
+          }
+        });
+      }
+      
+      // Link player to user
+      const updatedPlayer = await storage.updatePlayer(playerId, { userId: matchingUser.id });
+      if (!updatedPlayer) {
+        return res.status(500).json({ message: "Failed to link player to user" });
+      }
+      
+      res.json({ 
+        message: "Player successfully linked to user account",
+        player: updatedPlayer,
+        user: sanitizeUser(matchingUser)
+      });
+    } catch (error) {
+      console.error("Error linking player to user:", error);
+      res.status(500).json({ message: "Failed to link player to user" });
+    }
+  });
+
+  // Unlink player from user account
+  app.post('/api/admin/unlink-player/:playerId', requireAdmin, async (req: any, res) => {
+    try {
+      const { playerId } = req.params;
+      
+      // Get player
+      const player = await storage.getPlayer(playerId);
+      if (!player) {
+        return res.status(404).json({ message: "Player not found" });
+      }
+      
+      if (!player.userId) {
+        return res.status(400).json({ message: "Player is not linked to any user" });
+      }
+      
+      // Unlink player from user  
+      const updatedPlayer = await storage.updatePlayer(playerId, { userId: undefined });
+      if (!updatedPlayer) {
+        return res.status(500).json({ message: "Failed to unlink player from user" });
+      }
+      
+      res.json({ 
+        message: "Player successfully unlinked from user account",
+        player: updatedPlayer
+      });
+    } catch (error) {
+      console.error("Error unlinking player from user:", error);
+      res.status(500).json({ message: "Failed to unlink player from user" });
+    }
+  });
+
   // Team routes
   app.get('/api/teams', async (req, res) => {
     try {
