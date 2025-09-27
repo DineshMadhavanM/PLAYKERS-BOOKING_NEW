@@ -1380,6 +1380,65 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log(`✅ DATA FLOW STEP 4-5: Atomic update successful - match, teams, and players updated`);
         console.log(`📈 Stats Update Summary: ${playerStats.length} players updated`);
         
+        // Update user cricket statistics for linked players
+        console.log(`👤 DATA FLOW STEP 6: Updating user cricket statistics for linked players`);
+        let userStatsUpdated = 0;
+        const userStatsErrors: string[] = [];
+        
+        for (const playerStat of playerStats) {
+          try {
+            // Get player to check if they're linked to a user
+            const player = await storage.getPlayer(playerStat.playerId);
+            if (player && player.userId) {
+              console.log(`🔄 Updating cricket stats for linked user ${player.userId} (player: ${player.name})`);
+              
+              const userStatsUpdate = {
+                runsScored: playerStat.runsScored || 0,
+                ballsFaced: playerStat.ballsFaced || 0,
+                fours: playerStat.fours || 0,
+                sixes: playerStat.sixes || 0,
+                isOut: playerStat.isOut || false,
+                oversBowled: playerStat.oversBowled || 0,
+                runsGiven: playerStat.runsGiven || 0,
+                wicketsTaken: playerStat.wicketsTaken || 0,
+                maidens: playerStat.maidens || 0,
+                catches: playerStat.catches || 0,
+                runOuts: playerStat.runOuts || 0,
+                stumpings: playerStat.stumpings || 0,
+                manOfMatch: playerStat.manOfMatch || false,
+                bestBatsman: playerStat.bestBatsman || false,
+                bestBowler: playerStat.bestBowler || false,
+                bestFielder: playerStat.bestFielder || false,
+                isWinner: playerStat.teamId === winnerId
+              };
+              
+              const userStatsResult = await storage.updateUserCricketStats?.(player.userId, matchId, userStatsUpdate);
+              if (userStatsResult?.success) {
+                if (userStatsResult.alreadyProcessed) {
+                  console.log(`⚠️ User cricket stats already processed for ${player.name} (user: ${player.userId})`);
+                } else {
+                  userStatsUpdated++;
+                  console.log(`✅ User cricket stats updated for ${player.name} (user: ${player.userId})`);
+                }
+              } else {
+                const errorMsg = `Failed to update user stats for ${player.name}: ${userStatsResult?.error || 'Unknown error'}`;
+                console.error(`❌ ${errorMsg}`);
+                userStatsErrors.push(errorMsg);
+              }
+            }
+          } catch (error) {
+            const errorMsg = `Error processing user stats for player ${playerStat.playerId}: ${error instanceof Error ? error.message : 'Unknown error'}`;
+            console.error(`❌ ${errorMsg}`);
+            userStatsErrors.push(errorMsg);
+          }
+        }
+        
+        console.log(`✅ DATA FLOW STEP 6: User cricket stats update completed - ${userStatsUpdated}/${playerStats.length} linked players updated`);
+        if (userStatsErrors.length > 0) {
+          console.log(`⚠️ User stats update errors: ${userStatsErrors.length}`);
+          userStatsErrors.forEach(error => console.log(`   - ${error}`));
+        }
+        
         // Log cache invalidation information for frontend
         const cacheInfo = (applyResult as any).cacheInvalidation;
         if (cacheInfo) {
@@ -1411,6 +1470,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         statistics: {
           teamsUpdated: team1Id && team2Id ? 2 : 0,
           playersUpdated: playerStats.length,
+          userStatsUpdated: userStatsUpdated || 0,
           awardsProcessed: awards ? Object.keys(awards).length : 0
         },
         dataFlow: {
@@ -1418,6 +1478,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           scorecardStored: true,
           playerStatsExtracted: playerStats.length,
           careerStatsUpdated: true,
+          userStatsUpdated: userStatsUpdated || 0,
+          userStatsErrors: userStatsErrors || [],
           profilesReady: true,
           atomicUpdate: true
         },

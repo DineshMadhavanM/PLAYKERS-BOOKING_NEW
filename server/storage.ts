@@ -35,6 +35,30 @@ export interface IStorage {
   getAllUsers?(): Promise<User[]>;
   getUserCount?(): Promise<number>;
   deleteUser?(id: string): Promise<boolean>;
+  checkPlayerEmails?(): Promise<{ summary: any; players: any[] }>;
+  linkPlayerToUser?(playerId: string): Promise<{ success: boolean; message: string }>;
+  unlinkPlayerFromUser?(playerId: string): Promise<{ success: boolean; message: string }>;
+
+  // User cricket statistics operations
+  updateUserCricketStats?(userId: string, matchId: string, playerStats: {
+    runsScored?: number;
+    ballsFaced?: number;
+    fours?: number;
+    sixes?: number;
+    isOut?: boolean;
+    oversBowled?: number;
+    runsGiven?: number;
+    wicketsTaken?: number;
+    maidens?: number;
+    catches?: number;
+    runOuts?: number;
+    stumpings?: number;
+    manOfMatch?: boolean;
+    bestBatsman?: boolean;
+    bestBowler?: boolean;
+    bestFielder?: boolean;
+    isWinner?: boolean;
+  }): Promise<{ success: boolean; error?: string; alreadyProcessed?: boolean }>;
 
   // Venue operations
   getVenues(filters?: { sport?: string; city?: string; search?: string }): Promise<Venue[]>;

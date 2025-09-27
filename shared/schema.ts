@@ -699,6 +699,35 @@ export type User = {
   location: string | null;
   phoneNumber: string | null;
   isAdmin: boolean | null;
+  // Cricket statistics for linked players
+  cricketStats?: {
+    totalMatches: number;
+    matchesWon: number;
+    totalRuns: number;
+    totalBallsFaced: number;
+    totalFours: number;
+    totalSixes: number;
+    centuries: number;
+    halfCenturies: number;
+    highestScore: number;
+    totalOvers: number;
+    totalRunsGiven: number;
+    totalWickets: number;
+    totalMaidens: number;
+    fiveWicketHauls: number;
+    catches: number;
+    runOuts: number;
+    stumpings: number;
+    manOfTheMatchAwards: number;
+    bestBatsmanAwards: number;
+    bestBowlerAwards: number;
+    bestFielderAwards: number;
+    battingAverage: number;
+    strikeRate: number;
+    bowlingAverage: number;
+    economyRate: number;
+    processedMatches: string[]; // Track match IDs to ensure idempotency
+  } | null;
   createdAt: Date | null;
   updatedAt: Date | null;
 };

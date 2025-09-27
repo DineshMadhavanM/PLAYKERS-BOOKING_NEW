@@ -673,7 +673,7 @@ export class MongoStorage implements IStorage {
       updateData.email = updateData.email.toLowerCase();
     }
     if (updateData.username) {
-      updateData.username = updateData.username.trim() ? updateData.username.trim().toLowerCase() : null;
+      updateData.username = updateData.username.trim() ? updateData.username.trim().toLowerCase() : undefined;
     }
     const result = await this.players.findOneAndUpdate(
       { id } as any,
@@ -1753,6 +1753,160 @@ export class MongoStorage implements IStorage {
       };
     } finally {
       await session.endSession();
+    }
+  }
+
+  async updateUserCricketStats(userId: string, matchId: string, playerStats: {
+    runsScored?: number;
+    ballsFaced?: number;
+    fours?: number;
+    sixes?: number;
+    isOut?: boolean;
+    oversBowled?: number;
+    runsGiven?: number;
+    wicketsTaken?: number;
+    maidens?: number;
+    catches?: number;
+    runOuts?: number;
+    stumpings?: number;
+    manOfMatch?: boolean;
+    bestBatsman?: boolean;
+    bestBowler?: boolean;
+    bestFielder?: boolean;
+    isWinner?: boolean;
+  }): Promise<{ success: boolean; error?: string; alreadyProcessed?: boolean }> {
+    try {
+      console.log(`🔄 Updating cricket stats for user ${userId} from match ${matchId}`);
+
+      // Check if user exists
+      const user = await this.users.findOne({ id: userId } as any);
+      if (!user) {
+        return { success: false, error: 'User not found' };
+      }
+
+      // Initialize cricket stats if they don't exist
+      const currentStats = user.cricketStats || {
+        totalMatches: 0,
+        matchesWon: 0,
+        totalRuns: 0,
+        totalBallsFaced: 0,
+        totalFours: 0,
+        totalSixes: 0,
+        centuries: 0,
+        halfCenturies: 0,
+        highestScore: 0,
+        totalOvers: 0,
+        totalRunsGiven: 0,
+        totalWickets: 0,
+        totalMaidens: 0,
+        fiveWicketHauls: 0,
+        catches: 0,
+        runOuts: 0,
+        stumpings: 0,
+        manOfTheMatchAwards: 0,
+        bestBatsmanAwards: 0,
+        bestBowlerAwards: 0,
+        bestFielderAwards: 0,
+        battingAverage: 0,
+        strikeRate: 0,
+        bowlingAverage: 0,
+        economyRate: 0,
+        processedMatches: [],
+      };
+
+      // Check if this match has already been processed
+      if (currentStats.processedMatches.includes(matchId)) {
+        console.log(`⚠️ Match ${matchId} already processed for user ${userId}, skipping update`);
+        return { success: true, alreadyProcessed: true };
+      }
+
+      // Update match count
+      currentStats.totalMatches += 1;
+      if (playerStats.isWinner) currentStats.matchesWon += 1;
+
+      // Update batting stats
+      if (playerStats.runsScored) {
+        currentStats.totalRuns += playerStats.runsScored;
+        if (playerStats.runsScored > currentStats.highestScore) {
+          currentStats.highestScore = playerStats.runsScored;
+        }
+        // Check for centuries and half-centuries
+        if (playerStats.runsScored >= 100) {
+          currentStats.centuries += 1;
+        } else if (playerStats.runsScored >= 50) {
+          currentStats.halfCenturies += 1;
+        }
+      }
+      if (playerStats.ballsFaced) currentStats.totalBallsFaced += playerStats.ballsFaced;
+      if (playerStats.fours) currentStats.totalFours += playerStats.fours;
+      if (playerStats.sixes) currentStats.totalSixes += playerStats.sixes;
+
+      // Update bowling stats
+      if (playerStats.oversBowled) currentStats.totalOvers += playerStats.oversBowled;
+      if (playerStats.runsGiven) currentStats.totalRunsGiven += playerStats.runsGiven;
+      if (playerStats.wicketsTaken) {
+        currentStats.totalWickets += playerStats.wicketsTaken;
+        // Check for five wicket hauls
+        if (playerStats.wicketsTaken >= 5) {
+          currentStats.fiveWicketHauls += 1;
+        }
+      }
+      if (playerStats.maidens) currentStats.totalMaidens += playerStats.maidens;
+
+      // Update fielding stats
+      if (playerStats.catches) currentStats.catches += playerStats.catches;
+      if (playerStats.runOuts) currentStats.runOuts += playerStats.runOuts;
+      if (playerStats.stumpings) currentStats.stumpings += playerStats.stumpings;
+
+      // Update awards
+      if (playerStats.manOfMatch) currentStats.manOfTheMatchAwards += 1;
+      if (playerStats.bestBatsman) currentStats.bestBatsmanAwards += 1;
+      if (playerStats.bestBowler) currentStats.bestBowlerAwards += 1;
+      if (playerStats.bestFielder) currentStats.bestFielderAwards += 1;
+
+      // Add this match to processed matches
+      currentStats.processedMatches.push(matchId);
+
+      // Calculate derived stats from totals (ensures correctness)
+      // Batting average (runs per match for users, since we don't track dismissals separately)
+      currentStats.battingAverage = currentStats.totalRuns > 0 && currentStats.totalMatches > 0 
+        ? Math.round((currentStats.totalRuns / currentStats.totalMatches) * 100) / 100 
+        : 0;
+
+      // Strike rate (runs per 100 balls)
+      currentStats.strikeRate = currentStats.totalBallsFaced > 0 
+        ? Math.round((currentStats.totalRuns / currentStats.totalBallsFaced) * 10000) / 100 
+        : 0;
+
+      // Bowling average (runs per wicket)
+      currentStats.bowlingAverage = currentStats.totalWickets > 0 
+        ? Math.round((currentStats.totalRunsGiven / currentStats.totalWickets) * 100) / 100 
+        : 0;
+
+      // Economy rate (runs per over)
+      currentStats.economyRate = currentStats.totalOvers > 0 
+        ? Math.round((currentStats.totalRunsGiven / currentStats.totalOvers) * 100) / 100 
+        : 0;
+
+      // Update user document
+      await this.users.updateOne(
+        { id: userId } as any,
+        {
+          $set: {
+            cricketStats: currentStats,
+            updatedAt: new Date()
+          }
+        }
+      );
+
+      console.log(`✅ Cricket stats updated for user ${userId}`);
+      return { success: true };
+    } catch (error) {
+      console.error('Error updating user cricket stats:', error);
+      return { 
+        success: false, 
+        error: 'Failed to update user cricket statistics' 
+      };
     }
   }
 }
