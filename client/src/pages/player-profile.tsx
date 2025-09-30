@@ -1,14 +1,14 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation, useParams } from "wouter";
-import { ArrowLeft, User, Calendar, MapPin, Trophy, Target, BarChart3, Star, UserCheck, UserX, Link2 } from "lucide-react";
+import { ArrowLeft, User, Calendar, MapPin, Trophy, Target, BarChart3, Star, UserCheck, UserX, Link2, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import type { Player, Match, Team } from "@shared/schema";
+import type { Player, Match, Team, PlayerPerformance } from "@shared/schema";
 import MatchCard from "@/components/match-card";
 
 export default function PlayerProfile() {
@@ -48,6 +48,19 @@ export default function PlayerProfile() {
       const response = await fetch(`/api/players/${playerId}/matches`);
       if (!response.ok) {
         throw new Error('Failed to fetch player matches');
+      }
+      return response.json();
+    },
+    enabled: !!playerId,
+  });
+
+  // Fetch player match performances
+  const { data: performancesData, isLoading: performancesLoading } = useQuery({
+    queryKey: ['/api/players', playerId, 'performances'],
+    queryFn: async (): Promise<{ player: { id: string; name: string }; performances: PlayerPerformance[]; pagination: { limit: number; offset: number; count: number } }> => {
+      const response = await fetch(`/api/players/${playerId}/performances?limit=20`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch player performances');
       }
       return response.json();
     },
@@ -316,6 +329,10 @@ export default function PlayerProfile() {
             <BarChart3 className="h-4 w-4" />
             Detailed Statistics
           </TabsTrigger>
+          <TabsTrigger value="performances" className="flex items-center gap-2">
+            <TrendingUp className="h-4 w-4" />
+            Performances ({performancesData?.performances.length || 0})
+          </TabsTrigger>
           <TabsTrigger value="matches" className="flex items-center gap-2">
             <Calendar className="h-4 w-4" />
             Match History ({playerMatches.length})
@@ -463,6 +480,163 @@ export default function PlayerProfile() {
               </CardContent>
             </Card>
           </div>
+        </TabsContent>
+
+        <TabsContent value="performances">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <TrendingUp className="h-5 w-5" />
+                Match-by-Match Performances
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {performancesLoading ? (
+                <div className="space-y-4">
+                  {[...Array(3)].map((_, i) => (
+                    <Card key={i}>
+                      <CardContent className="p-4">
+                        <div className="space-y-2">
+                          <Skeleton className="h-6 w-3/4" />
+                          <Skeleton className="h-4 w-1/2" />
+                          <Skeleton className="h-4 w-full" />
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              ) : !performancesData?.performances || performancesData.performances.length === 0 ? (
+                <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                  <TrendingUp className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>No performance records found</p>
+                  <p className="text-sm mt-1">Performance data will appear here after matches are completed</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {performancesData.performances.map((performance) => (
+                    <Card key={performance.id} className="hover:shadow-md transition-shadow" data-testid={`card-performance-${performance.id}`}>
+                      <CardContent className="p-4">
+                        <div className="space-y-3">
+                          {/* Match Header */}
+                          <div className="flex items-start justify-between">
+                            <div>
+                              <h3 className="font-semibold text-lg text-gray-900 dark:text-white">
+                                vs {performance.opposition}
+                              </h3>
+                              <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 mt-1">
+                                <Calendar className="h-3 w-3" />
+                                <span>{new Date(performance.matchDate).toLocaleDateString()}</span>
+                                {performance.venue && (
+                                  <>
+                                    <span>•</span>
+                                    <MapPin className="h-3 w-3" />
+                                    <span>{performance.venue}</span>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                            <Badge 
+                              variant={performance.matchResult === 'won' ? 'default' : performance.matchResult === 'lost' ? 'destructive' : 'secondary'}
+                              className="ml-2"
+                            >
+                              {performance.matchResult === 'won' ? 'Won' : performance.matchResult === 'lost' ? 'Lost' : performance.matchResult === 'tied' ? 'Tied' : 'No Result'}
+                            </Badge>
+                          </div>
+
+                          {/* Performance Stats */}
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-3 border-t border-gray-200 dark:border-gray-700">
+                            {/* Batting */}
+                            {performance.battingStats && (
+                              <div className="space-y-1">
+                                <div className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Batting</div>
+                                <div className="flex items-baseline gap-2">
+                                  <span className="text-2xl font-bold text-orange-600">{performance.battingStats.runs}</span>
+                                  <span className="text-sm text-gray-600 dark:text-gray-400">
+                                    ({performance.battingStats.balls || 0})
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-3 text-xs text-gray-600 dark:text-gray-400">
+                                  <span>4s: {performance.battingStats.fours || 0}</span>
+                                  <span>6s: {performance.battingStats.sixes || 0}</span>
+                                  {performance.battingStats.strikeRate !== undefined && (
+                                    <span className="font-medium">SR: {performance.battingStats.strikeRate.toFixed(1)}</span>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Bowling */}
+                            {performance.bowlingStats && (
+                              <div className="space-y-1">
+                                <div className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Bowling</div>
+                                <div className="flex items-baseline gap-2">
+                                  <span className="text-2xl font-bold text-red-600">{performance.bowlingStats.wickets}</span>
+                                  <span className="text-sm text-gray-600 dark:text-gray-400">
+                                    /{performance.bowlingStats.runs || 0}
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-3 text-xs text-gray-600 dark:text-gray-400">
+                                  <span>O: {performance.bowlingStats.overs || 0}</span>
+                                  {performance.bowlingStats.economy !== undefined && (
+                                    <span className="font-medium">Econ: {performance.bowlingStats.economy.toFixed(2)}</span>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Fielding */}
+                            {performance.fieldingStats && (performance.fieldingStats.catches || performance.fieldingStats.runOuts || performance.fieldingStats.stumpings) ? (
+                              <div className="space-y-1">
+                                <div className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Fielding</div>
+                                <div className="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-400">
+                                  {performance.fieldingStats.catches > 0 && (
+                                    <span className="font-medium text-blue-600">C: {performance.fieldingStats.catches}</span>
+                                  )}
+                                  {performance.fieldingStats.runOuts > 0 && (
+                                    <span className="font-medium text-purple-600">RO: {performance.fieldingStats.runOuts}</span>
+                                  )}
+                                  {performance.fieldingStats.stumpings > 0 && (
+                                    <span className="font-medium text-green-600">St: {performance.fieldingStats.stumpings}</span>
+                                  )}
+                                </div>
+                              </div>
+                            ) : null}
+                          </div>
+
+                          {/* Awards */}
+                          {(performance.awards && performance.awards.length > 0) && (
+                            <div className="flex items-center gap-2 pt-2 border-t border-gray-200 dark:border-gray-700">
+                              <Trophy className="h-4 w-4 text-yellow-600" />
+                              <div className="flex flex-wrap gap-2">
+                                {performance.awards.map((award, idx) => (
+                                  <Badge key={idx} variant="secondary" className="bg-yellow-50 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400">
+                                    {award}
+                                  </Badge>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Link to match details */}
+                          <div className="pt-2">
+                            <Button
+                              variant="link"
+                              size="sm"
+                              className="h-auto p-0 text-blue-600 hover:text-blue-800"
+                              onClick={() => navigate(`/matches/${performance.matchId}`)}
+                              data-testid={`link-match-${performance.matchId}`}
+                            >
+                              View Match Details →
+                            </Button>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="matches">
