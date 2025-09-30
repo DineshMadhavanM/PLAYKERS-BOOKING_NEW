@@ -1692,6 +1692,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Apply match results atomically - updates match, teams, and player statistics
       console.log(`📊 DATA FLOW STEP 4-5: Atomically updating match + team + player statistics`);
       let applyResult;
+      let userStatsUpdated = 0;
+      const userStatsErrors: string[] = [];
+      
       if (team1Id && team2Id && playerStats.length > 0) {
         const matchResultsData = {
           matchId,
@@ -1720,8 +1723,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         // Update user cricket statistics for linked players
         console.log(`👤 DATA FLOW STEP 6: Updating user cricket statistics for linked players`);
-        let userStatsUpdated = 0;
-        const userStatsErrors: string[] = [];
         
         for (const playerStat of playerStats) {
           try {
