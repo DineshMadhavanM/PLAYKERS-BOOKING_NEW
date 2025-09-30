@@ -451,6 +451,276 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Match completion endpoint
+  app.patch('/api/matches/:id/complete', requireAuth, async (req: any, res) => {
+    try {
+      const matchId = req.params.id;
+      const userId = req.session.user.id;
+      const completionData = matchCompletionSchema.parse({ matchId, ...req.body });
+      
+      // Get match details
+      const match = await storage.getMatch(matchId);
+      if (!match) {
+        return res.status(404).json({ message: "Match not found" });
+      }
+      
+      // Authorization: Only match organizer can complete the match
+      if (match.organizerId !== userId) {
+        return res.status(403).json({ message: "Only the match organizer can complete the match" });
+      }
+      
+      // Check if match is already completed
+      if (match.status === 'completed') {
+        return res.status(400).json({ message: "Match is already completed" });
+      }
+      
+      const { finalScorecard, awards, resultSummary } = completionData;
+      const matchDate = match.scheduledAt || new Date();
+      const winnerId = resultSummary.winnerId;
+      
+      // Extract team IDs - prefer canonical IDs from matchData, fallback to team names
+      const matchData = match.matchData as any || {};
+      const team1Id = matchData.team1Id || match.team1Name;
+      const team2Id = matchData.team2Id || match.team2Name;
+      
+      if (!team1Id || !team2Id) {
+        return res.status(400).json({ message: "Match must have valid team identifiers" });
+      }
+      
+      // Ensure team IDs are distinct
+      if (team1Id === team2Id) {
+        return res.status(400).json({ message: "Team identifiers must be distinct" });
+      }
+      
+      // Validate winnerId if provided
+      if (winnerId && winnerId !== team1Id && winnerId !== team2Id) {
+        return res.status(400).json({ 
+          message: `Invalid winnerId: must be either ${team1Id} or ${team2Id}` 
+        });
+      }
+      
+      // Collect player performance data from scorecard
+      const playerPerformances = new Map<string, any>();
+      
+      // Process batting performances with canonical team ID
+      const processBatting = (innings: any[], battingTeamId: string, fieldingTeamId: string) => {
+        for (const inning of innings) {
+          for (const batsman of inning.batsmen || []) {
+            if (!batsman.playerId) continue;
+            
+            if (!playerPerformances.has(batsman.playerId)) {
+              playerPerformances.set(batsman.playerId, {
+                playerId: batsman.playerId,
+                matchId,
+                matchDate,
+                teamId: battingTeamId,
+                runsScored: 0,
+                ballsFaced: 0,
+                fours: 0,
+                sixes: 0,
+                isOut: false,
+                oversBowled: 0,
+                runsGiven: 0,
+                wicketsTaken: 0,
+                maidens: 0,
+                catches: 0,
+                runOuts: 0,
+                stumpings: 0,
+              });
+            }
+            
+            const perf = playerPerformances.get(batsman.playerId)!;
+            perf.runsScored += batsman.runsScored || 0;
+            perf.ballsFaced += batsman.ballsFaced || 0;
+            perf.fours += batsman.fours || 0;
+            perf.sixes += batsman.sixes || 0;
+            perf.isOut = perf.isOut || (batsman.dismissalType && batsman.dismissalType !== 'not-out');
+          }
+        }
+      };
+      
+      // Process bowling performances with canonical team ID
+      const processBowling = (innings: any[], battingTeamId: string, fieldingTeamId: string) => {
+        for (const inning of innings) {
+          for (const bowler of inning.bowlers || []) {
+            if (!bowler.playerId) continue;
+            
+            if (!playerPerformances.has(bowler.playerId)) {
+              playerPerformances.set(bowler.playerId, {
+                playerId: bowler.playerId,
+                matchId,
+                matchDate,
+                teamId: fieldingTeamId, // Bowler's team is the fielding team
+                runsScored: 0,
+                ballsFaced: 0,
+                fours: 0,
+                sixes: 0,
+                isOut: false,
+                oversBowled: 0,
+                runsGiven: 0,
+                wicketsTaken: 0,
+                maidens: 0,
+                catches: 0,
+                runOuts: 0,
+                stumpings: 0,
+              });
+            }
+            
+            const perf = playerPerformances.get(bowler.playerId)!;
+            perf.oversBowled += bowler.overs || 0;
+            perf.runsGiven += bowler.runsGiven || 0;
+            perf.wicketsTaken += bowler.wickets || 0;
+            perf.maidens += bowler.maidens || 0;
+          }
+        }
+      };
+      
+      // Process fielding performances with canonical team ID
+      const processFielding = (innings: any[], battingTeamId: string, fieldingTeamId: string) => {
+        for (const inning of innings) {
+          for (const batsman of inning.batsmen || []) {
+            // Count catches and stumpings
+            if (batsman.fielderOut) {
+              const fielderId = batsman.fielderOut;
+              if (!playerPerformances.has(fielderId)) {
+                playerPerformances.set(fielderId, {
+                  playerId: fielderId,
+                  matchId,
+                  matchDate,
+                  teamId: fieldingTeamId, // Fielder's team is the fielding team
+                  runsScored: 0,
+                  ballsFaced: 0,
+                  fours: 0,
+                  sixes: 0,
+                  isOut: false,
+                  oversBowled: 0,
+                  runsGiven: 0,
+                  wicketsTaken: 0,
+                  maidens: 0,
+                  catches: 0,
+                  runOuts: 0,
+                  stumpings: 0,
+                });
+              }
+              
+              const perf = playerPerformances.get(fielderId)!;
+              if (batsman.dismissalType === 'caught') {
+                perf.catches += 1;
+              } else if (batsman.dismissalType === 'run-out') {
+                perf.runOuts += 1;
+              } else if (batsman.dismissalType === 'stumped') {
+                perf.stumpings += 1;
+              }
+            }
+          }
+        }
+      };
+      
+      // Process all innings with canonical team IDs
+      // team1Innings: team1 bats, team2 bowls/fields
+      processBatting(finalScorecard.team1Innings || [], team1Id, team2Id);
+      processBowling(finalScorecard.team1Innings || [], team1Id, team2Id);
+      processFielding(finalScorecard.team1Innings || [], team1Id, team2Id);
+      
+      // team2Innings: team2 bats, team1 bowls/fields
+      processBatting(finalScorecard.team2Innings || [], team2Id, team1Id);
+      processBowling(finalScorecard.team2Innings || [], team2Id, team1Id);
+      processFielding(finalScorecard.team2Innings || [], team2Id, team1Id);
+      
+      // Record player performances and update aggregates
+      const playerErrors: string[] = [];
+      let playersProcessed = 0;
+      let playersSkipped = 0;
+      
+      for (const [playerId, perfData] of Array.from(playerPerformances.entries())) {
+        try {
+          // Determine if player won the match
+          const matchWon = !!(winnerId && perfData.teamId === winnerId);
+          
+          // Determine awards
+          const manOfMatch = awards?.manOfTheMatch === playerId;
+          const bestBatsman = awards?.bestBatsman === playerId;
+          const bestBowler = awards?.bestBowler === playerId;
+          const bestFielder = awards?.bestFielder === playerId;
+          
+          // Record the performance (idempotent due to unique index)
+          await storage.recordPlayerPerformance({
+            ...perfData,
+            manOfMatch,
+            bestBatsman,
+            bestBowler,
+            bestFielder,
+          });
+          
+          // Update career aggregates
+          await storage.updatePlayerAggregates(playerId, {
+            runsScored: perfData.runsScored,
+            ballsFaced: perfData.ballsFaced,
+            fours: perfData.fours,
+            sixes: perfData.sixes,
+            isOut: perfData.isOut,
+            oversBowled: perfData.oversBowled,
+            runsGiven: perfData.runsGiven,
+            wicketsTaken: perfData.wicketsTaken,
+            maidens: perfData.maidens,
+            catches: perfData.catches,
+            runOuts: perfData.runOuts,
+            stumpings: perfData.stumpings,
+            manOfMatch,
+            bestBatsman,
+            bestBowler,
+            bestFielder,
+            matchWon,
+          });
+          
+          playersProcessed++;
+        } catch (error: any) {
+          // Check if it's a duplicate key error (code 11000) - treat as success
+          if (error.code === 11000 || error.message?.includes('duplicate')) {
+            console.log(`Player ${playerId} performance already recorded (skipped)`);
+            playersSkipped++;
+          } else {
+            console.error(`Failed to record performance for player ${playerId}:`, error);
+            playerErrors.push(`${playerId}: ${error.message}`);
+          }
+        }
+      }
+      
+      // Only mark as completed if no non-duplicate errors occurred
+      if (playerErrors.length > 0) {
+        return res.status(207).json({
+          message: "Match completion encountered errors",
+          playersProcessed,
+          playersSkipped,
+          totalPlayers: playerPerformances.size,
+          errors: playerErrors,
+        });
+      }
+      
+      // Update match status and result
+      const updatedMatch = await storage.updateMatch(matchId, {
+        status: 'completed',
+        matchData: {
+          ...(match.matchData as any || {}),
+          scorecard: finalScorecard,
+          awards,
+          resultSummary,
+        },
+      });
+      
+      res.json({
+        message: "Match completed successfully",
+        match: updatedMatch,
+        playersProcessed,
+        playersSkipped,
+        totalPlayers: playerPerformances.size,
+      });
+    } catch (error) {
+      console.error("Error completing match:", error);
+      res.status(500).json({ message: "Failed to complete match" });
+    }
+  });
+
   // User matches route
   app.get('/api/user/matches', requireAuth, async (req: any, res) => {
     try {
