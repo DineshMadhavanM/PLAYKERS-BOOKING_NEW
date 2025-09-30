@@ -1214,6 +1214,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get player match performances with pagination
+  app.get('/api/players/:id/performances', async (req, res) => {
+    try {
+      const playerId = req.params.id;
+      // Parse and validate pagination parameters (clamp limit 0-100, offset >= 0)
+      const limit = Math.min(Math.max(0, parseInt(req.query.limit as string, 10) || 20), 100);
+      const offset = Math.max(0, parseInt(req.query.offset as string, 10) || 0);
+      
+      // Verify player exists
+      const player = await storage.getPlayer(playerId);
+      if (!player) {
+        return res.status(404).json({ message: "Player not found" });
+      }
+      
+      // Fetch performances with pagination
+      const performances = await storage.getPlayerPerformances(playerId, { limit, offset });
+      
+      res.json({
+        player: {
+          id: player.id,
+          name: player.name,
+        },
+        performances,
+        pagination: {
+          limit,
+          offset,
+          count: performances.length,
+        },
+      });
+    } catch (error) {
+      console.error("Error fetching player performances:", error);
+      res.status(500).json({ message: "Failed to fetch player performances" });
+    }
+  });
+
   app.post('/api/players', requireAuth, async (req: any, res) => {
     try {
       const playerData = insertPlayerSchema.parse(req.body);
