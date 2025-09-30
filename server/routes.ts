@@ -316,12 +316,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   role: rosterEntry.role
                 });
                 
-                // Store the playerId in the roster for future reference
+                // Store both id and playerId in the roster for future reference
+                rosterEntry.id = player.id;
                 rosterEntry.playerId = player.id;
               } catch (error) {
                 console.error(`Failed to upsert player ${rosterEntry.email}:`, error);
                 // Continue processing other players even if one fails
               }
+            } else if (rosterEntry.playerId) {
+              // If no email but has playerId, ensure id field is also set
+              rosterEntry.id = rosterEntry.playerId;
             }
           }
         };
