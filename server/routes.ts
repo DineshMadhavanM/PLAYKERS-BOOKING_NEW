@@ -297,6 +297,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const matchData = insertMatchSchema.parse(requestBody);
+      
+      // Link players by email if matchData contains rosters
+      if (matchData.matchData) {
+        const roster1 = matchData.matchData.team1Roster || [];
+        const roster2 = matchData.matchData.team2Roster || [];
+        
+        // Process each roster to upsert players and link by email
+        const processRoster = async (roster: any[]) => {
+          for (let i = 0; i < roster.length; i++) {
+            const rosterEntry = roster[i];
+            if (rosterEntry.email) {
+              try {
+                // Upsert player by email - creates player record and links to user if email matches
+                const player = await storage.upsertPlayerByEmail({
+                  email: rosterEntry.email,
+                  name: rosterEntry.name,
+                  role: rosterEntry.role
+                });
+                
+                // Store the playerId in the roster for future reference
+                rosterEntry.playerId = player.id;
+              } catch (error) {
+                console.error(`Failed to upsert player ${rosterEntry.email}:`, error);
+                // Continue processing other players even if one fails
+              }
+            }
+          }
+        };
+        
+        await processRoster(roster1);
+        await processRoster(roster2);
+      }
+      
       const match = await storage.createMatch(matchData);
       res.status(201).json(match);
     } catch (error) {
