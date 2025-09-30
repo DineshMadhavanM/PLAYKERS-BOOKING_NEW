@@ -159,6 +159,51 @@ export const insertPlayerSchema = z.object({
   jerseyNumber: z.number().optional(),
 });
 
+// Player performance validation schema
+export const insertPlayerPerformanceSchema = z.object({
+  playerId: z.string(),
+  userId: z.string().optional(),
+  matchId: z.string(),
+  teamId: z.string().optional(),
+  teamName: z.string().optional(),
+  opposition: z.string(),
+  venue: z.string().optional(),
+  matchDate: z.coerce.date(),
+  matchFormat: z.string().optional(),
+  matchResult: z.string().optional(),
+  
+  battingStats: z.object({
+    runs: z.number().min(0),
+    balls: z.number().min(0),
+    fours: z.number().min(0),
+    sixes: z.number().min(0),
+    strikeRate: z.number().min(0),
+    position: z.number().min(1).max(11),
+    isOut: z.boolean(),
+    dismissalType: z.string().optional(),
+    bowlerOut: z.string().optional(),
+    fielderOut: z.string().optional(),
+  }).optional(),
+  
+  bowlingStats: z.object({
+    overs: z.number().min(0),
+    maidens: z.number().min(0),
+    runs: z.number().min(0),
+    wickets: z.number().min(0),
+    economy: z.number().min(0),
+    wides: z.number().min(0),
+    noBalls: z.number().min(0),
+  }).optional(),
+  
+  fieldingStats: z.object({
+    catches: z.number().min(0),
+    runOuts: z.number().min(0),
+    stumpings: z.number().min(0),
+  }).optional(),
+  
+  awards: z.array(z.string()).optional(),
+});
+
 // Player conflict detection and merge schemas
 export const playerConflictResponseSchema = z.object({
   conflict: z.literal(true),
@@ -910,6 +955,8 @@ export type Player = {
     highestScore: number;
     centuries: number;
     halfCenturies: number;
+    innings: number; // Total batting innings
+    dismissals: number; // Times dismissed (for batting average)
     battingAverage: number;
     strikeRate: number;
     
@@ -956,6 +1003,59 @@ export type MatchRosterPlayer = {
   createdAt: Date | null;
 };
 
+// Player Performance type for storing individual match performances
+export type PlayerPerformance = {
+  id: string;
+  playerId: string;
+  userId: string | null; // Linked user if available
+  matchId: string;
+  teamId: string | null;
+  teamName: string | null;
+  opposition: string;
+  venue: string | null;
+  matchDate: Date;
+  matchFormat: string | null; // T20, ODI, Test, T10
+  matchResult: string | null; // won, lost, drawn, no-result, abandoned
+  
+  // Batting performance
+  battingStats: {
+    runs: number;
+    balls: number;
+    fours: number;
+    sixes: number;
+    strikeRate: number;
+    position: number; // Batting order position
+    isOut: boolean;
+    dismissalType: string | null;
+    bowlerOut: string | null; // Name of bowler who got wicket
+    fielderOut: string | null; // Name of fielder involved
+  } | null;
+  
+  // Bowling performance
+  bowlingStats: {
+    overs: number;
+    maidens: number;
+    runs: number;
+    wickets: number;
+    economy: number;
+    wides: number;
+    noBalls: number;
+  } | null;
+  
+  // Fielding performance
+  fieldingStats: {
+    catches: number;
+    runOuts: number;
+    stumpings: number;
+  } | null;
+  
+  // Awards received
+  awards: string[]; // man-of-match, best-batsman, best-bowler, best-fielder
+  
+  createdAt: Date | null;
+  updatedAt: Date | null;
+};
+
 // Properly typed exports using inferred types from Zod schemas
 export type ScorecardUpdate = z.infer<typeof scorecardUpdateSchema>;
 export type MatchCompletionInput = z.infer<typeof matchCompletionSchema>;
@@ -978,6 +1078,7 @@ export type InsertUserStats = z.infer<typeof insertUserStatsSchema>;
 export type InsertMatchRosterPlayer = z.infer<typeof insertMatchRosterPlayerSchema>;
 export type InsertTeam = z.infer<typeof insertTeamSchema>;
 export type InsertPlayer = z.infer<typeof insertPlayerSchema>;
+export type InsertPlayerPerformance = z.infer<typeof insertPlayerPerformanceSchema>;
 
 // Player merge types
 export type PlayerConflictResponse = z.infer<typeof playerConflictResponseSchema>;

@@ -11,6 +11,7 @@ import type {
   UserStats,
   Team,
   Player,
+  PlayerPerformance,
   InsertVenue,
   InsertMatch,
   InsertCricketMatch,
@@ -22,6 +23,7 @@ import type {
   InsertUserStats,
   InsertTeam,
   InsertPlayer,
+  InsertPlayerPerformance,
   UpsertUser,
 } from "@shared/schema";
 import type { IStorage } from "./storage";
@@ -40,6 +42,7 @@ export class MongoStorage implements IStorage {
   private userStats: Collection<UserStats>;
   private teams: Collection<Team>;
   private players: Collection<Player>;
+  private playerPerformances: Collection<PlayerPerformance>;
 
   constructor(uri: string) {
     // Configure MongoDB client options for Replit compatibility
@@ -65,11 +68,32 @@ export class MongoStorage implements IStorage {
     this.userStats = this.db.collection<UserStats>('userStats');
     this.teams = this.db.collection<Team>('teams');
     this.players = this.db.collection<Player>('players');
+    this.playerPerformances = this.db.collection<PlayerPerformance>('playerPerformances');
   }
 
   async connect(): Promise<void> {
     await this.client.connect();
     console.log('✅ Connected to MongoDB');
+    
+    // Create indexes for player performances (idempotency and performance)
+    try {
+      await this.playerPerformances.createIndex({ playerId: 1 });
+      await this.playerPerformances.createIndex({ matchId: 1 });
+      await this.playerPerformances.createIndex(
+        { matchId: 1, playerId: 1 }, 
+        { unique: true }
+      );
+      console.log('✅ Created playerPerformances indexes');
+      
+      // Create unique sparse index on player email
+      await this.players.createIndex(
+        { email: 1 }, 
+        { unique: true, sparse: true }
+      );
+      console.log('✅ Created players email index');
+    } catch (error) {
+      console.warn('⚠️ Index creation warning (may already exist):', error);
+    }
   }
 
   async disconnect(): Promise<void> {
@@ -619,6 +643,8 @@ export class MongoStorage implements IStorage {
         highestScore: 0,
         centuries: 0,
         halfCenturies: 0,
+        innings: 0,
+        dismissals: 0,
         battingAverage: 0.0,
         strikeRate: 0.0,
         
@@ -688,6 +714,314 @@ export class MongoStorage implements IStorage {
     return result.deletedCount > 0;
   }
 
+  // Player performance operations
+  async upsertPlayerByEmail(playerData: {
+    name: string;
+    email: string;
+    teamId?: string;
+    teamName?: string;
+    role?: string;
+  }): Promise<Player> {
+    const normalizedEmail = playerData.email.toLowerCase();
+    
+    // Try to find existing player by email
+    const existingPlayer = await this.players.findOne({ email: normalizedEmail } as any);
+    
+    if (existingPlayer) {
+      // Update existing player with new information
+      const updateData: any = {
+        name: playerData.name,
+        updatedAt: new Date()
+      };
+      
+      if (playerData.teamId) updateData.teamId = playerData.teamId;
+      if (playerData.teamName) updateData.teamName = playerData.teamName;
+      if (playerData.role) updateData.role = playerData.role;
+      
+      const result = await this.players.findOneAndUpdate(
+        { email: normalizedEmail } as any,
+        { $set: updateData },
+        { returnDocument: 'after' }
+      );
+      
+      return result as Player;
+    }
+    
+    // Create new player
+    const id = `player-${this.generateId()}`;
+    const newPlayer: Player = {
+      id,
+      name: playerData.name,
+      username: null,
+      email: normalizedEmail,
+      userId: null,
+      teamId: playerData.teamId || null,
+      teamName: playerData.teamName || null,
+      role: playerData.role || null,
+      battingStyle: null,
+      bowlingStyle: null,
+      jerseyNumber: null,
+      careerStats: {
+        totalRuns: 0,
+        totalBallsFaced: 0,
+        totalFours: 0,
+        totalSixes: 0,
+        highestScore: 0,
+        centuries: 0,
+        halfCenturies: 0,
+        innings: 0,
+        dismissals: 0,
+        battingAverage: 0.0,
+        strikeRate: 0.0,
+        totalOvers: 0,
+        totalRunsGiven: 0,
+        totalWickets: 0,
+        totalMaidens: 0,
+        bestBowlingFigures: null,
+        fiveWicketHauls: 0,
+        bowlingAverage: 0.0,
+        economy: 0.0,
+        catches: 0,
+        runOuts: 0,
+        stumpings: 0,
+        totalMatches: 0,
+        matchesWon: 0,
+        manOfTheMatchAwards: 0,
+        bestBatsmanAwards: 0,
+        bestBowlerAwards: 0,
+        bestFielderAwards: 0,
+      },
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    
+    await this.players.insertOne(newPlayer as any);
+    return newPlayer;
+  }
+
+  async linkPlayerToUserByEmail(email: string): Promise<{ success: boolean; playerId?: string; userId?: string }> {
+    const normalizedEmail = email.toLowerCase();
+    
+    // Find user with this email
+    const user = await this.users.findOne({ email: normalizedEmail } as any);
+    if (!user) {
+      return { success: false };
+    }
+    
+    // Find player with this email
+    const player = await this.players.findOne({ email: normalizedEmail } as any);
+    if (!player) {
+      return { success: false };
+    }
+    
+    // Link player to user
+    await this.players.updateOne(
+      { id: player.id } as any,
+      { $set: { userId: user.id, updatedAt: new Date() } }
+    );
+    
+    return { success: true, playerId: player.id, userId: user.id };
+  }
+
+  async recordPlayerPerformance(performance: InsertPlayerPerformance): Promise<PlayerPerformance> {
+    const id = `perf-${this.generateId()}`;
+    
+    const newPerformance: PlayerPerformance = {
+      id,
+      playerId: performance.playerId,
+      userId: performance.userId || null,
+      matchId: performance.matchId,
+      teamId: performance.teamId || null,
+      teamName: performance.teamName || null,
+      opposition: performance.opposition,
+      venue: performance.venue || null,
+      matchDate: new Date(performance.matchDate),
+      matchFormat: performance.matchFormat || null,
+      matchResult: performance.matchResult || null,
+      battingStats: performance.battingStats ? {
+        runs: performance.battingStats.runs,
+        balls: performance.battingStats.balls,
+        fours: performance.battingStats.fours,
+        sixes: performance.battingStats.sixes,
+        strikeRate: performance.battingStats.strikeRate,
+        position: performance.battingStats.position,
+        isOut: performance.battingStats.isOut,
+        dismissalType: performance.battingStats.dismissalType || null,
+        bowlerOut: performance.battingStats.bowlerOut || null,
+        fielderOut: performance.battingStats.fielderOut || null,
+      } : null,
+      bowlingStats: performance.bowlingStats || null,
+      fieldingStats: performance.fieldingStats || null,
+      awards: performance.awards || [],
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    
+    // Use upsert with compound unique index on {matchId, playerId} for idempotency
+    await this.playerPerformances.updateOne(
+      { matchId: performance.matchId, playerId: performance.playerId } as any,
+      { $set: newPerformance },
+      { upsert: true }
+    );
+    
+    return newPerformance;
+  }
+
+  async getPlayerPerformances(playerId: string, options?: { limit?: number; offset?: number }): Promise<PlayerPerformance[]> {
+    // Validate and cap limit for safety
+    const limit = Math.min(options?.limit || 20, 100);
+    const offset = options?.offset || 0;
+    
+    const performances = await this.playerPerformances
+      .find({ playerId } as any)
+      .sort({ matchDate: -1, _id: -1 }) // Stable sort: matchDate desc, then _id desc
+      .skip(offset)
+      .limit(limit)
+      .toArray();
+    
+    return performances;
+  }
+
+  async updatePlayerAggregates(playerId: string, performanceData: {
+    runsScored?: number;
+    ballsFaced?: number;
+    fours?: number;
+    sixes?: number;
+    isOut?: boolean;
+    oversBowled?: number;
+    runsGiven?: number;
+    wicketsTaken?: number;
+    maidens?: number;
+    catches?: number;
+    runOuts?: number;
+    stumpings?: number;
+    manOfMatch?: boolean;
+    bestBatsman?: boolean;
+    bestBowler?: boolean;
+    bestFielder?: boolean;
+    matchWon?: boolean;
+  }): Promise<Player | undefined> {
+    const player = await this.getPlayer(playerId);
+    if (!player) {
+      return undefined;
+    }
+
+    const incrementFields: any = {};
+    const updateFields: any = { updatedAt: new Date() };
+
+    // Track batting innings and dismissals
+    const batted = performanceData.ballsFaced !== undefined && performanceData.ballsFaced > 0;
+    if (batted) {
+      incrementFields['careerStats.innings'] = 1;
+      if (performanceData.isOut === true) {
+        incrementFields['careerStats.dismissals'] = 1;
+      }
+    }
+
+    // Batting stats increments
+    if (performanceData.runsScored !== undefined) incrementFields['careerStats.totalRuns'] = performanceData.runsScored;
+    if (performanceData.ballsFaced !== undefined) incrementFields['careerStats.totalBallsFaced'] = performanceData.ballsFaced;
+    if (performanceData.fours !== undefined) incrementFields['careerStats.totalFours'] = performanceData.fours;
+    if (performanceData.sixes !== undefined) incrementFields['careerStats.totalSixes'] = performanceData.sixes;
+
+    // Check for centuries/half-centuries (from THIS match)
+    if (performanceData.runsScored !== undefined) {
+      if (performanceData.runsScored >= 100) {
+        incrementFields['careerStats.centuries'] = 1;
+      } else if (performanceData.runsScored >= 50) {
+        incrementFields['careerStats.halfCenturies'] = 1;
+      }
+      
+      // Update highest score (from THIS match)
+      if (performanceData.runsScored > player.careerStats.highestScore) {
+        updateFields['careerStats.highestScore'] = performanceData.runsScored;
+      }
+    }
+
+    // Bowling stats increments
+    if (performanceData.oversBowled !== undefined) incrementFields['careerStats.totalOvers'] = performanceData.oversBowled;
+    if (performanceData.runsGiven !== undefined) incrementFields['careerStats.totalRunsGiven'] = performanceData.runsGiven;
+    if (performanceData.wicketsTaken !== undefined) incrementFields['careerStats.totalWickets'] = performanceData.wicketsTaken;
+    if (performanceData.maidens !== undefined) incrementFields['careerStats.totalMaidens'] = performanceData.maidens;
+
+    // Check for five wicket hauls (from THIS match)
+    if (performanceData.wicketsTaken !== undefined && performanceData.wicketsTaken >= 5) {
+      incrementFields['careerStats.fiveWicketHauls'] = 1;
+    }
+
+    // Fielding stats increments
+    if (performanceData.catches !== undefined) incrementFields['careerStats.catches'] = performanceData.catches;
+    if (performanceData.runOuts !== undefined) incrementFields['careerStats.runOuts'] = performanceData.runOuts;
+    if (performanceData.stumpings !== undefined) incrementFields['careerStats.stumpings'] = performanceData.stumpings;
+
+    // Awards increments
+    if (performanceData.manOfMatch === true) incrementFields['careerStats.manOfTheMatchAwards'] = 1;
+    if (performanceData.bestBatsman === true) incrementFields['careerStats.bestBatsmanAwards'] = 1;
+    if (performanceData.bestBowler === true) incrementFields['careerStats.bestBowlerAwards'] = 1;
+    if (performanceData.bestFielder === true) incrementFields['careerStats.bestFielderAwards'] = 1;
+
+    // Match stats increments
+    incrementFields['careerStats.totalMatches'] = 1;
+    if (performanceData.matchWon === true) incrementFields['careerStats.matchesWon'] = 1;
+
+    // Apply increments and updates
+    const result = await this.players.findOneAndUpdate(
+      { id: playerId } as any,
+      {
+        $inc: incrementFields,
+        $set: updateFields
+      },
+      { returnDocument: 'after' }
+    );
+
+    if (!result) {
+      return undefined;
+    }
+
+    // Recalculate averages and rates with proper guards
+    const updatedPlayer = result as Player;
+    const careerStats = updatedPlayer.careerStats;
+
+    // Batting average = totalRuns / dismissals (guard against division by zero)
+    if (careerStats.dismissals > 0) {
+      careerStats.battingAverage = parseFloat((careerStats.totalRuns / careerStats.dismissals).toFixed(2));
+    } else if (careerStats.innings > 0) {
+      // Not out - show runs as average
+      careerStats.battingAverage = careerStats.totalRuns;
+    } else {
+      careerStats.battingAverage = 0;
+    }
+
+    // Strike rate = (totalRuns / totalBallsFaced) * 100 (guard against division by zero)
+    if (careerStats.totalBallsFaced > 0) {
+      careerStats.strikeRate = parseFloat(((careerStats.totalRuns / careerStats.totalBallsFaced) * 100).toFixed(2));
+    } else {
+      careerStats.strikeRate = 0;
+    }
+
+    // Bowling average = totalRunsGiven / totalWickets (guard against division by zero)
+    if (careerStats.totalWickets > 0) {
+      careerStats.bowlingAverage = parseFloat((careerStats.totalRunsGiven / careerStats.totalWickets).toFixed(2));
+    } else {
+      careerStats.bowlingAverage = 0;
+    }
+
+    // Economy rate = totalRunsGiven / totalOvers (guard against division by zero)
+    if (careerStats.totalOvers > 0) {
+      careerStats.economy = parseFloat((careerStats.totalRunsGiven / careerStats.totalOvers).toFixed(2));
+    } else {
+      careerStats.economy = 0;
+    }
+
+    // Update with recalculated stats
+    await this.players.updateOne(
+      { id: playerId } as any,
+      { $set: { careerStats, updatedAt: new Date() } }
+    );
+
+    return updatedPlayer;
+  }
+
   // Player merge operations
   async getPlayerByEmail(email: string, excludePlayerId?: string): Promise<Player | undefined> {
     const query: any = { 
@@ -726,7 +1060,8 @@ export class MongoStorage implements IStorage {
         // Ensure both players have careerStats initialized
         const defaultCareerStats = {
           totalRuns: 0, totalBallsFaced: 0, totalFours: 0, totalSixes: 0,
-          highestScore: 0, centuries: 0, halfCenturies: 0, battingAverage: 0, strikeRate: 0,
+          highestScore: 0, centuries: 0, halfCenturies: 0, innings: 0, dismissals: 0,
+          battingAverage: 0, strikeRate: 0,
           totalOvers: 0, totalRunsGiven: 0, totalWickets: 0, totalMaidens: 0,
           bestBowlingFigures: null, fiveWicketHauls: 0, bowlingAverage: 0, economy: 0,
           catches: 0, runOuts: 0, stumpings: 0, totalMatches: 0, matchesWon: 0,
@@ -748,6 +1083,8 @@ export class MongoStorage implements IStorage {
             highestScore: Math.max(targetStats.highestScore, sourceStats.highestScore),
             centuries: targetStats.centuries + sourceStats.centuries,
             halfCenturies: targetStats.halfCenturies + sourceStats.halfCenturies,
+            innings: targetStats.innings + sourceStats.innings,
+            dismissals: targetStats.dismissals + sourceStats.dismissals,
             battingAverage: 0, // Will be recalculated
             strikeRate: 0, // Will be recalculated
             

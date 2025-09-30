@@ -21,6 +21,8 @@ import type {
   InsertTeam,
   Player,
   InsertPlayer,
+  PlayerPerformance,
+  InsertPlayerPerformance,
 } from "@shared/schema";
 
 export interface IStorage {
@@ -155,6 +157,37 @@ export interface IStorage {
     bestBowler?: boolean;
     bestFielder?: boolean;
     // Match result
+    matchWon?: boolean;
+  }): Promise<Player | undefined>;
+  
+  // Player performance operations
+  upsertPlayerByEmail(playerData: {
+    name: string;
+    email: string;
+    teamId?: string;
+    teamName?: string;
+    role?: string;
+  }): Promise<Player>;
+  linkPlayerToUserByEmail(email: string): Promise<{ success: boolean; playerId?: string; userId?: string }>;
+  recordPlayerPerformance(performance: InsertPlayerPerformance): Promise<PlayerPerformance>;
+  getPlayerPerformances(playerId: string, options?: { limit?: number; offset?: number }): Promise<PlayerPerformance[]>;
+  updatePlayerAggregates(playerId: string, performanceData: {
+    runsScored?: number;
+    ballsFaced?: number;
+    fours?: number;
+    sixes?: number;
+    isOut?: boolean;
+    oversBowled?: number;
+    runsGiven?: number;
+    wicketsTaken?: number;
+    maidens?: number;
+    catches?: number;
+    runOuts?: number;
+    stumpings?: number;
+    manOfMatch?: boolean;
+    bestBatsman?: boolean;
+    bestBowler?: boolean;
+    bestFielder?: boolean;
     matchWon?: boolean;
   }): Promise<Player | undefined>;
 
