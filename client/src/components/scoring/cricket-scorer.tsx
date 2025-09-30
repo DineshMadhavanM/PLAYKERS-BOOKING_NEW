@@ -1726,6 +1726,8 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
         queryClient.invalidateQueries({ queryKey: ['/api/players', playerId] });
         // Invalidate player match history  
         queryClient.invalidateQueries({ queryKey: ['/api/players', playerId, 'matches'] });
+        // Invalidate player performances
+        queryClient.invalidateQueries({ queryKey: ['/api/players', playerId, 'performances'] });
       }
     });
     
@@ -1821,6 +1823,8 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
           responseData.cacheInvalidation.players.forEach((playerId: string) => {
             queryClient.invalidateQueries({ queryKey: ['/api/players', playerId] });
             queryClient.invalidateQueries({ queryKey: ['/api/players', playerId, 'stats'] });
+            queryClient.invalidateQueries({ queryKey: ['/api/players', playerId, 'performances'] });
+            queryClient.invalidateQueries({ queryKey: ['/api/players', playerId, 'matches'] });
           });
         }
         queryClient.invalidateQueries({ queryKey: ['/api/players'] });
@@ -1964,6 +1968,7 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
             queryClient.invalidateQueries({ queryKey: ['/api/players', playerId] });
             queryClient.invalidateQueries({ queryKey: ['/api/players', playerId, 'matches'] });
             queryClient.invalidateQueries({ queryKey: ['/api/players', playerId, 'stats'] });
+            queryClient.invalidateQueries({ queryKey: ['/api/players', playerId, 'performances'] });
           });
           
           // Invalidate team caches
