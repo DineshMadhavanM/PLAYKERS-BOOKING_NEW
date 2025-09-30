@@ -1760,9 +1760,9 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
       // Process batting statistics
       for (const batter of battingStats) {
         const player = allPlayers.find(p => (p.name || p.playerName) === batter.name);
-        if (player) {
+        if (player && player.id) {
           playerStats.push({
-            playerId: player.id || batter.name,
+            playerId: player.id,
             teamId: player.teamId || (player.team === 'team1' ? getTeamId('team1') : getTeamId('team2')),
             runsScored: batter.runs,
             ballsFaced: batter.balls,
@@ -1772,14 +1772,16 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
             dismissalType: batter.dismissalType,
             manOfMatch: manOfMatchSelected && selectedManOfMatch === batter.name
           });
+        } else if (player && !player.id) {
+          console.warn(`⚠️ Skipping player ${batter.name} - missing player ID in roster`);
         }
       }
 
       // Process bowling statistics
       for (const bowler of bowlingStats) {
         const player = allPlayers.find(p => (p.name || p.playerName) === bowler.name);
-        if (player) {
-          const existingPlayerIndex: number = playerStats.findIndex(p => p.playerId === (player.id || bowler.name));
+        if (player && player.id) {
+          const existingPlayerIndex: number = playerStats.findIndex(p => p.playerId === player.id);
           if (existingPlayerIndex >= 0) {
             // Update existing player stats with bowling info
             playerStats[existingPlayerIndex] = {
@@ -1792,7 +1794,7 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
           } else {
             // Add new player with bowling stats only
             playerStats.push({
-              playerId: player.id || bowler.name,
+              playerId: player.id,
               teamId: player.teamId || (player.team === 'team1' ? getTeamId('team1') : getTeamId('team2')),
               oversBowled: bowler.overs,
               runsGiven: bowler.runsConceded,
@@ -1801,6 +1803,8 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
               manOfMatch: manOfMatchSelected && selectedManOfMatch === bowler.name
             });
           }
+        } else if (player && !player.id) {
+          console.warn(`⚠️ Skipping player ${bowler.name} - missing player ID in roster`);
         }
       }
 
