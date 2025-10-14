@@ -18,7 +18,7 @@ import { isUnauthorizedError, getDisplayName } from "@/lib/authUtils";
 import { apiRequest } from "@/lib/queryClient";
 import { Edit, Trophy, Calendar, MapPin, TrendingUp, Star, AlertCircle } from "lucide-react";
 import MatchCard from "@/components/match-card";
-import type { UserStats, Match, Booking } from "@shared/schema";
+import type { UserStats, Match, Booking, PlayerPerformance } from "@shared/schema";
 
 const profileSchema = z.object({
   firstName: z.string().min(1, "First name is required"),
@@ -78,6 +78,11 @@ export default function Profile() {
 
   const { data: userBookings = [] } = useQuery<Booking[]>({
     queryKey: ["/api/bookings"],
+    enabled: isAuthenticated,
+  });
+
+  const { data: performancesData } = useQuery<{ performances: PlayerPerformance[]; pagination: { limit: number; offset: number; count: number } }>({
+    queryKey: ["/api/user/performances"],
     enabled: isAuthenticated,
   });
 
@@ -370,8 +375,14 @@ export default function Profile() {
 
         {/* Profile Tabs */}
         <Tabs defaultValue="stats" className="w-full">
-          <TabsList className="grid w-full grid-cols-3 mb-8">
+          <TabsList className="grid w-full grid-cols-4 mb-8">
             <TabsTrigger value="stats" data-testid="tab-stats">Statistics</TabsTrigger>
+            <TabsTrigger value="performances" data-testid="tab-performances">
+              Performance Details
+              {performancesData?.performances && performancesData.performances.length > 0 && (
+                <Badge variant="secondary" className="ml-2">{performancesData.performances.length}</Badge>
+              )}
+            </TabsTrigger>
             <TabsTrigger value="matches" data-testid="tab-matches">Match History</TabsTrigger>
             <TabsTrigger value="bookings" data-testid="tab-bookings">Bookings</TabsTrigger>
           </TabsList>
@@ -425,6 +436,178 @@ export default function Profile() {
                 ))
               )}
             </div>
+          </TabsContent>
+
+          <TabsContent value="performances" data-testid="content-performances">
+            {!performancesData?.performances || performancesData.performances.length === 0 ? (
+              <Card>
+                <CardContent className="p-12 text-center">
+                  <TrendingUp className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+                  <h3 className="text-xl font-semibold mb-2">No Performance Records Yet</h3>
+                  <p className="text-muted-foreground">
+                    Performance data will appear here after you complete matches
+                  </p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="space-y-4">
+                {performancesData.performances.map((performance) => (
+                  <Card key={performance.id} className="hover:shadow-md transition-shadow" data-testid={`card-performance-${performance.id}`}>
+                    <CardContent className="p-4">
+                      <div className="space-y-3">
+                        {/* Match Header */}
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <h3 className="font-semibold text-lg">
+                              vs {performance.opposition}
+                            </h3>
+                            <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
+                              <Calendar className="h-3 w-3" />
+                              <span>{new Date(performance.matchDate).toLocaleDateString()}</span>
+                              {performance.venue && (
+                                <>
+                                  <span>•</span>
+                                  <MapPin className="h-3 w-3" />
+                                  <span>{performance.venue}</span>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                          <Badge 
+                            variant={performance.matchResult === 'won' ? 'default' : performance.matchResult === 'lost' ? 'destructive' : 'secondary'}
+                            className="ml-2"
+                          >
+                            {performance.matchResult === 'won' ? 'Won' : performance.matchResult === 'lost' ? 'Lost' : performance.matchResult === 'tied' ? 'Tied' : 'No Result'}
+                          </Badge>
+                        </div>
+
+                        {/* Performance Stats */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-3 border-t">
+                          {/* Batting */}
+                          {performance.battingStats && (
+                            <div>
+                              <h4 className="text-sm font-semibold mb-2 flex items-center gap-2">
+                                <Trophy className="h-4 w-4" />
+                                Batting
+                              </h4>
+                              <div className="space-y-1 text-sm">
+                                <div className="flex justify-between">
+                                  <span className="text-muted-foreground">Runs:</span>
+                                  <span className="font-semibold">{performance.battingStats.runs}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-muted-foreground">Balls:</span>
+                                  <span>{performance.battingStats.balls}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-muted-foreground">SR:</span>
+                                  <span>{performance.battingStats.strikeRate.toFixed(1)}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-muted-foreground">4s/6s:</span>
+                                  <span>{performance.battingStats.fours}/{performance.battingStats.sixes}</span>
+                                </div>
+                                {performance.battingStats.dismissalType && (
+                                  <div className="flex justify-between">
+                                    <span className="text-muted-foreground">Out:</span>
+                                    <span className="text-xs">{performance.battingStats.dismissalType}</span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Bowling */}
+                          {performance.bowlingStats && (
+                            <div>
+                              <h4 className="text-sm font-semibold mb-2 flex items-center gap-2">
+                                <TrendingUp className="h-4 w-4" />
+                                Bowling
+                              </h4>
+                              <div className="space-y-1 text-sm">
+                                <div className="flex justify-between">
+                                  <span className="text-muted-foreground">Wickets:</span>
+                                  <span className="font-semibold">{performance.bowlingStats.wickets}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-muted-foreground">Overs:</span>
+                                  <span>{performance.bowlingStats.overs}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-muted-foreground">Runs:</span>
+                                  <span>{performance.bowlingStats.runs}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-muted-foreground">Economy:</span>
+                                  <span>{performance.bowlingStats.economy.toFixed(1)}</span>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Fielding */}
+                          {performance.fieldingStats && (performance.fieldingStats.catches > 0 || performance.fieldingStats.runOuts > 0 || performance.fieldingStats.stumpings > 0) && (
+                            <div>
+                              <h4 className="text-sm font-semibold mb-2 flex items-center gap-2">
+                                <Star className="h-4 w-4" />
+                                Fielding
+                              </h4>
+                              <div className="space-y-1 text-sm">
+                                {performance.fieldingStats.catches > 0 && (
+                                  <div className="flex justify-between">
+                                    <span className="text-muted-foreground">Catches:</span>
+                                    <span>{performance.fieldingStats.catches}</span>
+                                  </div>
+                                )}
+                                {performance.fieldingStats.runOuts > 0 && (
+                                  <div className="flex justify-between">
+                                    <span className="text-muted-foreground">Run Outs:</span>
+                                    <span>{performance.fieldingStats.runOuts}</span>
+                                  </div>
+                                )}
+                                {performance.fieldingStats.stumpings > 0 && (
+                                  <div className="flex justify-between">
+                                    <span className="text-muted-foreground">Stumpings:</span>
+                                    <span>{performance.fieldingStats.stumpings}</span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Awards */}
+                        {performance.awards && performance.awards.length > 0 && (
+                          <div className="pt-3 border-t">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <Star className="h-4 w-4 text-yellow-500" />
+                              {performance.awards.map((award, idx) => (
+                                <Badge key={idx} variant="secondary" className="capitalize">
+                                  {award.replace('-', ' ')}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* View Match Details Button */}
+                        <div className="pt-3 border-t">
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="w-full"
+                            onClick={() => window.location.href = `/matches/${performance.matchId}`}
+                            data-testid={`link-match-${performance.matchId}`}
+                          >
+                            View Match Details →
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
           </TabsContent>
 
           <TabsContent value="matches" data-testid="content-matches">
