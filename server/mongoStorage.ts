@@ -882,6 +882,21 @@ export class MongoStorage implements IStorage {
     return performances;
   }
 
+  async getUserPerformances(userId: string, options?: { limit?: number; offset?: number }): Promise<PlayerPerformance[]> {
+    // Validate and cap limit for safety
+    const limit = Math.min(options?.limit || 20, 100);
+    const offset = options?.offset || 0;
+    
+    const performances = await this.playerPerformances
+      .find({ userId } as any)
+      .sort({ matchDate: -1, _id: -1 }) // Stable sort: matchDate desc, then _id desc
+      .skip(offset)
+      .limit(limit)
+      .toArray();
+    
+    return performances;
+  }
+
   async updatePlayerAggregates(playerId: string, performanceData: {
     runsScored?: number;
     ballsFaced?: number;

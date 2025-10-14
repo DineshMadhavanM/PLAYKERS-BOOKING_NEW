@@ -1253,6 +1253,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get user match performances with pagination
+  app.get('/api/user/performances', requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.session.user.id;
+      // Parse and validate pagination parameters (clamp limit 0-100, offset >= 0)
+      const limit = Math.min(Math.max(0, parseInt(req.query.limit as string, 10) || 20), 100);
+      const offset = Math.max(0, parseInt(req.query.offset as string, 10) || 0);
+      
+      // Fetch performances with pagination
+      const performances = await storage.getUserPerformances(userId, { limit, offset });
+      
+      res.json({
+        performances,
+        pagination: {
+          limit,
+          offset,
+          count: performances.length,
+        },
+      });
+    } catch (error) {
+      console.error("Error fetching user performances:", error);
+      res.status(500).json({ message: "Failed to fetch user performances" });
+    }
+  });
+
   app.post('/api/players', requireAuth, async (req: any, res) => {
     try {
       const playerData = insertPlayerSchema.parse(req.body);

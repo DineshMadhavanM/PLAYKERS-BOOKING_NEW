@@ -171,6 +171,7 @@ export interface IStorage {
   linkPlayerToUserByEmail(email: string): Promise<{ success: boolean; playerId?: string; userId?: string }>;
   recordPlayerPerformance(performance: InsertPlayerPerformance): Promise<PlayerPerformance>;
   getPlayerPerformances(playerId: string, options?: { limit?: number; offset?: number }): Promise<PlayerPerformance[]>;
+  getUserPerformances(userId: string, options?: { limit?: number; offset?: number }): Promise<PlayerPerformance[]>;
   updatePlayerAggregates(playerId: string, performanceData: {
     runsScored?: number;
     ballsFaced?: number;
