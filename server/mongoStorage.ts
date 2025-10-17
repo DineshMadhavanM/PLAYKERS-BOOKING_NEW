@@ -479,7 +479,16 @@ export class MongoStorage implements IStorage {
         query.name = new RegExp(filters.search, 'i');
       }
       if (filters.sport) {
-        query.sport = filters.sport;
+        // For cricket, include teams without a sport field (cricket is the default)
+        // For other sports, only include teams with that specific sport
+        if (filters.sport === 'cricket') {
+          query.$or = [
+            { sport: 'cricket' },
+            { sport: { $exists: false } }
+          ];
+        } else {
+          query.sport = filters.sport;
+        }
       }
     }
     
