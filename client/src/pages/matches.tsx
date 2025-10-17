@@ -173,8 +173,11 @@ export default function Matches() {
         <Button
           variant="outline"
           size="sm"
-          onClick={() => navigate('/matches')}
+          onClick={() => {
+            window.location.href = '/matches';
+          }}
           className="flex items-center gap-2"
+          data-testid="button-back-to-matches"
         >
           <ArrowLeft className="h-4 w-4" />
           Back to Matches
