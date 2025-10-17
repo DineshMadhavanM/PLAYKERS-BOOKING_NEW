@@ -930,13 +930,21 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
       updateBowlingStats(currentBowler, bowlerRunsConceded, bowlerGetsWicket, countsAsBall);
     }
 
+    // Check if this will be the last ball of the over (for wicket positioning)
+    const isLastBallOfOver = countsAsBall && currentBall === 5;
+
+    // Store the current non-striker before any updates (needed for last ball wicket logic)
+    const nonStrikerBeforeWicket = currentNonStriker;
+
     // Update batsmen based on who was dismissed
     if (nextBatsmanName) {
       if (actualDismissedBatter === 'striker') {
+        // Striker gets out: new batsman replaces striker position
         setCurrentStriker(nextBatsmanName);
         // Initialize batting stats for new batsman
         updateBattingStats(nextBatsmanName, 0, false, false);
       } else {
+        // Non-striker gets out: new batsman replaces non-striker position
         setCurrentNonStriker(nextBatsmanName);
         // Initialize batting stats for new batsman
         updateBattingStats(nextBatsmanName, 0, false, false);
@@ -954,9 +962,21 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
     
     const endOfOver = countsAsBall ? nextBall() : false;
     
-    // Rotate strike at end of over only if last legal ball had odd runs (0 for wickets is even, so no rotation)
+    // Special handling for wicket on last ball of over:
+    // The non-striker (who was at the other end) should face the next over
+    // and the new batsman should be at the non-striker end
+    if (endOfOver && actualDismissedBatter === 'striker' && nextBatsmanName) {
+      // Swap: non-striker (who was at other end) becomes striker for next over
+      // and new batsman (who just came in at striker) goes to non-striker
+      setTimeout(() => {
+        setCurrentStriker(nonStrikerBeforeWicket);
+        setCurrentNonStriker(nextBatsmanName);
+      }, 0);
+    } else if (endOfOver) {
+      // Normal end of over (no striker wicket): no special rotation needed
+    }
+    
     if (endOfOver) {
-      // 0 runs for wickets is even, so don't rotate according to the rule
       handleOverCompletion();
     }
 
