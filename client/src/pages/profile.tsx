@@ -454,16 +454,139 @@ export default function Profile() {
                 </div>
               )}
 
+              {/* Player Profile Statistics */}
+              {linkedPlayer && (
+                <div className="mb-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-semibold">Cricket Career Statistics</h3>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => window.location.href = `/players/${linkedPlayer.id}`}
+                      data-testid="button-view-full-profile"
+                    >
+                      View Full Profile <ExternalLink className="h-3 w-3 ml-1" />
+                    </Button>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {/* Batting Stats */}
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-base">Batting</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-3 text-sm">
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Total Runs:</span>
+                            <span className="font-semibold">{linkedPlayer.careerStats?.totalRuns || 0}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Highest Score:</span>
+                            <span className="font-semibold">{linkedPlayer.careerStats?.highestScore || 0}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Average:</span>
+                            <span className="font-semibold">{linkedPlayer.careerStats?.battingAverage?.toFixed(2) || '0.00'}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Strike Rate:</span>
+                            <span className="font-semibold">{linkedPlayer.careerStats?.strikeRate?.toFixed(2) || '0.00'}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Centuries:</span>
+                            <span className="font-semibold text-green-600">{linkedPlayer.careerStats?.centuries || 0}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Half Centuries:</span>
+                            <span className="font-semibold text-blue-600">{linkedPlayer.careerStats?.halfCenturies || 0}</span>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    {/* Bowling Stats */}
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-base">Bowling</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-3 text-sm">
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Total Wickets:</span>
+                            <span className="font-semibold">{linkedPlayer.careerStats?.totalWickets || 0}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Bowling Average:</span>
+                            <span className="font-semibold">{linkedPlayer.careerStats?.bowlingAverage?.toFixed(2) || '0.00'}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Economy Rate:</span>
+                            <span className="font-semibold">{linkedPlayer.careerStats?.economy?.toFixed(2) || '0.00'}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">5-wicket Hauls:</span>
+                            <span className="font-semibold text-red-600">{linkedPlayer.careerStats?.fiveWicketHauls || 0}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Total Overs:</span>
+                            <span className="font-semibold">{linkedPlayer.careerStats?.totalOvers || 0}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Best Bowling:</span>
+                            <span className="font-semibold">{linkedPlayer.careerStats?.bestBowlingFigures || '-'}</span>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    {/* Fielding & Awards */}
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-base">Fielding & Awards</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-3 text-sm">
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Catches:</span>
+                            <span className="font-semibold">{linkedPlayer.careerStats?.catches || 0}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Run Outs:</span>
+                            <span className="font-semibold">{linkedPlayer.careerStats?.runOuts || 0}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Stumpings:</span>
+                            <span className="font-semibold">{linkedPlayer.careerStats?.stumpings || 0}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Man of the Match:</span>
+                            <span className="font-semibold text-yellow-600">{linkedPlayer.careerStats?.manOfTheMatchAwards || 0}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Total Matches:</span>
+                            <span className="font-semibold text-primary">{linkedPlayer.careerStats?.totalMatches || 0}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Matches Won:</span>
+                            <span className="font-semibold text-green-600">{linkedPlayer.careerStats?.matchesWon || 0}</span>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+                </div>
+              )}
+
               {/* Detailed Performance Stats */}
               <div>
-                <h3 className="text-lg font-semibold mb-4">Detailed Performance</h3>
+                <h3 className="text-lg font-semibold mb-4">Match-by-Match Performance</h3>
                 {!performancesData?.performances || performancesData.performances.length === 0 ? (
                   <Card>
                     <CardContent className="p-12 text-center">
                       <Trophy className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-                      <h3 className="text-xl font-semibold mb-2">No Statistics Yet</h3>
+                      <h3 className="text-xl font-semibold mb-2">No Performance Records Yet</h3>
                       <p className="text-muted-foreground">
-                        Start playing matches to see your statistics here!
+                        Start playing matches to see your match-by-match statistics here!
                       </p>
                     </CardContent>
                   </Card>
