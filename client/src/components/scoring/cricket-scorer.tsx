@@ -71,6 +71,7 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
   const [dismissedBatter, setDismissedBatter] = useState<'striker' | 'non-striker'>('striker');
   const [extraRuns, setExtraRuns] = useState(0);
   const [runOutRuns, setRunOutRuns] = useState(0);
+  const [runOutNewStriker, setRunOutNewStriker] = useState<string>('');
   
   // Live scorecard state
   const [currentStriker, setCurrentStriker] = useState('');
@@ -713,10 +714,11 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
     setDismissedBatter('striker');
     setExtraRuns(0);
     setRunOutRuns(0);
+    setRunOutNewStriker('');
     setShowWicketDialog(true);
   };
 
-  const addWicket = (wicketType: 'bowled' | 'caught' | 'run-out' | 'hit-wicket' | 'stump-out' | 'wide-wicket' | 'no-ball-wicket' | 'leg-bye-wicket' | 'bye-wicket', fielder?: string, nextBatsmanName?: string, dismissedBatter?: 'striker' | 'non-striker', extraRunsConceded?: number) => {
+  const addWicket = (wicketType: 'bowled' | 'caught' | 'run-out' | 'hit-wicket' | 'stump-out' | 'wide-wicket' | 'no-ball-wicket' | 'leg-bye-wicket' | 'bye-wicket', fielder?: string, nextBatsmanName?: string, dismissedBatter?: 'striker' | 'non-striker', extraRunsConceded?: number, newStrikerAfterRunOut?: string) => {
     if (!isLive || isMatchCompleted || showManOfMatchDialog) return;
     
     // Block further scoring if first innings is complete
@@ -946,16 +948,33 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
 
     // Update batsmen based on who was dismissed
     if (nextBatsmanName) {
-      if (actualDismissedBatter === 'striker') {
-        // Striker gets out: new batsman replaces striker position
-        setCurrentStriker(nextBatsmanName);
-        // Initialize batting stats for new batsman
-        updateBattingStats(nextBatsmanName, 0, false, false);
+      // Initialize batting stats for new batsman
+      updateBattingStats(nextBatsmanName, 0, false, false);
+      
+      // Special handling for run-out with custom batting positions
+      if (wicketType === 'run-out' && newStrikerAfterRunOut) {
+        // Determine the surviving batsman
+        const survivingBatsman = actualDismissedBatter === 'striker' ? currentNonStriker : currentStriker;
+        
+        // Set positions based on user selection
+        if (newStrikerAfterRunOut === nextBatsmanName) {
+          // New batsman is striker, surviving batsman is non-striker
+          setCurrentStriker(nextBatsmanName);
+          setCurrentNonStriker(survivingBatsman);
+        } else {
+          // Surviving batsman is striker, new batsman is non-striker
+          setCurrentStriker(survivingBatsman);
+          setCurrentNonStriker(nextBatsmanName);
+        }
       } else {
-        // Non-striker gets out: new batsman replaces non-striker position
-        setCurrentNonStriker(nextBatsmanName);
-        // Initialize batting stats for new batsman
-        updateBattingStats(nextBatsmanName, 0, false, false);
+        // Standard wicket logic
+        if (actualDismissedBatter === 'striker') {
+          // Striker gets out: new batsman replaces striker position
+          setCurrentStriker(nextBatsmanName);
+        } else {
+          // Non-striker gets out: new batsman replaces non-striker position
+          setCurrentNonStriker(nextBatsmanName);
+        }
       }
     }
 
@@ -3098,33 +3117,6 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
               </div>
             )}
 
-            {/* Who is Out Selection (Run-out only) */}
-            {selectedWicketType === 'run-out' && (
-              <div className="space-y-2">
-                <Label className="font-medium">Who is Out:</Label>
-                <div className="flex gap-2">
-                  <Button
-                    type="button"
-                    variant={dismissedBatter === 'striker' ? 'default' : 'outline'}
-                    onClick={() => setDismissedBatter('striker')}
-                    className="flex-1"
-                    data-testid="button-striker-out"
-                  >
-                    Striker ({currentStriker})
-                  </Button>
-                  <Button
-                    type="button"
-                    variant={dismissedBatter === 'non-striker' ? 'default' : 'outline'}
-                    onClick={() => setDismissedBatter('non-striker')}
-                    className="flex-1"
-                    data-testid="button-non-striker-out"
-                  >
-                    Non-Striker ({currentNonStriker})
-                  </Button>
-                </div>
-              </div>
-            )}
-
             {/* Runs Scored in Run-out */}
             {selectedWicketType === 'run-out' && (
               <div className="space-y-2">
@@ -3210,6 +3202,65 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
               </div>
             )}
 
+            {/* Who is Out Selection (Run-out only - appears after next batsman selected) */}
+            {selectedWicketType === 'run-out' && nextBatsman.trim() && (
+              <div className="space-y-2">
+                <Label className="font-medium">Who is Out:</Label>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant={dismissedBatter === 'striker' ? 'default' : 'outline'}
+                    onClick={() => setDismissedBatter('striker')}
+                    className="flex-1"
+                    data-testid="button-striker-out"
+                  >
+                    Striker ({currentStriker})
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={dismissedBatter === 'non-striker' ? 'default' : 'outline'}
+                    onClick={() => setDismissedBatter('non-striker')}
+                    className="flex-1"
+                    data-testid="button-non-striker-out"
+                  >
+                    Non-Striker ({currentNonStriker})
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Batting Positions Selection (Run-out only - after who is out) */}
+            {selectedWicketType === 'run-out' && nextBatsman.trim() && (
+              <div className="space-y-2">
+                <Label className="font-medium">Select Batting Positions:</Label>
+                <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg border border-blue-200 dark:border-blue-800">
+                  <p className="text-xs text-blue-600 dark:text-blue-400 mb-3">
+                    Choose who will be the striker for the next ball
+                  </p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button
+                      type="button"
+                      variant={runOutNewStriker === (dismissedBatter === 'striker' ? currentNonStriker : currentStriker) ? 'default' : 'outline'}
+                      onClick={() => setRunOutNewStriker(dismissedBatter === 'striker' ? currentNonStriker : currentStriker)}
+                      className="flex-1"
+                      data-testid="button-existing-striker"
+                    >
+                      {dismissedBatter === 'striker' ? currentNonStriker : currentStriker} (Striker)
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={runOutNewStriker === nextBatsman.trim() ? 'default' : 'outline'}
+                      onClick={() => setRunOutNewStriker(nextBatsman.trim())}
+                      className="flex-1"
+                      data-testid="button-new-batsman-striker"
+                    >
+                      {nextBatsman.trim()} (Striker)
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Action Buttons */}
             <div className="flex gap-3 pt-4">
               <Button 
@@ -3267,6 +3318,16 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
                       return;
                     }
                     
+                    // Additional validation for run-out: batting position must be selected
+                    if (selectedWicketType === 'run-out' && !runOutNewStriker) {
+                      toast({
+                        title: "Batting Position Required",
+                        description: "Please select who will be the striker after the run-out.",
+                        variant: "destructive",
+                      });
+                      return;
+                    }
+                    
                     addWicket(
                       selectedWicketType, 
                       fielderName || undefined, 
@@ -3276,7 +3337,8 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
                         ? extraRuns 
                         : selectedWicketType === 'run-out' 
                           ? runOutRuns 
-                          : undefined
+                          : undefined,
+                      selectedWicketType === 'run-out' ? runOutNewStriker : undefined
                     );
                     // Close dialog after wicket is recorded
                     setShowWicketDialog(false);
