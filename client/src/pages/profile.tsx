@@ -570,6 +570,14 @@ export default function Profile() {
                             <span className="text-muted-foreground">Matches Won:</span>
                             <span className="font-semibold text-green-600">{linkedPlayer.careerStats?.matchesWon || 0}</span>
                           </div>
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Win Rate:</span>
+                            <span className="font-semibold text-blue-600">
+                              {linkedPlayer.careerStats?.totalMatches && linkedPlayer.careerStats.totalMatches > 0
+                                ? `${((linkedPlayer.careerStats.matchesWon || 0) / linkedPlayer.careerStats.totalMatches * 100).toFixed(1)}%`
+                                : '0%'}
+                            </span>
+                          </div>
                         </div>
                       </CardContent>
                     </Card>
