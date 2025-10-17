@@ -3059,14 +3059,34 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
                 <Label htmlFor="fielder-name" className="font-medium">
                   Fielder Name:
                 </Label>
-                <Input
-                  id="fielder-name"
-                  value={fielderName}
-                  onChange={(e) => setFielderName(e.target.value)}
-                  placeholder="Enter fielder's name"
-                  data-testid="input-fielder-name"
-                  className="w-full"
-                />
+                <div className="flex gap-2">
+                  <Select value={fielderName} onValueChange={setFielderName}>
+                    <SelectTrigger className="flex-1" data-testid="select-fielder-name">
+                      <SelectValue placeholder="Select fielder" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {getFieldingRoster().map((player: any, index: number) => (
+                        <SelectItem key={player.id || `fielder-${index}`} value={player.name || player.playerName}>
+                          {player.name || player.playerName}
+                          {player.role && player.role !== 'player' && (
+                            <span className="ml-2 text-xs text-muted-foreground">({player.role})</span>
+                          )}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Input
+                    id="fielder-name"
+                    value={fielderName}
+                    onChange={(e) => setFielderName(e.target.value)}
+                    placeholder="Or type name"
+                    data-testid="input-fielder-name"
+                    className="flex-1"
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Select from dropdown or type manually
+                </p>
               </div>
             )}
 
