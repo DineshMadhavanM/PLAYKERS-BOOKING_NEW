@@ -147,6 +147,9 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
   const [selectedReplacement, setSelectedReplacement] = useState('');
   const [replacingPlayer, setReplacingPlayer] = useState<'striker' | 'non-striker'>('striker');
   
+  // Undo functionality - State history
+  const [stateHistory, setStateHistory] = useState<any[]>([]);
+  
   // Match configuration for bowling restrictions
   const totalOvers = parseInt(match.matchType?.replace(/[^\d]/g, '') || '20'); // Extract number from match type like "20 Overs"
   const maxWickets = 10; // Maximum wickets in an innings
@@ -486,8 +489,84 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
     });
   };
 
+  // Save current state snapshot before action
+  const saveStateSnapshot = () => {
+    const snapshot = {
+      currentInning,
+      currentOver,
+      currentBall,
+      team1Runs,
+      team1Wickets,
+      team1Balls,
+      team2Runs,
+      team2Wickets,
+      team2Balls,
+      ballByBall: [...ballByBall],
+      currentStriker,
+      currentNonStriker,
+      currentBowler,
+      battingStats: JSON.parse(JSON.stringify(battingStats)),
+      bowlingStats: JSON.parse(JSON.stringify(bowlingStats)),
+      lastLegalBallRuns,
+      lastOverBowlerByInning: {...lastOverBowlerByInning},
+      bowlingHistoryByInning: JSON.parse(JSON.stringify(bowlingHistoryByInning)),
+      ballsByBowlerByInning: JSON.parse(JSON.stringify(ballsByBowlerByInning)),
+      dismissedPlayers: new Set(dismissedPlayers),
+    };
+    
+    setStateHistory(prev => [...prev, snapshot].slice(-10)); // Keep last 10 states
+  };
+
+  // Undo last action
+  const undoLastAction = () => {
+    if (stateHistory.length === 0) {
+      toast({
+        title: "Cannot Undo",
+        description: "No actions to undo.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const previousState = stateHistory[stateHistory.length - 1];
+    
+    // Restore all state
+    setCurrentInning(previousState.currentInning);
+    setCurrentOver(previousState.currentOver);
+    setCurrentBall(previousState.currentBall);
+    setTeam1Runs(previousState.team1Runs);
+    setTeam1Wickets(previousState.team1Wickets);
+    setTeam1Balls(previousState.team1Balls);
+    setTeam2Runs(previousState.team2Runs);
+    setTeam2Wickets(previousState.team2Wickets);
+    setTeam2Balls(previousState.team2Balls);
+    setBallByBall(previousState.ballByBall);
+    setCurrentStriker(previousState.currentStriker);
+    setCurrentNonStriker(previousState.currentNonStriker);
+    setCurrentBowler(previousState.currentBowler);
+    setBattingStats(previousState.battingStats);
+    setBowlingStats(previousState.bowlingStats);
+    setLastLegalBallRuns(previousState.lastLegalBallRuns);
+    setLastOverBowlerByInning(previousState.lastOverBowlerByInning);
+    setBowlingHistoryByInning(previousState.bowlingHistoryByInning);
+    setBallsByBowlerByInning(previousState.ballsByBowlerByInning);
+    setDismissedPlayers(previousState.dismissedPlayers);
+    
+    // Remove the last state from history
+    setStateHistory(prev => prev.slice(0, -1));
+    
+    toast({
+      title: "Action Undone",
+      description: "Last action has been successfully reverted.",
+      duration: 2000,
+    });
+  };
+
   const addRuns = (runs: number) => {
     if (!isLive || isMatchCompleted || showManOfMatchDialog) return;
+    
+    // Save state before action
+    saveStateSnapshot();
     
     // Capture original striker positions for end-of-over logic
     const originalStriker = currentStriker;
@@ -720,6 +799,9 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
 
   const addWicket = (wicketType: 'bowled' | 'caught' | 'run-out' | 'hit-wicket' | 'stump-out' | 'wide-wicket' | 'no-ball-wicket' | 'leg-bye-wicket' | 'bye-wicket', fielder?: string, nextBatsmanName?: string, dismissedBatter?: 'striker' | 'non-striker', extraRunsConceded?: number, newStrikerAfterRunOut?: string) => {
     if (!isLive || isMatchCompleted || showManOfMatchDialog) return;
+    
+    // Save state before action
+    saveStateSnapshot();
     
     // Block further scoring if first innings is complete
     if (currentInning === 1 && firstInningsComplete) {
@@ -1035,6 +1117,9 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
 
   const addExtra = (type: 'wide' | 'no-ball' | 'bye' | 'leg-bye', runs: number = 1) => {
     if (!isLive || isMatchCompleted || showManOfMatchDialog) return;
+    
+    // Save state before action
+    saveStateSnapshot();
     
     // Block further scoring if first innings is complete
     if (currentInning === 1 && firstInningsComplete) {
@@ -2405,6 +2490,15 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
                       className="border-orange-300 hover:bg-orange-50"
                     >
                       Leg Bye
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      onClick={undoLastAction}
+                      disabled={isMatchCompleted || stateHistory.length === 0}
+                      data-testid="button-undo"
+                      className="border-red-300 hover:bg-red-50 col-span-2"
+                    >
+                      ↶ Undo Last Action
                     </Button>
                   </div>
                 </div>
