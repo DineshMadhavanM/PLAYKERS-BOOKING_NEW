@@ -368,11 +368,19 @@ export default function CreateMatch() {
         return;
       }
 
-      // Check for required roles
-      const team1Captain = team1Roster.find(p => p.role === "captain");
-      const team2Captain = team2Roster.find(p => p.role === "captain");
-      const team1WicketKeeper = team1Roster.find(p => p.role === "wicket-keeper");
-      const team2WicketKeeper = team2Roster.find(p => p.role === "wicket-keeper");
+      // Check for required roles (captain or captain-wicket-keeper)
+      const team1Captain = team1Roster.find(p => p.role === "captain" || p.role === "captain-wicket-keeper");
+      const team2Captain = team2Roster.find(p => p.role === "captain" || p.role === "captain-wicket-keeper");
+      const team1WicketKeeper = team1Roster.find(p => 
+        p.role === "wicket-keeper" || 
+        p.role === "captain-wicket-keeper" || 
+        p.role === "vice-captain-wicket-keeper"
+      );
+      const team2WicketKeeper = team2Roster.find(p => 
+        p.role === "wicket-keeper" || 
+        p.role === "captain-wicket-keeper" || 
+        p.role === "vice-captain-wicket-keeper"
+      );
 
       if (!team1Captain || !team2Captain) {
         toast({
