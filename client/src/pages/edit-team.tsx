@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { insertTeamSchema } from "@shared/schema";
@@ -36,6 +37,7 @@ export default function EditTeam() {
     resolver: zodResolver(insertTeamSchema),
     defaultValues: {
       name: "",
+      sport: "cricket",
       shortName: "",
       description: "",
       city: "",
@@ -46,6 +48,7 @@ export default function EditTeam() {
   if (team && !form.getValues().name) {
     form.reset({
       name: team.name,
+      sport: team.sport || "cricket",
       shortName: team.shortName || "",
       description: team.description || "",
       city: team.city || "",
@@ -160,6 +163,34 @@ export default function EditTeam() {
                   )}
                 />
 
+                {/* Sport Selection */}
+                <FormField
+                  control={form.control}
+                  name="sport"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Sport *</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger data-testid="select-team-sport">
+                            <SelectValue placeholder="Select a sport" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="cricket">Cricket</SelectItem>
+                          <SelectItem value="football">Football</SelectItem>
+                          <SelectItem value="handball">Handball</SelectItem>
+                          <SelectItem value="tennis">Tennis</SelectItem>
+                          <SelectItem value="kabaddi">Kabaddi</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Short Name */}
                 <FormField
                   control={form.control}

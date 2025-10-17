@@ -471,12 +471,15 @@ export class MongoStorage implements IStorage {
   }
 
   // Team operations
-  async getTeams(filters?: { search?: string }): Promise<Team[]> {
+  async getTeams(filters?: { search?: string; sport?: string }): Promise<Team[]> {
     let query: any = {};
     
     if (filters) {
       if (filters.search) {
         query.name = new RegExp(filters.search, 'i');
+      }
+      if (filters.sport) {
+        query.sport = filters.sport;
       }
     }
     

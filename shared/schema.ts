@@ -136,6 +136,7 @@ export const insertUserStatsSchema = z.object({
 // Team validation schemas
 export const insertTeamSchema = z.object({
   name: z.string().min(1, "Team name is required"),
+  sport: z.enum(["cricket", "football", "handball", "tennis", "kabaddi"]).default("cricket"),
   shortName: z.string().max(4, "Short name must be 4 characters or less").optional(),
   description: z.string().optional(),
   city: z.string().optional(),
@@ -900,6 +901,7 @@ export type UserStats = {
 export type Team = {
   id: string;
   name: string;
+  sport: "cricket" | "football" | "handball" | "tennis" | "kabaddi";
   shortName: string | null;
   description: string | null;
   city: string | null;

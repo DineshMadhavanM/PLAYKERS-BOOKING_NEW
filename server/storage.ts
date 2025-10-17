@@ -114,7 +114,7 @@ export interface IStorage {
   updateUserStats(userId: string, sport: string, stats: any): Promise<UserStats>;
 
   // Team operations
-  getTeams(filters?: { search?: string }): Promise<Team[]>;
+  getTeams(filters?: { search?: string; sport?: string }): Promise<Team[]>;
   getTeam(id: string): Promise<Team | undefined>;
   createTeam(team: InsertTeam): Promise<Team>;
   updateTeam(id: string, team: Partial<InsertTeam>): Promise<Team | undefined>;

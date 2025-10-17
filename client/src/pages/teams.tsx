@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useLocation } from "wouter";
-import { Plus, Search, Users, Trophy, Target, Calendar, Play } from "lucide-react";
+import { Plus, Search, Users, Trophy, Target, Calendar, Play, Footprints, Hand, CircleDot, Activity } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,18 +14,24 @@ interface TeamsResponse {
   teams: Team[];
 }
 
+type SportType = "cricket" | "football" | "handball" | "tennis" | "kabaddi" | "all";
+
 export default function Teams() {
   const [, navigate] = useLocation();
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedSport, setSelectedSport] = useState<SportType>("all");
 
   // Fetch teams from API
   const { data, isLoading, error } = useQuery({
-    queryKey: ['/api/teams', searchQuery],
+    queryKey: ['/api/teams', searchQuery, selectedSport],
     queryFn: async (): Promise<Team[]> => {
       const params = new URLSearchParams();
       if (searchQuery.trim()) {
         params.set('search', searchQuery.trim());
+      }
+      if (selectedSport !== "all") {
+        params.set('sport', selectedSport);
       }
       const response = await fetch(`/api/teams?${params}`);
       if (!response.ok) {
@@ -36,6 +42,16 @@ export default function Teams() {
   });
 
   const teams = data || [];
+
+  // Sports configuration
+  const sports = [
+    { id: "all", name: "All Sports", icon: Users, color: "bg-gradient-to-br from-gray-500 to-gray-600" },
+    { id: "cricket", name: "Cricket", icon: Activity, color: "bg-gradient-to-br from-green-500 to-emerald-600" },
+    { id: "football", name: "Football", icon: Footprints, color: "bg-gradient-to-br from-blue-500 to-blue-600" },
+    { id: "handball", name: "Handball", icon: Hand, color: "bg-gradient-to-br from-orange-500 to-orange-600" },
+    { id: "tennis", name: "Tennis", icon: CircleDot, color: "bg-gradient-to-br from-yellow-500 to-yellow-600" },
+    { id: "kabaddi", name: "Kabaddi", icon: Trophy, color: "bg-gradient-to-br from-purple-500 to-purple-600" },
+  ] as const;
 
   if (error) {
     toast({
@@ -67,6 +83,39 @@ export default function Teams() {
           <Plus className="h-4 w-4" />
           Create Team
         </Button>
+      </div>
+
+      {/* Sports Selector */}
+      <div className="mb-8">
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Select Sport</h2>
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
+          {sports.map((sport) => {
+            const Icon = sport.icon;
+            const isSelected = selectedSport === sport.id;
+            return (
+              <Card
+                key={sport.id}
+                className={`cursor-pointer transition-all hover:scale-105 ${
+                  isSelected 
+                    ? 'ring-2 ring-primary shadow-lg' 
+                    : 'hover:shadow-md'
+                }`}
+                onClick={() => setSelectedSport(sport.id as SportType)}
+                data-testid={`card-sport-${sport.id}`}
+              >
+                <CardContent className="p-4 flex flex-col items-center gap-2">
+                  <div className={`${sport.color} p-3 rounded-full text-white`}>
+                    <Icon className="h-6 w-6" />
+                  </div>
+                  <span className="text-sm font-medium text-center">{sport.name}</span>
+                  {isSelected && (
+                    <Badge variant="default" className="text-xs">Selected</Badge>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
       </div>
 
       {/* Search Section */}

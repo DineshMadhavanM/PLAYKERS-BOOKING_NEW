@@ -1130,9 +1130,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Team routes
   app.get('/api/teams', async (req, res) => {
     try {
-      const { search } = req.query;
+      const { search, sport } = req.query;
       const teams = await storage.getTeams({
         search: search as string,
+        sport: sport as string,
       });
       res.json(teams);
     } catch (error) {
