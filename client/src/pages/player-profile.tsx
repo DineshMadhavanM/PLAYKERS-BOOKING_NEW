@@ -472,6 +472,11 @@ export default function PlayerProfile() {
                 <Calendar className="h-5 w-5" />
                 Match History ({playerMatches.length})
               </CardTitle>
+              {player.email && (
+                <p className="text-sm text-muted-foreground mt-2">
+                  Player Email: <span className="font-medium">{player.email}</span>
+                </p>
+              )}
             </CardHeader>
             <CardContent>
               {matchesLoading ? (
