@@ -887,8 +887,16 @@ export class MongoStorage implements IStorage {
     const limit = Math.min(options?.limit || 20, 100);
     const offset = options?.offset || 0;
     
+    // Find the player linked to this user
+    const linkedPlayer = await this.players.findOne({ userId } as any);
+    if (!linkedPlayer) {
+      // User has no linked player profile, return empty array
+      return [];
+    }
+    
+    // Query performances by the linked player's ID
     const performances = await this.playerPerformances
-      .find({ userId } as any)
+      .find({ playerId: linkedPlayer.id } as any)
       .sort({ matchDate: -1, _id: -1 }) // Stable sort: matchDate desc, then _id desc
       .skip(offset)
       .limit(limit)
