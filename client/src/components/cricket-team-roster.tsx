@@ -90,13 +90,13 @@ export default function CricketTeamRoster({
   const updatePlayerRole = (playerId: string, newRole: Player["role"]) => {
     // Check for role conflicts (except for regular player)
     if (newRole !== "player") {
-      // Define conflicting roles
+      // Define conflicting roles - a team can have one captain, one vice-captain, and one wicket-keeper
       const roleConflicts: Record<string, string[]> = {
         "captain": ["captain", "captain-wicket-keeper"],
         "vice-captain": ["vice-captain", "vice-captain-wicket-keeper"],
         "wicket-keeper": ["wicket-keeper", "captain-wicket-keeper", "vice-captain-wicket-keeper"],
-        "captain-wicket-keeper": ["captain", "vice-captain", "wicket-keeper", "captain-wicket-keeper", "vice-captain-wicket-keeper"],
-        "vice-captain-wicket-keeper": ["captain", "vice-captain", "wicket-keeper", "captain-wicket-keeper", "vice-captain-wicket-keeper"]
+        "captain-wicket-keeper": ["captain", "captain-wicket-keeper", "wicket-keeper"],
+        "vice-captain-wicket-keeper": ["vice-captain", "vice-captain-wicket-keeper", "wicket-keeper"]
       };
 
       const conflictingRoles = roleConflicts[newRole] || [newRole];
