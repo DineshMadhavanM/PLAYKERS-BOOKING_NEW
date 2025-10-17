@@ -83,6 +83,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { email, password, firstName, lastName, dateOfBirth, location, phoneNumber } = registerSchema.parse(req.body);
       const user = await registerUser(email, password, firstName, lastName, dateOfBirth, location, phoneNumber);
       
+      // Auto-link to player profile if email matches
+      try {
+        const linkResult = await storage.linkPlayerToUserByEmail(email);
+        if (linkResult.success) {
+          console.log(`✅ Auto-linked user ${user.id} to player ${linkResult.playerId} via email ${email}`);
+        }
+      } catch (linkError) {
+        console.warn('Failed to auto-link player on registration:', linkError);
+      }
+      
       // Regenerate session to prevent session fixation
       (req as any).session.regenerate((err: any) => {
         if (err) {
@@ -201,6 +211,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         phoneNumber: processedData.phoneNumber || null,
         isAdmin: currentUser.isAdmin || false, // Preserve existing admin status
       });
+
+      // Auto-link to player profile if email matches
+      try {
+        const linkResult = await storage.linkPlayerToUserByEmail(processedData.email);
+        if (linkResult.success) {
+          console.log(`✅ Auto-linked user ${userId} to player ${linkResult.playerId} via email ${processedData.email}`);
+        }
+      } catch (linkError) {
+        console.warn('Failed to auto-link player on profile update:', linkError);
+      }
 
       // Remove password from response
       const { password, ...userWithoutPassword } = updatedUser;
@@ -1296,6 +1316,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const player = await storage.createPlayer(playerData);
+      
+      // Auto-link to user account if email matches
+      if (playerData.email) {
+        try {
+          const linkResult = await storage.linkPlayerToUserByEmail(playerData.email);
+          if (linkResult.success) {
+            console.log(`✅ Auto-linked player ${player.id} to user ${linkResult.userId} via email ${playerData.email}`);
+          }
+        } catch (linkError) {
+          console.warn('Failed to auto-link user on player creation:', linkError);
+        }
+      }
+      
       res.status(201).json(player);
     } catch (error: any) {
       console.error("Error creating player:", error);
@@ -1327,6 +1360,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!player) {
         return res.status(404).json({ message: "Player not found" });
       }
+      
+      // Auto-link to user account if email matches
+      if (playerData.email) {
+        try {
+          const linkResult = await storage.linkPlayerToUserByEmail(playerData.email);
+          if (linkResult.success) {
+            console.log(`✅ Auto-linked player ${req.params.id} to user ${linkResult.userId} via email ${playerData.email}`);
+          }
+        } catch (linkError) {
+          console.warn('Failed to auto-link user on player update:', linkError);
+        }
+      }
+      
       res.json(player);
     } catch (error: any) {
       console.error("Error updating player:", error);

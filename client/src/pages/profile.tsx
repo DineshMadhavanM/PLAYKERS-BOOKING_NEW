@@ -16,9 +16,9 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError, getDisplayName } from "@/lib/authUtils";
 import { apiRequest } from "@/lib/queryClient";
-import { Edit, Trophy, Calendar, MapPin, TrendingUp, Star, AlertCircle } from "lucide-react";
+import { Edit, Trophy, Calendar, MapPin, TrendingUp, Star, AlertCircle, UserCheck, ExternalLink } from "lucide-react";
 import MatchCard from "@/components/match-card";
-import type { UserStats, Match, Booking, PlayerPerformance } from "@shared/schema";
+import type { UserStats, Match, Booking, PlayerPerformance, Player } from "@shared/schema";
 
 const profileSchema = z.object({
   firstName: z.string().min(1, "First name is required"),
@@ -84,6 +84,20 @@ export default function Profile() {
   const { data: performancesData } = useQuery<{ performances: PlayerPerformance[]; pagination: { limit: number; offset: number; count: number } }>({
     queryKey: ["/api/user/performances"],
     enabled: isAuthenticated,
+  });
+
+  // Fetch linked player profile if exists
+  const { data: linkedPlayer } = useQuery<Player>({
+    queryKey: ['/api/users', user?.id, 'player'],
+    queryFn: async (): Promise<Player> => {
+      const response = await fetch(`/api/users/${user?.id}/player`);
+      if (!response.ok) {
+        throw new Error('No linked player');
+      }
+      return response.json();
+    },
+    enabled: !!user?.id,
+    retry: false,
   });
 
   const updateProfileMutation = useMutation({
@@ -214,6 +228,23 @@ export default function Profile() {
                   <p className="text-muted-foreground mb-2" data-testid="text-user-email">
                     {user?.email}
                   </p>
+                  {linkedPlayer && (
+                    <div className="mb-3">
+                      <Badge variant="outline" className="bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 border-green-300 dark:border-green-700">
+                        <UserCheck className="h-3 w-3 mr-1" />
+                        Linked to Player Profile
+                      </Badge>
+                      <Button
+                        variant="link"
+                        size="sm"
+                        className="h-auto p-0 ml-3 text-blue-600 hover:text-blue-800"
+                        onClick={() => window.location.href = `/players/${linkedPlayer.id}`}
+                        data-testid="link-player-profile"
+                      >
+                        View Player Profile <ExternalLink className="h-3 w-3 ml-1" />
+                      </Button>
+                    </div>
+                  )}
                   <div className="flex flex-wrap gap-4 mb-4 text-sm text-muted-foreground">
                     {user?.dateOfBirth && (
                       <div className="flex items-center gap-1" data-testid="text-user-dob">
