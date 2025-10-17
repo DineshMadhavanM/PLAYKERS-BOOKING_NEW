@@ -70,6 +70,7 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
   const [nextBatsman, setNextBatsman] = useState('');
   const [dismissedBatter, setDismissedBatter] = useState<'striker' | 'non-striker'>('striker');
   const [extraRuns, setExtraRuns] = useState(0);
+  const [runOutRuns, setRunOutRuns] = useState(0);
   
   // Live scorecard state
   const [currentStriker, setCurrentStriker] = useState('');
@@ -711,6 +712,7 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
     setNextBatsman('');
     setDismissedBatter('striker');
     setExtraRuns(0);
+    setRunOutRuns(0);
     setShowWicketDialog(true);
   };
 
@@ -804,7 +806,9 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
         wicketDescription = fielder ? `Caught by ${fielder}` : 'Caught!';
         break;
       case 'run-out':
-        wicketDescription = fielder ? `Run out by ${fielder}` : 'Run out!';
+        wicketDescription = fielder 
+          ? `Run out by ${fielder}${runsFromWicket > 0 ? ` (${runsFromWicket} run${runsFromWicket > 1 ? 's' : ''})` : ''}`
+          : `Run out!${runsFromWicket > 0 ? ` (${runsFromWicket} run${runsFromWicket > 1 ? 's' : ''})` : ''}`;
         break;
       case 'hit-wicket':
         wicketDescription = 'Hit wicket!';
@@ -908,10 +912,14 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
       if (countsAsBall) {
         if (actualDismissedBatter === 'striker') {
           // Striker gets out - they face the ball and get dismissed
-          updateBattingStats(dismissedBatterName, 0, true, false, properDismissalType);
+          // For run-out, credit striker with runs completed
+          const runsToCredit = wicketType === 'run-out' ? runsFromWicket : 0;
+          updateBattingStats(dismissedBatterName, runsToCredit, true, false, properDismissalType);
         } else {
           // Non-striker gets out - striker faces the ball, non-striker gets dismissed without ball faced
-          updateBattingStats(currentStriker, 0, true, false); // Striker faces the ball
+          // For run-out, credit striker with runs completed
+          const runsToCredit = wicketType === 'run-out' ? runsFromWicket : 0;
+          updateBattingStats(currentStriker, runsToCredit, true, false); // Striker faces the ball and gets runs
           updateBattingStats(dismissedBatterName, 0, false, false, properDismissalType); // Non-striker dismissed, no ball faced
         }
       } else {
@@ -3117,6 +3125,29 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
               </div>
             )}
 
+            {/* Runs Scored in Run-out */}
+            {selectedWicketType === 'run-out' && (
+              <div className="space-y-2">
+                <Label htmlFor="run-out-runs" className="font-medium">
+                  Runs Completed:
+                </Label>
+                <Input 
+                  type="number" 
+                  id="run-out-runs"
+                  min="0" 
+                  max="6"
+                  value={runOutRuns} 
+                  onChange={(e) => setRunOutRuns(Number(e.target.value))}
+                  placeholder="Enter runs completed"
+                  data-testid="input-run-out-runs"
+                  className="w-full"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Number of runs completed before the run-out occurred
+                </p>
+              </div>
+            )}
+
             {/* Next Batsman Input */}
             {selectedWicketType && (
               <div className="space-y-3">
@@ -3241,7 +3272,11 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
                       fielderName || undefined, 
                       nextBatsman.trim(),
                       selectedWicketType === 'run-out' ? dismissedBatter : undefined,
-                      ['wide-wicket', 'no-ball-wicket', 'leg-bye-wicket', 'bye-wicket'].includes(selectedWicketType) ? extraRuns : undefined
+                      ['wide-wicket', 'no-ball-wicket', 'leg-bye-wicket', 'bye-wicket'].includes(selectedWicketType) 
+                        ? extraRuns 
+                        : selectedWicketType === 'run-out' 
+                          ? runOutRuns 
+                          : undefined
                     );
                     // Close dialog after wicket is recorded
                     setShowWicketDialog(false);
