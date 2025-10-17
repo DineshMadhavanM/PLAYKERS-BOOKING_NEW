@@ -2967,13 +2967,16 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
 
       {/* Enhanced Wicket Dialog */}
       <Dialog open={showWicketDialog} onOpenChange={setShowWicketDialog}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               🎯 Wicket Details
             </DialogTitle>
+            <DialogDescription>
+              Record the wicket details and select the next batsman to continue the match.
+            </DialogDescription>
           </DialogHeader>
-          <div className="space-y-6 py-4">
+          <div className="space-y-6 py-4 overflow-y-auto flex-1">
             {/* Wicket Type Selection */}
             <div className="space-y-3">
               <Label className="font-medium">Select wicket type:</Label>
