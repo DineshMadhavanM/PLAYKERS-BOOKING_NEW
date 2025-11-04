@@ -1059,12 +1059,18 @@ export class MongoStorage implements IStorage {
   }
 
   // Player merge operations
-  async getPlayerByEmail(email: string, excludePlayerId?: string): Promise<Player | undefined> {
+  async getPlayerByEmail(email: string, teamId?: string, excludePlayerId?: string): Promise<Player | undefined> {
     const query: any = { 
       email: { 
         $regex: new RegExp(`^${email.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') 
       } 
     };
+    
+    // Only check for conflicts within the same team
+    if (teamId) {
+      query.teamId = teamId;
+    }
+    
     if (excludePlayerId) {
       query.id = { $ne: excludePlayerId };
     }
