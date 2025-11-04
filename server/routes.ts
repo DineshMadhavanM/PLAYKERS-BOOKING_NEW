@@ -76,6 +76,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Initialize email/password authentication
   initializeEmailAuth(app);
   
+  // Middleware to make email/password auth compatible with req.user pattern
+  // This allows endpoints checking req.user to work with session-based auth
+  app.use((req: any, res, next) => {
+    if (req.session && req.session.user && !req.user) {
+      req.user = req.session.user;
+    }
+    next();
+  });
+  
   // Apply CSRF protection to all routes
   app.use(csrfProtection);
 
