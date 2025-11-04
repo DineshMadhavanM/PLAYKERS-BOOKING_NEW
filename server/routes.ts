@@ -2289,8 +2289,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Send notification back to original sender
       try {
-        // Look up player by sender's email
-        const senderPlayer = await storage.getPlayerByEmail(notification.senderEmail);
+        // Look up player by sender's email first
+        let senderPlayer = await storage.getPlayerByEmail(notification.senderEmail);
+        
+        // If no player found, try to find user by email and check for linked player
+        if (!senderPlayer) {
+          const senderUser = await storage.getUserByEmail(notification.senderEmail);
+          if (senderUser) {
+            // Check if this user has any linked player (by userId)
+            const linkedPlayers = await storage.getPlayersByUserId(senderUser.id);
+            if (linkedPlayers && linkedPlayers.length > 0) {
+              senderPlayer = linkedPlayers[0];
+            } else {
+              // Create a minimal player profile for notifications only
+              try {
+                const playerName = senderUser.firstName && senderUser.lastName
+                  ? `${senderUser.firstName} ${senderUser.lastName}`
+                  : notification.senderName;
+                
+                senderPlayer = await storage.createPlayer({
+                  name: playerName,
+                  email: notification.senderEmail,
+                  userId: senderUser.id,
+                });
+                console.log(`✅ Created player profile for user ${senderUser.email} to receive notifications`);
+              } catch (createError: any) {
+                console.error(`❌ Failed to create player for ${senderUser.email}:`, createError.message);
+                // If creation fails, we can't send the notification
+                throw createError;
+              }
+            }
+          }
+        }
         
         if (senderPlayer) {
           // Create acceptance notification for the sender
@@ -2311,11 +2341,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           console.log(`✅ Sent acceptance notification to ${notification.senderEmail}`);
         } else {
-          console.log(`⚠️  Could not find player with email ${notification.senderEmail} to send acceptance notification`);
+          console.log(`⚠️  Could not find user or player with email ${notification.senderEmail} to send acceptance notification`);
         }
       } catch (error) {
         console.error("Error sending acceptance notification:", error);
-        // Don't fail the request if sending notification fails
+        // Don't fail the main request if sending notification fails
       }
 
       res.json(updatedNotification);
