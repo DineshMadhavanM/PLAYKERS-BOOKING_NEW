@@ -61,7 +61,11 @@ export default function InvitePlayerDialog({
   const inviteFormSchema = z.object({
     email: z.string().email("Valid email is required"),
     message: z.string().optional(),
-    ...(invitationType ? {} : { invitationType: z.enum(["match", "team"], { required_error: "Please select invitation type" }) }),
+    ...(invitationType ? {} : { 
+      invitationType: z.enum(["match", "team"], { required_error: "Please select invitation type" }),
+      matchId: z.string().optional(),
+      teamId: z.string().optional(),
+    }),
   });
 
   type InviteFormData = z.infer<typeof inviteFormSchema>;
@@ -71,8 +75,27 @@ export default function InvitePlayerDialog({
     defaultValues: {
       email: "",
       message: "",
-      ...(invitationType ? {} : { invitationType: undefined as any }),
+      ...(invitationType ? {} : { 
+        invitationType: undefined as any,
+        matchId: undefined,
+        teamId: undefined,
+      }),
     },
+  });
+
+  // Watch the invitationType field to conditionally fetch matches or teams
+  const selectedInvitationType = form.watch("invitationType" as any);
+
+  // Fetch available matches for selection
+  const { data: matches = [] } = useQuery<any[]>({
+    queryKey: ["/api/matches"],
+    enabled: isOpen && !invitationType && selectedInvitationType === "match",
+  });
+
+  // Fetch available teams for selection (we'll need to add this endpoint)
+  const { data: teams = [] } = useQuery<any[]>({
+    queryKey: ["/api/teams"],
+    enabled: isOpen && !invitationType && selectedInvitationType === "team",
   });
 
   // Build query URL for invitations
@@ -96,10 +119,23 @@ export default function InvitePlayerDialog({
       const payload: any = { ...data };
       // Use prop invitationType if provided, otherwise use form value
       payload.invitationType = invitationType || (data as any).invitationType;
-      if (matchId) payload.matchId = matchId;
-      if (teamId) payload.teamId = teamId;
-      if (matchTitle) payload.matchTitle = matchTitle;
-      if (teamName) payload.teamName = teamName;
+      
+      // Use prop values if provided, otherwise use form values
+      const finalMatchId = matchId || (data as any).matchId;
+      const finalTeamId = teamId || (data as any).teamId;
+      
+      if (finalMatchId) {
+        payload.matchId = finalMatchId;
+        // Find the match title from the matches list
+        const match = matches.find((m: any) => m.id === finalMatchId);
+        payload.matchTitle = matchTitle || match?.title;
+      }
+      if (finalTeamId) {
+        payload.teamId = finalTeamId;
+        // Find the team name from the teams list
+        const team = teams.find((t: any) => t.id === finalTeamId);
+        payload.teamName = teamName || team?.name;
+      }
       
       const response = await apiRequest("POST", "/api/invitations", payload);
       return response.json();
@@ -216,27 +252,83 @@ export default function InvitePlayerDialog({
             <Form {...form}>
               <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
                 {!invitationType && (
-                  <FormField
-                    control={form.control}
-                    name="invitationType"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Invitation Type</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger data-testid="select-invitation-type">
-                              <SelectValue placeholder="Select invitation type" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="match" data-testid="option-match">Match Invitation</SelectItem>
-                            <SelectItem value="team" data-testid="option-team">Team Invitation</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
+                  <>
+                    <FormField
+                      control={form.control}
+                      name="invitationType"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Invitation Type</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl>
+                              <SelectTrigger data-testid="select-invitation-type">
+                                <SelectValue placeholder="Select invitation type" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="match" data-testid="option-match">Match Invitation</SelectItem>
+                              <SelectItem value="team" data-testid="option-team">Team Invitation</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    {selectedInvitationType === "match" && (
+                      <FormField
+                        control={form.control}
+                        name="matchId"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Select Match</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                              <FormControl>
+                                <SelectTrigger data-testid="select-match">
+                                  <SelectValue placeholder="Select a match" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {matches.map((match: any) => (
+                                  <SelectItem key={match.id} value={match.id} data-testid={`option-match-${match.id}`}>
+                                    {match.title}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
                     )}
-                  />
+
+                    {selectedInvitationType === "team" && (
+                      <FormField
+                        control={form.control}
+                        name="teamId"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Select Team</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                              <FormControl>
+                                <SelectTrigger data-testid="select-team">
+                                  <SelectValue placeholder="Select a team" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {teams.map((team: any) => (
+                                  <SelectItem key={team.id} value={team.id} data-testid={`option-team-${team.id}`}>
+                                    {team.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    )}
+                  </>
                 )}
 
                 <FormField
