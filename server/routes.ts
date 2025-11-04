@@ -2083,8 +2083,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (req.query.teamId) filters.teamId = req.query.teamId as string;
       if (req.query.status) filters.status = req.query.status as string;
       
-      // Only show invitations created by this user
-      filters.inviterId = user.id;
+      // Support viewing both sent and received invitations
+      const type = req.query.type as string;
+      if (type === 'received') {
+        // Show invitations sent to this user's email
+        filters.email = user.email;
+      } else {
+        // Default: show invitations created by this user
+        filters.inviterId = user.id;
+      }
 
       const invitations = await storage.getInvitations(filters);
       

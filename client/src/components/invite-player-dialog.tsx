@@ -56,6 +56,7 @@ export default function InvitePlayerDialog({
   const { toast } = useToast();
   const [isOpen, setIsOpen] = useState(false);
   const [copiedLink, setCopiedLink] = useState<string | null>(null);
+  const [invitationView, setInvitationView] = useState<'sent' | 'received'>('sent');
 
   // Dynamic schema based on whether invitationType is provided as prop
   const inviteFormSchema = z.object({
@@ -99,17 +100,24 @@ export default function InvitePlayerDialog({
   });
 
   // Build query URL for invitations
-  const invitationsQueryUrl = () => {
-    if (!matchId && !teamId) return "/api/invitations";
+  const invitationsQueryUrl = (view: 'sent' | 'received' = invitationView) => {
     const params = new URLSearchParams();
+    
+    // Add type parameter for sent/received view
+    if (view === 'received') {
+      params.append("type", "received");
+    }
+    
     if (matchId) params.append("matchId", matchId);
     if (teamId) params.append("teamId", teamId);
-    return `/api/invitations?${params.toString()}`;
+    
+    const queryString = params.toString();
+    return queryString ? `/api/invitations?${queryString}` : "/api/invitations";
   };
 
   // Fetch existing invitations (always fetch when dialog is open to show user's invitations)
   const { data: invitations = [], isLoading: isLoadingInvitations } = useQuery<any[]>({
-    queryKey: [invitationsQueryUrl()],
+    queryKey: [invitationsQueryUrl(invitationView)],
     enabled: isOpen,
   });
 
@@ -394,6 +402,25 @@ export default function InvitePlayerDialog({
           </TabsContent>
 
           <TabsContent value="manage" className="space-y-4">
+            <div className="flex gap-2 mb-4">
+              <Button
+                variant={invitationView === 'sent' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setInvitationView('sent')}
+                data-testid="button-view-sent"
+              >
+                Sent Invitations
+              </Button>
+              <Button
+                variant={invitationView === 'received' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setInvitationView('received')}
+                data-testid="button-view-received"
+              >
+                Received Invitations
+              </Button>
+            </div>
+
             {isLoadingInvitations ? (
               <div className="flex justify-center py-8">
                 <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -403,7 +430,9 @@ export default function InvitePlayerDialog({
                 <CardContent className="flex flex-col items-center justify-center py-8">
                   <UserPlus className="h-12 w-12 text-muted-foreground mb-4" />
                   <p className="text-muted-foreground text-center">
-                    No invitations yet. Send your first invitation using the email tab.
+                    {invitationView === 'sent' 
+                      ? "No invitations yet. Send your first invitation using the email tab."
+                      : "No invitations received yet."}
                   </p>
                 </CardContent>
               </Card>
