@@ -100,7 +100,7 @@ export default function InvitePlayerDialog({
   });
 
   // Build query URL for invitations
-  const invitationsQueryUrl = (view: 'sent' | 'received' = invitationView) => {
+  const getInvitationsUrl = (view: 'sent' | 'received') => {
     const params = new URLSearchParams();
     
     // Add type parameter for sent/received view
@@ -117,7 +117,7 @@ export default function InvitePlayerDialog({
 
   // Fetch existing invitations (always fetch when dialog is open to show user's invitations)
   const { data: invitations = [], isLoading: isLoadingInvitations } = useQuery<any[]>({
-    queryKey: [invitationsQueryUrl(invitationView)],
+    queryKey: [getInvitationsUrl(invitationView)],
     enabled: isOpen,
   });
 
@@ -150,7 +150,12 @@ export default function InvitePlayerDialog({
     },
     onSuccess: (data) => {
       // Invalidate all invitation queries to ensure fresh data
-      queryClient.invalidateQueries({ queryKey: ["/api/invitations"] });
+      queryClient.invalidateQueries({ 
+        predicate: (query) => 
+          Array.isArray(query.queryKey) && 
+          typeof query.queryKey[0] === 'string' && 
+          query.queryKey[0].startsWith('/api/invitations')
+      });
       toast({
         title: "Invitation sent!",
         description: `An invitation has been sent to ${form.getValues("email")}`,
@@ -174,7 +179,12 @@ export default function InvitePlayerDialog({
     },
     onSuccess: () => {
       // Invalidate all invitation queries to ensure fresh data
-      queryClient.invalidateQueries({ queryKey: ["/api/invitations"] });
+      queryClient.invalidateQueries({ 
+        predicate: (query) => 
+          Array.isArray(query.queryKey) && 
+          typeof query.queryKey[0] === 'string' && 
+          query.queryKey[0].startsWith('/api/invitations')
+      });
       toast({
         title: "Invitation revoked",
         description: "The invitation has been revoked successfully",
@@ -184,6 +194,36 @@ export default function InvitePlayerDialog({
       toast({
         title: "Error",
         description: error.message || "Failed to revoke invitation",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Accept invitation mutation
+  const acceptInvitationMutation = useMutation({
+    mutationFn: async (params: { token: string; invitationType: string; targetName: string }) => {
+      const response = await apiRequest("POST", `/api/invitations/${params.token}/accept`, {});
+      return { ...await response.json(), invitationType: params.invitationType, targetName: params.targetName };
+    },
+    onSuccess: (data) => {
+      // Invalidate all invitation queries to ensure fresh data
+      queryClient.invalidateQueries({ 
+        predicate: (query) => 
+          Array.isArray(query.queryKey) && 
+          typeof query.queryKey[0] === 'string' && 
+          query.queryKey[0].startsWith('/api/invitations')
+      });
+      const targetType = data.invitationType === "match" ? "match" : "team";
+      toast({
+        title: "Invitation accepted!",
+        description: `You have successfully joined ${data.targetName || `the ${targetType}`}`,
+      });
+      setIsOpen(false);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to accept invitation",
         variant: "destructive",
       });
     },
@@ -481,38 +521,76 @@ export default function InvitePlayerDialog({
                     <CardContent className="pt-0">
                       {invitation.status === "pending" && (
                         <div className="space-y-2">
-                          <div className="flex items-center gap-2">
-                            <Input
-                              value={invitation.invitationLink}
-                              readOnly
-                              className="text-sm"
-                              data-testid={`input-link-${invitation.id}`}
-                            />
+                          {invitationView === 'sent' ? (
+                            <>
+                              <div className="flex items-center gap-2">
+                                <Input
+                                  value={invitation.invitationLink}
+                                  readOnly
+                                  className="text-sm"
+                                  data-testid={`input-link-${invitation.id}`}
+                                />
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() =>
+                                    copyToClipboard(invitation.invitationLink, invitation.id)
+                                  }
+                                  data-testid={`button-copy-${invitation.id}`}
+                                >
+                                  {copiedLink === invitation.id ? (
+                                    <Check className="h-4 w-4" />
+                                  ) : (
+                                    <Copy className="h-4 w-4" />
+                                  )}
+                                </Button>
+                              </div>
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                onClick={() => revokeInvitationMutation.mutate(invitation.id)}
+                                disabled={revokeInvitationMutation.isPending}
+                                data-testid={`button-revoke-${invitation.id}`}
+                              >
+                                <X className="h-4 w-4 mr-1" />
+                                Revoke
+                              </Button>
+                            </>
+                          ) : (
                             <Button
                               size="sm"
-                              variant="outline"
-                              onClick={() =>
-                                copyToClipboard(invitation.invitationLink, invitation.id)
-                              }
-                              data-testid={`button-copy-${invitation.id}`}
+                              className="w-full"
+                              onClick={() => {
+                                if (!invitation.token) {
+                                  toast({
+                                    title: "Error",
+                                    description: "Invalid invitation token",
+                                    variant: "destructive",
+                                  });
+                                  return;
+                                }
+                                acceptInvitationMutation.mutate({
+                                  token: invitation.token,
+                                  invitationType: invitation.invitationType,
+                                  targetName: invitation.invitationType === "match" ? invitation.matchTitle || "the match" : invitation.teamName || "the team"
+                                });
+                              }}
+                              disabled={acceptInvitationMutation.isPending}
+                              data-testid={`button-accept-${invitation.id}`}
                             >
-                              {copiedLink === invitation.id ? (
-                                <Check className="h-4 w-4" />
+                              {acceptInvitationMutation.isPending ? (
+                                <>
+                                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                  Accepting...
+                                </>
                               ) : (
-                                <Copy className="h-4 w-4" />
+                                <>
+                                  <Check className="h-4 w-4 mr-2" />
+                                  Accept Invitation
+                                </>
                               )}
                             </Button>
-                          </div>
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            onClick={() => revokeInvitationMutation.mutate(invitation.id)}
-                            disabled={revokeInvitationMutation.isPending}
-                            data-testid={`button-revoke-${invitation.id}`}
-                          >
-                            <X className="h-4 w-4 mr-1" />
-                            Revoke
-                          </Button>
+                          )}
                         </div>
                       )}
                       {invitation.status === "accepted" && invitation.acceptedAt && (
