@@ -263,24 +263,6 @@ export default function Profile() {
                       </div>
                     )}
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                    <div className="text-center" data-testid="stat-total-matches">
-                      <div className="text-2xl font-bold text-primary">{totalMatches}</div>
-                      <p className="text-sm text-muted-foreground">Matches Played</p>
-                    </div>
-                    <div className="text-center" data-testid="stat-total-wins">
-                      <div className="text-2xl font-bold text-green-600">{totalWins}</div>
-                      <p className="text-sm text-muted-foreground">Wins</p>
-                    </div>
-                    <div className="text-center" data-testid="stat-win-rate">
-                      <div className="text-2xl font-bold text-blue-600">{winRate}%</div>
-                      <p className="text-sm text-muted-foreground">Win Rate</p>
-                    </div>
-                    <div className="text-center" data-testid="stat-total-bookings">
-                      <div className="text-2xl font-bold text-purple-600">{userBookings.length}</div>
-                      <p className="text-sm text-muted-foreground">Bookings</p>
-                    </div>
-                  </div>
                 </div>
               </div>
             </CardContent>
