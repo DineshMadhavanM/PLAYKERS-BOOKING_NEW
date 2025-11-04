@@ -85,12 +85,13 @@ export class MongoStorage implements IStorage {
       );
       console.log('✅ Created playerPerformances indexes');
       
-      // Create unique sparse index on player email
+      // Create unique sparse index on player email per team
+      // This allows the same email to be used across different teams
       await this.players.createIndex(
-        { email: 1 }, 
+        { email: 1, teamId: 1 }, 
         { unique: true, sparse: true }
       );
-      console.log('✅ Created players email index');
+      console.log('✅ Created players email+teamId compound index');
     } catch (error) {
       console.warn('⚠️ Index creation warning (may already exist):', error);
     }
