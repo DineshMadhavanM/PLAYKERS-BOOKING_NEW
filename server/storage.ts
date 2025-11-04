@@ -23,6 +23,8 @@ import type {
   InsertPlayer,
   PlayerPerformance,
   InsertPlayerPerformance,
+  Invitation,
+  InsertInvitation,
 } from "@shared/schema";
 
 export interface IStorage {
@@ -256,6 +258,16 @@ export interface IStorage {
       bestFielder?: boolean;
     }>;
   }): Promise<{ success: boolean; updatedMatch?: Match; errors?: string[] }>;
+
+  // Invitation operations
+  createInvitation(invitation: InsertInvitation): Promise<Invitation>;
+  getInvitation(id: string): Promise<Invitation | undefined>;
+  getInvitationByToken(token: string): Promise<Invitation | undefined>;
+  getInvitations(filters?: { inviterId?: string; matchId?: string; teamId?: string; status?: string }): Promise<Invitation[]>;
+  updateInvitation(id: string, data: Partial<Invitation>): Promise<Invitation | undefined>;
+  revokeInvitation(id: string): Promise<boolean>;
+  acceptInvitation(token: string, acceptData: { userId?: string; playerId?: string }): Promise<{ success: boolean; invitation?: Invitation; error?: string }>;
+  cleanupExpiredInvitations(): Promise<number>;
 }
 
 // MongoDB Storage Implementation

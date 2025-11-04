@@ -19,9 +19,15 @@ import CreateMatch from "@/pages/create-match";
 import MatchScorer from "@/pages/match-scorer";
 import Admin from "@/pages/admin";
 import PlayerProfile from "@/pages/player-profile";
+import AcceptInvite from "@/pages/accept-invite";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
+
+  // Public route for accepting invitations
+  if (window.location.pathname.startsWith('/accept-invite/')) {
+    return <AcceptInvite />;
+  }
 
   // If not authenticated, redirect all routes to landing page
   if (isLoading || !isAuthenticated) {
@@ -43,6 +49,7 @@ function Router() {
       <Route path="/create-match" component={CreateMatch} />
       <Route path="/match/:id/score" component={MatchScorer} />
       <Route path="/admin" component={Admin} />
+      <Route path="/accept-invite/:token" component={AcceptInvite} />
       <Route component={NotFound} />
     </Switch>
   );

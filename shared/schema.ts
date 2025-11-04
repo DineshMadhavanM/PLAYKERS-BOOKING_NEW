@@ -158,6 +158,7 @@ export const insertPlayerSchema = z.object({
   battingStyle: z.enum(["right-handed", "left-handed"]).optional(),
   bowlingStyle: z.enum(["right-arm-fast", "left-arm-fast", "right-arm-medium", "left-arm-medium", "right-arm-spin", "left-arm-spin", "leg-spin", "off-spin"]).optional(),
   jerseyNumber: z.number().optional(),
+  isGuest: z.boolean().optional(),
 });
 
 // Player performance validation schema
@@ -937,6 +938,7 @@ export type Player = {
   battingStyle: string | null; // right-handed, left-handed
   bowlingStyle: string | null; // right-arm-fast, left-arm-fast, etc.
   jerseyNumber: number | null;
+  isGuest: boolean | null; // Guest players for temporary participation
   
   // Merge metadata (optional for backward compatibility)
   mergedFromPlayerIds?: string[]; // IDs of players that were merged into this one
@@ -1086,3 +1088,58 @@ export type InsertPlayerPerformance = z.infer<typeof insertPlayerPerformanceSche
 export type PlayerConflictResponse = z.infer<typeof playerConflictResponseSchema>;
 export type PlayerMergeRequest = z.infer<typeof playerMergeRequestSchema>;
 export type PlayerMergeResponse = z.infer<typeof playerMergeResponseSchema>;
+
+// Invitation validation schemas
+export const insertInvitationSchema = z.object({
+  email: z.string().email("Valid email is required"),
+  inviterName: z.string().min(1, "Inviter name is required").optional(),
+  inviterId: z.string().optional(),
+  invitationType: z.enum(["match", "team"]),
+  matchId: z.string().optional(),
+  teamId: z.string().optional(),
+  matchTitle: z.string().optional(),
+  teamName: z.string().optional(),
+  message: z.string().optional(),
+}).refine((data) => {
+  if (data.invitationType === "match" && !data.matchId) {
+    return false;
+  }
+  if (data.invitationType === "team" && !data.teamId) {
+    return false;
+  }
+  return true;
+}, {
+  message: "Match ID required for match invitations, Team ID required for team invitations"
+});
+
+export const acceptInvitationSchema = z.object({
+  token: z.string().min(1, "Invitation token is required"),
+  guestPlayerData: z.object({
+    name: z.string().min(1, "Name is required"),
+    email: z.string().email("Valid email is required"),
+  }).optional(),
+});
+
+// Invitation type
+export type Invitation = {
+  id: string;
+  token: string;
+  email: string;
+  inviterName: string;
+  inviterId: string;
+  invitationType: "match" | "team";
+  matchId: string | null;
+  teamId: string | null;
+  matchTitle: string | null;
+  teamName: string | null;
+  message: string | null;
+  status: "pending" | "accepted" | "expired" | "revoked";
+  acceptedAt: Date | null;
+  acceptedByUserId: string | null;
+  acceptedByPlayerId: string | null;
+  expiresAt: Date;
+  createdAt: Date;
+};
+
+export type InsertInvitation = z.infer<typeof insertInvitationSchema>;
+export type AcceptInvitation = z.infer<typeof acceptInvitationSchema>;

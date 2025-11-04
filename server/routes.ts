@@ -15,6 +15,7 @@ import {
   insertPlayerSchema,
   matchCompletionSchema,
   MatchCompletionInput,
+  insertInvitationSchema,
 } from "@shared/schema";
 import { z } from "zod";
 
@@ -2022,6 +2023,194 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error seeding completed matches:", error);
       res.status(500).json({ message: "Failed to seed completed matches" });
+    }
+  });
+
+  // Invitation routes
+  app.post("/api/invitations", async (req, res) => {
+    try {
+      const user = (req as any).user;
+      if (!user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const validatedData = insertInvitationSchema.parse(req.body);
+      
+      // Add inviter information
+      const invitationData = {
+        ...validatedData,
+        inviterName: user.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : user.email,
+        inviterId: user.id,
+      };
+
+      const invitation = await storage.createInvitation(invitationData);
+      
+      // Generate the invitation link
+      const baseUrl = process.env.REPL_SLUG 
+        ? `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`
+        : `http://localhost:${process.env.PORT || 5000}`;
+      const invitationLink = `${baseUrl}/accept-invite/${invitation.token}`;
+
+      res.json({
+        ...invitation,
+        invitationLink
+      });
+    } catch (error: any) {
+      console.error("Error creating invitation:", error);
+      res.status(400).json({ message: error.message || "Failed to create invitation" });
+    }
+  });
+
+  app.get("/api/invitations", async (req, res) => {
+    try {
+      const user = (req as any).user;
+      if (!user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const filters: any = {};
+      if (req.query.matchId) filters.matchId = req.query.matchId as string;
+      if (req.query.teamId) filters.teamId = req.query.teamId as string;
+      if (req.query.status) filters.status = req.query.status as string;
+      
+      // Only show invitations created by this user
+      filters.inviterId = user.id;
+
+      const invitations = await storage.getInvitations(filters);
+      
+      // Generate invitation links for each
+      const baseUrl = process.env.REPL_SLUG 
+        ? `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`
+        : `http://localhost:${process.env.PORT || 5000}`;
+      
+      const invitationsWithLinks = invitations.map(inv => ({
+        ...inv,
+        invitationLink: `${baseUrl}/accept-invite/${inv.token}`
+      }));
+
+      res.json(invitationsWithLinks);
+    } catch (error) {
+      console.error("Error fetching invitations:", error);
+      res.status(500).json({ message: "Failed to fetch invitations" });
+    }
+  });
+
+  app.get("/api/invitations/token/:token", async (req, res) => {
+    try {
+      const invitation = await storage.getInvitationByToken(req.params.token);
+      
+      if (!invitation) {
+        return res.status(404).json({ message: "Invitation not found" });
+      }
+
+      // Check if expired
+      if (new Date() > invitation.expiresAt && invitation.status === 'pending') {
+        await storage.updateInvitation(invitation.id, { status: 'expired' });
+        return res.status(410).json({ message: "Invitation has expired" });
+      }
+
+      res.json(invitation);
+    } catch (error) {
+      console.error("Error fetching invitation:", error);
+      res.status(500).json({ message: "Failed to fetch invitation" });
+    }
+  });
+
+  app.post("/api/invitations/:token/accept", async (req, res) => {
+    try {
+      const { token } = req.params;
+      const { guestPlayerData } = req.body;
+      const user = (req as any).user;
+
+      const invitation = await storage.getInvitationByToken(token);
+      
+      if (!invitation) {
+        return res.status(404).json({ message: "Invitation not found" });
+      }
+
+      if (invitation.status !== 'pending') {
+        return res.status(400).json({ message: `Invitation is ${invitation.status}` });
+      }
+
+      if (new Date() > invitation.expiresAt) {
+        await storage.updateInvitation(invitation.id, { status: 'expired' });
+        return res.status(410).json({ message: "Invitation has expired" });
+      }
+
+      let playerId: string | undefined;
+      
+      // If guest player data is provided, create a guest player
+      if (guestPlayerData) {
+        const player = await storage.createPlayer({
+          name: guestPlayerData.name,
+          email: guestPlayerData.email,
+          isGuest: true,
+          teamId: invitation.teamId || undefined,
+        });
+        playerId = player.id;
+      } else if (user) {
+        // For authenticated users, try to find or create their player profile
+        let player = await storage.getPlayerByUserId(user.id);
+        if (!player) {
+          player = await storage.createPlayer({
+            name: user.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : user.email,
+            email: user.email,
+            userId: user.id,
+            teamId: invitation.teamId || undefined,
+          });
+        }
+        playerId = player.id;
+      }
+
+      // Accept the invitation
+      const result = await storage.acceptInvitation(token, {
+        userId: user?.id,
+        playerId,
+      });
+
+      if (!result.success) {
+        return res.status(400).json({ message: result.error });
+      }
+
+      res.json({
+        message: "Invitation accepted successfully",
+        invitation: result.invitation,
+        playerId,
+      });
+    } catch (error: any) {
+      console.error("Error accepting invitation:", error);
+      res.status(500).json({ message: error.message || "Failed to accept invitation" });
+    }
+  });
+
+  app.delete("/api/invitations/:id", async (req, res) => {
+    try {
+      const user = (req as any).user;
+      if (!user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const invitation = await storage.getInvitation(req.params.id);
+      
+      if (!invitation) {
+        return res.status(404).json({ message: "Invitation not found" });
+      }
+
+      // Only the inviter can revoke
+      if (invitation.inviterId !== user.id) {
+        return res.status(403).json({ message: "You can only revoke your own invitations" });
+      }
+
+      const success = await storage.revokeInvitation(req.params.id);
+      
+      if (success) {
+        res.json({ message: "Invitation revoked successfully" });
+      } else {
+        res.status(500).json({ message: "Failed to revoke invitation" });
+      }
+    } catch (error) {
+      console.error("Error revoking invitation:", error);
+      res.status(500).json({ message: "Failed to revoke invitation" });
     }
   });
 

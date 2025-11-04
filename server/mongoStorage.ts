@@ -12,6 +12,7 @@ import type {
   Team,
   Player,
   PlayerPerformance,
+  Invitation,
   InsertVenue,
   InsertMatch,
   InsertCricketMatch,
@@ -24,6 +25,7 @@ import type {
   InsertTeam,
   InsertPlayer,
   InsertPlayerPerformance,
+  InsertInvitation,
   UpsertUser,
 } from "@shared/schema";
 import type { IStorage } from "./storage";
@@ -43,6 +45,7 @@ export class MongoStorage implements IStorage {
   private teams: Collection<Team>;
   private players: Collection<Player>;
   private playerPerformances: Collection<PlayerPerformance>;
+  private invitations: Collection<Invitation>;
 
   constructor(uri: string) {
     // Configure MongoDB client options for Replit compatibility
@@ -69,6 +72,7 @@ export class MongoStorage implements IStorage {
     this.teams = this.db.collection<Team>('teams');
     this.players = this.db.collection<Player>('players');
     this.playerPerformances = this.db.collection<PlayerPerformance>('playerPerformances');
+    this.invitations = this.db.collection<Invitation>('invitations');
   }
 
   async connect(): Promise<void> {
@@ -703,6 +707,7 @@ export class MongoStorage implements IStorage {
       battingStyle: playerData.battingStyle || null,
       bowlingStyle: playerData.bowlingStyle || null,
       jerseyNumber: playerData.jerseyNumber || null,
+      isGuest: playerData.isGuest || null,
       careerStats: {
         // Batting Stats
         totalRuns: 0,
@@ -831,6 +836,7 @@ export class MongoStorage implements IStorage {
       battingStyle: null,
       bowlingStyle: null,
       jerseyNumber: null,
+      isGuest: null,
       careerStats: {
         totalRuns: 0,
         totalBallsFaced: 0,
@@ -2344,5 +2350,126 @@ export class MongoStorage implements IStorage {
         error: 'Failed to update user cricket statistics' 
       };
     }
+  }
+
+  // Invitation operations
+  async createInvitation(invitationData: InsertInvitation): Promise<Invitation> {
+    const id = `inv-${this.generateId()}`;
+    const token = this.generateInvitationToken();
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 7); // Expires in 7 days
+
+    const invitation: Invitation = {
+      id,
+      token,
+      email: invitationData.email,
+      inviterName: invitationData.inviterName || 'Unknown',
+      inviterId: invitationData.inviterId || '',
+      invitationType: invitationData.invitationType,
+      matchId: invitationData.matchId || null,
+      teamId: invitationData.teamId || null,
+      matchTitle: invitationData.matchTitle || null,
+      teamName: invitationData.teamName || null,
+      message: invitationData.message || null,
+      status: 'pending',
+      acceptedAt: null,
+      acceptedByUserId: null,
+      acceptedByPlayerId: null,
+      expiresAt,
+      createdAt: new Date(),
+    };
+
+    await this.invitations.insertOne(invitation as any);
+    return invitation;
+  }
+
+  async getInvitation(id: string): Promise<Invitation | undefined> {
+    const invitation = await this.invitations.findOne({ id } as any);
+    return invitation || undefined;
+  }
+
+  async getInvitationByToken(token: string): Promise<Invitation | undefined> {
+    const invitation = await this.invitations.findOne({ token } as any);
+    return invitation || undefined;
+  }
+
+  async getInvitations(filters?: { inviterId?: string; matchId?: string; teamId?: string; status?: string }): Promise<Invitation[]> {
+    const query: any = {};
+    
+    if (filters?.inviterId) query.inviterId = filters.inviterId;
+    if (filters?.matchId) query.matchId = filters.matchId;
+    if (filters?.teamId) query.teamId = filters.teamId;
+    if (filters?.status) query.status = filters.status;
+
+    const invitations = await this.invitations.find(query).sort({ createdAt: -1 }).toArray();
+    return invitations;
+  }
+
+  async updateInvitation(id: string, data: Partial<Invitation>): Promise<Invitation | undefined> {
+    const result = await this.invitations.findOneAndUpdate(
+      { id } as any,
+      { $set: data },
+      { returnDocument: 'after' }
+    );
+    return result || undefined;
+  }
+
+  async revokeInvitation(id: string): Promise<boolean> {
+    const result = await this.invitations.updateOne(
+      { id } as any,
+      { $set: { status: 'revoked' } }
+    );
+    return result.modifiedCount > 0;
+  }
+
+  async acceptInvitation(token: string, acceptData: { userId?: string; playerId?: string }): Promise<{ success: boolean; invitation?: Invitation; error?: string }> {
+    try {
+      const invitation = await this.getInvitationByToken(token);
+      
+      if (!invitation) {
+        return { success: false, error: 'Invitation not found' };
+      }
+
+      if (invitation.status !== 'pending') {
+        return { success: false, error: `Invitation is ${invitation.status}` };
+      }
+
+      if (new Date() > invitation.expiresAt) {
+        await this.updateInvitation(invitation.id, { status: 'expired' });
+        return { success: false, error: 'Invitation has expired' };
+      }
+
+      const updatedInvitation = await this.updateInvitation(invitation.id, {
+        status: 'accepted',
+        acceptedAt: new Date(),
+        acceptedByUserId: acceptData.userId || null,
+        acceptedByPlayerId: acceptData.playerId || null,
+      });
+
+      return { success: true, invitation: updatedInvitation };
+    } catch (error) {
+      console.error('Error accepting invitation:', error);
+      return { success: false, error: 'Failed to accept invitation' };
+    }
+  }
+
+  async cleanupExpiredInvitations(): Promise<number> {
+    const result = await this.invitations.updateMany(
+      { 
+        status: 'pending',
+        expiresAt: { $lt: new Date() }
+      } as any,
+      { $set: { status: 'expired' } }
+    );
+    return result.modifiedCount;
+  }
+
+  private generateInvitationToken(): string {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    let token = '';
+    for (let i = 0; i < 32; i++) {
+      token += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return token;
   }
 }
