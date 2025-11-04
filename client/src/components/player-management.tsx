@@ -21,11 +21,12 @@ import PlayerConflictModal from "./player-conflict-modal";
 interface PlayerManagementProps {
   teamId: string;
   teamName: string;
+  teamSport: string;
   players: Player[];
   isLoading?: boolean;
 }
 
-export default function PlayerManagement({ teamId, teamName, players, isLoading }: PlayerManagementProps) {
+export default function PlayerManagement({ teamId, teamName, teamSport, players, isLoading }: PlayerManagementProps) {
   const { toast } = useToast();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [editingPlayer, setEditingPlayer] = useState<Player | null>(null);
@@ -336,10 +337,21 @@ export default function PlayerManagement({ teamId, teamName, players, isLoading 
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            <SelectItem value="batsman">Batsman</SelectItem>
-                            <SelectItem value="bowler">Bowler</SelectItem>
-                            <SelectItem value="all-rounder">All-rounder</SelectItem>
-                            <SelectItem value="wicket-keeper">Wicket-keeper</SelectItem>
+                            {teamSport === 'football' ? (
+                              <>
+                                <SelectItem value="goalkeeper">Goalkeeper</SelectItem>
+                                <SelectItem value="defender">Defender</SelectItem>
+                                <SelectItem value="midfielder">Midfielder</SelectItem>
+                                <SelectItem value="forward">Forward</SelectItem>
+                              </>
+                            ) : (
+                              <>
+                                <SelectItem value="batsman">Batsman</SelectItem>
+                                <SelectItem value="bowler">Bowler</SelectItem>
+                                <SelectItem value="all-rounder">All-rounder</SelectItem>
+                                <SelectItem value="wicket-keeper">Wicket-keeper</SelectItem>
+                              </>
+                            )}
                           </SelectContent>
                         </Select>
                         <FormMessage />
@@ -369,55 +381,57 @@ export default function PlayerManagement({ teamId, teamName, players, isLoading 
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={addForm.control}
-                    name="battingStyle"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Batting Style</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value || ""}>
-                          <FormControl>
-                            <SelectTrigger data-testid="select-batting-style">
-                              <SelectValue placeholder="Select style" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="right-handed">Right-handed</SelectItem>
-                            <SelectItem value="left-handed">Left-handed</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                {teamSport === 'cricket' && (
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={addForm.control}
+                      name="battingStyle"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Batting Style</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value || ""}>
+                            <FormControl>
+                              <SelectTrigger data-testid="select-batting-style">
+                                <SelectValue placeholder="Select style" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="right-handed">Right-handed</SelectItem>
+                              <SelectItem value="left-handed">Left-handed</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
 
-                  <FormField
-                    control={addForm.control}
-                    name="bowlingStyle"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Bowling Style</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value || ""}>
-                          <FormControl>
-                            <SelectTrigger data-testid="select-bowling-style">
-                              <SelectValue placeholder="Select style" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="right-arm-fast">Right-arm fast</SelectItem>
-                            <SelectItem value="left-arm-fast">Left-arm fast</SelectItem>
-                            <SelectItem value="right-arm-medium">Right-arm medium</SelectItem>
-                            <SelectItem value="left-arm-medium">Left-arm medium</SelectItem>
-                            <SelectItem value="right-arm-spin">Right-arm spin</SelectItem>
-                            <SelectItem value="left-arm-spin">Left-arm spin</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
+                    <FormField
+                      control={addForm.control}
+                      name="bowlingStyle"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Bowling Style</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value || ""}>
+                            <FormControl>
+                              <SelectTrigger data-testid="select-bowling-style">
+                                <SelectValue placeholder="Select style" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="right-arm-fast">Right-arm fast</SelectItem>
+                              <SelectItem value="left-arm-fast">Left-arm fast</SelectItem>
+                              <SelectItem value="right-arm-medium">Right-arm medium</SelectItem>
+                              <SelectItem value="left-arm-medium">Left-arm medium</SelectItem>
+                              <SelectItem value="right-arm-spin">Right-arm spin</SelectItem>
+                              <SelectItem value="left-arm-spin">Left-arm spin</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                )}
 
                 <div className="flex justify-end gap-2 pt-4">
                   <Button
@@ -488,10 +502,10 @@ export default function PlayerManagement({ teamId, teamName, players, isLoading 
                         {player.email && (
                           <span>{player.email}</span>
                         )}
-                        {player.battingStyle && (
+                        {teamSport === 'cricket' && player.battingStyle && (
                           <span>Bat: {player.battingStyle}</span>
                         )}
-                        {player.bowlingStyle && (
+                        {teamSport === 'cricket' && player.bowlingStyle && (
                           <span>Bowl: {player.bowlingStyle}</span>
                         )}
                       </div>
@@ -630,10 +644,21 @@ export default function PlayerManagement({ teamId, teamName, players, isLoading 
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            <SelectItem value="batsman">Batsman</SelectItem>
-                            <SelectItem value="bowler">Bowler</SelectItem>
-                            <SelectItem value="all-rounder">All-rounder</SelectItem>
-                            <SelectItem value="wicket-keeper">Wicket-keeper</SelectItem>
+                            {teamSport === 'football' ? (
+                              <>
+                                <SelectItem value="goalkeeper">Goalkeeper</SelectItem>
+                                <SelectItem value="defender">Defender</SelectItem>
+                                <SelectItem value="midfielder">Midfielder</SelectItem>
+                                <SelectItem value="forward">Forward</SelectItem>
+                              </>
+                            ) : (
+                              <>
+                                <SelectItem value="batsman">Batsman</SelectItem>
+                                <SelectItem value="bowler">Bowler</SelectItem>
+                                <SelectItem value="all-rounder">All-rounder</SelectItem>
+                                <SelectItem value="wicket-keeper">Wicket-keeper</SelectItem>
+                              </>
+                            )}
                           </SelectContent>
                         </Select>
                         <FormMessage />
@@ -662,55 +687,57 @@ export default function PlayerManagement({ teamId, teamName, players, isLoading 
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={editForm.control}
-                    name="battingStyle"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Batting Style</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value || ""}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select style" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="right-handed">Right-handed</SelectItem>
-                            <SelectItem value="left-handed">Left-handed</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                {teamSport === 'cricket' && (
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={editForm.control}
+                      name="battingStyle"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Batting Style</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value || ""}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select style" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="right-handed">Right-handed</SelectItem>
+                              <SelectItem value="left-handed">Left-handed</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
 
-                  <FormField
-                    control={editForm.control}
-                    name="bowlingStyle"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Bowling Style</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value || ""}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select style" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="right-arm-fast">Right-arm fast</SelectItem>
-                            <SelectItem value="left-arm-fast">Left-arm fast</SelectItem>
-                            <SelectItem value="right-arm-medium">Right-arm medium</SelectItem>
-                            <SelectItem value="left-arm-medium">Left-arm medium</SelectItem>
-                            <SelectItem value="right-arm-spin">Right-arm spin</SelectItem>
-                            <SelectItem value="left-arm-spin">Left-arm spin</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
+                    <FormField
+                      control={editForm.control}
+                      name="bowlingStyle"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Bowling Style</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value || ""}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select style" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="right-arm-fast">Right-arm fast</SelectItem>
+                              <SelectItem value="left-arm-fast">Left-arm fast</SelectItem>
+                              <SelectItem value="right-arm-medium">Right-arm medium</SelectItem>
+                              <SelectItem value="left-arm-medium">Left-arm medium</SelectItem>
+                              <SelectItem value="right-arm-spin">Right-arm spin</SelectItem>
+                              <SelectItem value="left-arm-spin">Left-arm spin</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                )}
 
                 <div className="flex justify-end gap-2 pt-4">
                   <Button

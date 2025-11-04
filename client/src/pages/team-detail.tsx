@@ -428,6 +428,7 @@ export default function TeamDetail() {
           <PlayerManagement 
             teamId={teamId} 
             teamName={team.name}
+            teamSport={team.sport}
             players={players}
             isLoading={playersLoading}
           />
