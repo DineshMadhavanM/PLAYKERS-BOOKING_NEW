@@ -73,8 +73,8 @@ export default function PlayerManagement({ teamId, teamName, teamSport, players,
             const conflictData = JSON.parse(error.message.substring(4)); // Remove "409: " prefix
             throw { isConflict: true, conflictData, playerData };
           } catch {
-            // If JSON parsing fails, re-throw original error
-            throw error;
+            // If JSON parsing fails, throw a user-friendly error
+            throw new Error('A player with this email already exists.');
           }
         }
         throw error; // Re-throw other errors
@@ -120,8 +120,8 @@ export default function PlayerManagement({ teamId, teamName, teamSport, players,
             const conflictData = JSON.parse(error.message.substring(4)); // Remove "409: " prefix
             throw { isConflict: true, conflictData, playerData: data, playerId: id };
           } catch {
-            // If JSON parsing fails, re-throw original error
-            throw error;
+            // If JSON parsing fails, throw a user-friendly error
+            throw new Error('A player with this email already exists.');
           }
         }
         throw error; // Re-throw other errors
