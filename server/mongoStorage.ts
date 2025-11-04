@@ -2397,10 +2397,11 @@ export class MongoStorage implements IStorage {
     return invitation || undefined;
   }
 
-  async getInvitations(filters?: { inviterId?: string; matchId?: string; teamId?: string; status?: string }): Promise<Invitation[]> {
+  async getInvitations(filters?: { inviterId?: string; email?: string; matchId?: string; teamId?: string; status?: string }): Promise<Invitation[]> {
     const query: any = {};
     
     if (filters?.inviterId) query.inviterId = filters.inviterId;
+    if (filters?.email) query.email = filters.email;
     if (filters?.matchId) query.matchId = filters.matchId;
     if (filters?.teamId) query.teamId = filters.teamId;
     if (filters?.status) query.status = filters.status;

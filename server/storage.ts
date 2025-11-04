@@ -263,7 +263,7 @@ export interface IStorage {
   createInvitation(invitation: InsertInvitation): Promise<Invitation>;
   getInvitation(id: string): Promise<Invitation | undefined>;
   getInvitationByToken(token: string): Promise<Invitation | undefined>;
-  getInvitations(filters?: { inviterId?: string; matchId?: string; teamId?: string; status?: string }): Promise<Invitation[]>;
+  getInvitations(filters?: { inviterId?: string; email?: string; matchId?: string; teamId?: string; status?: string }): Promise<Invitation[]>;
   updateInvitation(id: string, data: Partial<Invitation>): Promise<Invitation | undefined>;
   revokeInvitation(id: string): Promise<boolean>;
   acceptInvitation(token: string, acceptData: { userId?: string; playerId?: string }): Promise<{ success: boolean; invitation?: Invitation; error?: string }>;
