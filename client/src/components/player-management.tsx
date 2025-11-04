@@ -31,6 +31,9 @@ export default function PlayerManagement({ teamId, teamName, teamSport, players,
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [editingPlayer, setEditingPlayer] = useState<Player | null>(null);
   
+  // Default to cricket if teamSport is not set (for backward compatibility)
+  const sport = teamSport || 'cricket';
+  
   // Conflict resolution state
   const [conflictData, setConflictData] = useState<any>(null);
   const [pendingPlayerData, setPendingPlayerData] = useState<Partial<InsertPlayer> | null>(null);
@@ -337,7 +340,7 @@ export default function PlayerManagement({ teamId, teamName, teamSport, players,
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            {teamSport === 'football' ? (
+                            {sport === 'football' ? (
                               <>
                                 <SelectItem value="goalkeeper">Goalkeeper</SelectItem>
                                 <SelectItem value="defender">Defender</SelectItem>
@@ -381,7 +384,7 @@ export default function PlayerManagement({ teamId, teamName, teamSport, players,
                   />
                 </div>
 
-                {teamSport === 'cricket' && (
+                {sport === 'cricket' && (
                   <div className="grid grid-cols-2 gap-4">
                     <FormField
                       control={addForm.control}
@@ -502,10 +505,10 @@ export default function PlayerManagement({ teamId, teamName, teamSport, players,
                         {player.email && (
                           <span>{player.email}</span>
                         )}
-                        {teamSport === 'cricket' && player.battingStyle && (
+                        {sport === 'cricket' && player.battingStyle && (
                           <span>Bat: {player.battingStyle}</span>
                         )}
-                        {teamSport === 'cricket' && player.bowlingStyle && (
+                        {sport === 'cricket' && player.bowlingStyle && (
                           <span>Bowl: {player.bowlingStyle}</span>
                         )}
                       </div>
@@ -644,7 +647,7 @@ export default function PlayerManagement({ teamId, teamName, teamSport, players,
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            {teamSport === 'football' ? (
+                            {sport === 'football' ? (
                               <>
                                 <SelectItem value="goalkeeper">Goalkeeper</SelectItem>
                                 <SelectItem value="defender">Defender</SelectItem>
@@ -687,7 +690,7 @@ export default function PlayerManagement({ teamId, teamName, teamSport, players,
                   />
                 </div>
 
-                {teamSport === 'cricket' && (
+                {sport === 'cricket' && (
                   <div className="grid grid-cols-2 gap-4">
                     <FormField
                       control={editForm.control}
