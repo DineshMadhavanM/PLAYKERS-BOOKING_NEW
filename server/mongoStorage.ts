@@ -678,12 +678,15 @@ export class MongoStorage implements IStorage {
   }
 
   async createPlayer(playerData: InsertPlayer): Promise<Player> {
-    // Check for username uniqueness if provided
-    if (playerData.username && playerData.username.trim()) {
+    // Check for username uniqueness within the same team if provided
+    if (playerData.username && playerData.username.trim() && playerData.teamId) {
       const normalizedUsername = playerData.username.trim().toLowerCase();
-      const existingPlayer = await this.players.findOne({ username: normalizedUsername } as any);
+      const existingPlayer = await this.players.findOne({ 
+        username: normalizedUsername,
+        teamId: playerData.teamId
+      } as any);
       if (existingPlayer) {
-        throw new Error(`Username "${playerData.username}" is already taken. Please choose a different username.`);
+        throw new Error(`Username "${playerData.username}" is already taken in this team. Please choose a different username.`);
       }
     }
 
@@ -748,15 +751,16 @@ export class MongoStorage implements IStorage {
   }
 
   async updatePlayer(id: string, playerData: Partial<InsertPlayer>): Promise<Player | undefined> {
-    // Check for username uniqueness if provided and changed
-    if (playerData.username && playerData.username.trim()) {
+    // Check for username uniqueness within the same team if provided and changed
+    if (playerData.username && playerData.username.trim() && playerData.teamId) {
       const normalizedUsername = playerData.username.trim().toLowerCase();
       const existingPlayer = await this.players.findOne({ 
         username: normalizedUsername,
+        teamId: playerData.teamId,
         id: { $ne: id } // Exclude current player from search
       } as any);
       if (existingPlayer) {
-        throw new Error(`Username "${playerData.username}" is already taken. Please choose a different username.`);
+        throw new Error(`Username "${playerData.username}" is already taken in this team. Please choose a different username.`);
       }
     }
 
