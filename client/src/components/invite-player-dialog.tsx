@@ -24,17 +24,17 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-
-const inviteFormSchema = z.object({
-  email: z.string().email("Valid email is required"),
-  message: z.string().optional(),
-});
-
-type InviteFormData = z.infer<typeof inviteFormSchema>;
 
 interface InvitePlayerDialogProps {
   invitationType?: "match" | "team";
@@ -57,11 +57,21 @@ export default function InvitePlayerDialog({
   const [isOpen, setIsOpen] = useState(false);
   const [copiedLink, setCopiedLink] = useState<string | null>(null);
 
+  // Dynamic schema based on whether invitationType is provided as prop
+  const inviteFormSchema = z.object({
+    email: z.string().email("Valid email is required"),
+    message: z.string().optional(),
+    ...(invitationType ? {} : { invitationType: z.enum(["match", "team"], { required_error: "Please select invitation type" }) }),
+  });
+
+  type InviteFormData = z.infer<typeof inviteFormSchema>;
+
   const form = useForm<InviteFormData>({
     resolver: zodResolver(inviteFormSchema),
     defaultValues: {
       email: "",
       message: "",
+      ...(invitationType ? {} : { invitationType: undefined as any }),
     },
   });
 
@@ -84,7 +94,8 @@ export default function InvitePlayerDialog({
   const createInvitationMutation = useMutation({
     mutationFn: async (data: InviteFormData) => {
       const payload: any = { ...data };
-      if (invitationType) payload.invitationType = invitationType;
+      // Use prop invitationType if provided, otherwise use form value
+      payload.invitationType = invitationType || (data as any).invitationType;
       if (matchId) payload.matchId = matchId;
       if (teamId) payload.teamId = teamId;
       if (matchTitle) payload.matchTitle = matchTitle;
@@ -204,6 +215,30 @@ export default function InvitePlayerDialog({
           <TabsContent value="email" className="space-y-4">
             <Form {...form}>
               <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+                {!invitationType && (
+                  <FormField
+                    control={form.control}
+                    name="invitationType"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Invitation Type</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger data-testid="select-invitation-type">
+                              <SelectValue placeholder="Select invitation type" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="match" data-testid="option-match">Match Invitation</SelectItem>
+                            <SelectItem value="team" data-testid="option-team">Team Invitation</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
+
                 <FormField
                   control={form.control}
                   name="email"
