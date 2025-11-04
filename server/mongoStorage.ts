@@ -85,6 +85,59 @@ export class MongoStorage implements IStorage {
       );
       console.log('✅ Created playerPerformances indexes');
       
+      // Migrate from old email-only index to email+teamId compound index
+      try {
+        // Drop the old email-only unique index if it exists
+        await this.players.dropIndex('email_1').catch(() => {
+          // Ignore error if index doesn't exist
+        });
+        console.log('✅ Dropped old email-only index');
+      } catch (error) {
+        // Index might not exist, that's fine
+      }
+      
+      // Clean up duplicate email+teamId combinations before creating the new index
+      try {
+        const pipeline = [
+          {
+            $match: {
+              email: { $ne: null },
+              teamId: { $ne: null }
+            }
+          },
+          {
+            $group: {
+              _id: { email: '$email', teamId: '$teamId' },
+              ids: { $push: '$_id' },
+              count: { $sum: 1 }
+            }
+          },
+          {
+            $match: {
+              count: { $gt: 1 }
+            }
+          }
+        ];
+        
+        const duplicates = await this.players.aggregate(pipeline).toArray();
+        
+        if (duplicates.length > 0) {
+          console.log(`⚠️ Found ${duplicates.length} duplicate email+teamId combinations, cleaning up...`);
+          
+          for (const dup of duplicates) {
+            // Keep the first record (oldest) and delete the rest
+            const idsToDelete = dup.ids.slice(1);
+            await this.players.deleteMany({
+              _id: { $in: idsToDelete }
+            });
+          }
+          
+          console.log('✅ Cleaned up duplicate players');
+        }
+      } catch (cleanupError) {
+        console.warn('⚠️ Error during duplicate cleanup:', cleanupError);
+      }
+      
       // Create unique sparse index on player email per team
       // This allows the same email to be used across different teams
       await this.players.createIndex(
