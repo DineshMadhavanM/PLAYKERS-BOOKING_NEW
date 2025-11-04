@@ -1143,3 +1143,34 @@ export type Invitation = {
 
 export type InsertInvitation = z.infer<typeof insertInvitationSchema>;
 export type AcceptInvitation = z.infer<typeof acceptInvitationSchema>;
+
+// Notification/Match Request validation schemas
+export const insertNotificationSchema = z.object({
+  recipientPlayerId: z.string().min(1, "Recipient player ID is required"),
+  recipientEmail: z.string().email().optional(),
+  senderName: z.string().min(1, "Sender name is required"),
+  senderEmail: z.string().email("Valid email is required"),
+  senderPhone: z.string().min(1, "Phone number is required"),
+  matchType: z.string().min(1, "Match type is required"),
+  location: z.string().min(1, "Location is required"),
+  message: z.string().optional(),
+});
+
+// Notification type
+export type Notification = {
+  id: string;
+  recipientUserId: string | null; // User ID if player is linked to a user
+  recipientPlayerId: string; // Player ID
+  recipientEmail: string | null;
+  senderName: string;
+  senderEmail: string;
+  senderPhone: string;
+  matchType: string;
+  location: string;
+  message: string | null;
+  status: "unread" | "read" | "accepted" | "declined";
+  createdAt: Date;
+  readAt: Date | null;
+};
+
+export type InsertNotification = z.infer<typeof insertNotificationSchema>;

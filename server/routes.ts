@@ -16,6 +16,7 @@ import {
   matchCompletionSchema,
   MatchCompletionInput,
   insertInvitationSchema,
+  insertNotificationSchema,
 } from "@shared/schema";
 import { z } from "zod";
 
@@ -2211,6 +2212,94 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error revoking invitation:", error);
       res.status(500).json({ message: "Failed to revoke invitation" });
+    }
+  });
+
+  // Notification routes
+  app.post("/api/notifications", async (req, res) => {
+    try {
+      const validatedData = insertNotificationSchema.parse(req.body);
+      const notification = await storage.createNotification(validatedData);
+      res.json(notification);
+    } catch (error: any) {
+      console.error("Error creating notification:", error);
+      res.status(400).json({ message: error.message || "Failed to create notification" });
+    }
+  });
+
+  app.get("/api/notifications", async (req, res) => {
+    try {
+      const user = (req as any).user;
+      if (!user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const filters: any = {};
+      if (req.query.status) filters.status = req.query.status as string;
+
+      const notifications = await storage.getNotifications(user.id, filters);
+      res.json(notifications);
+    } catch (error) {
+      console.error("Error fetching notifications:", error);
+      res.status(500).json({ message: "Failed to fetch notifications" });
+    }
+  });
+
+  app.get("/api/notifications/unread-count", async (req, res) => {
+    try {
+      const user = (req as any).user;
+      if (!user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const count = await storage.getUnreadNotificationCount(user.id);
+      res.json({ count });
+    } catch (error) {
+      console.error("Error fetching unread count:", error);
+      res.status(500).json({ message: "Failed to fetch unread count" });
+    }
+  });
+
+  app.patch("/api/notifications/:id/status", async (req, res) => {
+    try {
+      const user = (req as any).user;
+      if (!user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const { status } = req.body;
+      if (!["read", "accepted", "declined"].includes(status)) {
+        return res.status(400).json({ message: "Invalid status" });
+      }
+
+      const notification = await storage.updateNotificationStatus(req.params.id, status);
+      if (!notification) {
+        return res.status(404).json({ message: "Notification not found" });
+      }
+
+      res.json(notification);
+    } catch (error) {
+      console.error("Error updating notification:", error);
+      res.status(500).json({ message: "Failed to update notification" });
+    }
+  });
+
+  app.delete("/api/notifications/:id", async (req, res) => {
+    try {
+      const user = (req as any).user;
+      if (!user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const success = await storage.deleteNotification(req.params.id);
+      if (success) {
+        res.json({ message: "Notification deleted successfully" });
+      } else {
+        res.status(404).json({ message: "Notification not found" });
+      }
+    } catch (error) {
+      console.error("Error deleting notification:", error);
+      res.status(500).json({ message: "Failed to delete notification" });
     }
   });
 

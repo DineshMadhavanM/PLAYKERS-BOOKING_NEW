@@ -14,6 +14,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import SearchPlayerDialog from "@/components/search-player-dialog";
 import InvitePlayerDialog from "@/components/invite-player-dialog";
+import NotificationsDropdown from "@/components/notifications-dropdown";
 
 export default function Navigation() {
   const [location] = useLocation();
@@ -98,9 +99,7 @@ export default function Navigation() {
                     </Button>
                   }
                 />
-                <Button variant="ghost" size="icon" data-testid="button-notifications">
-                  <Bell className="h-5 w-5" />
-                </Button>
+                <NotificationsDropdown />
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button variant="ghost" className="relative h-8 w-8 rounded-full" data-testid="button-profile-menu">

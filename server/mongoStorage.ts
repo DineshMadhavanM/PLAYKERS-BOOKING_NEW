@@ -13,6 +13,7 @@ import type {
   Player,
   PlayerPerformance,
   Invitation,
+  Notification,
   InsertVenue,
   InsertMatch,
   InsertCricketMatch,
@@ -26,6 +27,7 @@ import type {
   InsertPlayer,
   InsertPlayerPerformance,
   InsertInvitation,
+  InsertNotification,
   UpsertUser,
 } from "@shared/schema";
 import type { IStorage } from "./storage";
@@ -46,6 +48,7 @@ export class MongoStorage implements IStorage {
   private players: Collection<Player>;
   private playerPerformances: Collection<PlayerPerformance>;
   private invitations: Collection<Invitation>;
+  private notifications: Collection<Notification>;
 
   constructor(uri: string) {
     // Configure MongoDB client options for Replit compatibility
@@ -73,6 +76,7 @@ export class MongoStorage implements IStorage {
     this.players = this.db.collection<Player>('players');
     this.playerPerformances = this.db.collection<PlayerPerformance>('playerPerformances');
     this.invitations = this.db.collection<Invitation>('invitations');
+    this.notifications = this.db.collection<Notification>('notifications');
   }
 
   async connect(): Promise<void> {
@@ -2471,5 +2475,66 @@ export class MongoStorage implements IStorage {
       token += chars.charAt(Math.floor(Math.random() * chars.length));
     }
     return token;
+  }
+
+  // Notification operations
+  async createNotification(notificationData: InsertNotification): Promise<Notification> {
+    const { v4: uuidv4 } = await import('uuid');
+    
+    // Look up the player to get their linked user ID
+    const player = await this.players.findOne({ id: notificationData.recipientPlayerId } as any);
+    
+    const notification: Notification = {
+      id: uuidv4(),
+      recipientUserId: player?.userId || null,
+      recipientPlayerId: notificationData.recipientPlayerId,
+      recipientEmail: notificationData.recipientEmail || player?.email || null,
+      senderName: notificationData.senderName,
+      senderEmail: notificationData.senderEmail,
+      senderPhone: notificationData.senderPhone,
+      matchType: notificationData.matchType,
+      location: notificationData.location,
+      message: notificationData.message || null,
+      status: 'unread',
+      createdAt: new Date(),
+      readAt: null,
+    };
+
+    await this.notifications.insertOne(notification as any);
+    return notification;
+  }
+
+  async getNotifications(recipientUserId: string, filters?: { status?: string }): Promise<Notification[]> {
+    const query: any = { recipientUserId };
+    
+    if (filters?.status) {
+      query.status = filters.status;
+    }
+
+    const notifications = await this.notifications.find(query).sort({ createdAt: -1 }).toArray();
+    return notifications;
+  }
+
+  async getUnreadNotificationCount(recipientUserId: string): Promise<number> {
+    return await this.notifications.countDocuments({ recipientUserId, status: 'unread' } as any);
+  }
+
+  async updateNotificationStatus(id: string, status: "read" | "accepted" | "declined"): Promise<Notification | undefined> {
+    const updateData: any = { status };
+    if (status === 'read' || status === 'accepted' || status === 'declined') {
+      updateData.readAt = new Date();
+    }
+
+    const result = await this.notifications.findOneAndUpdate(
+      { id } as any,
+      { $set: updateData },
+      { returnDocument: 'after' }
+    );
+    return result || undefined;
+  }
+
+  async deleteNotification(id: string): Promise<boolean> {
+    const result = await this.notifications.deleteOne({ id } as any);
+    return result.deletedCount > 0;
   }
 }

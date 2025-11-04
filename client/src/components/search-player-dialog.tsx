@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Search, User, Trophy, Target, X } from "lucide-react";
+import ContactPlayerDialog from "@/components/contact-player-dialog";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -45,6 +46,7 @@ interface SearchPlayerDialogProps {
 export default function SearchPlayerDialog({ trigger }: SearchPlayerDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
 
   const queryUrl = searchQuery 
     ? `/api/players?search=${encodeURIComponent(searchQuery)}`
@@ -130,6 +132,7 @@ export default function SearchPlayerDialog({ trigger }: SearchPlayerDialogProps)
               <Card
                 key={player.id}
                 className="hover:bg-accent/50 transition-colors cursor-pointer"
+                onClick={() => setSelectedPlayer(player)}
                 data-testid={`card-player-${player.id}`}
               >
                 <CardContent className="p-4">
@@ -203,6 +206,16 @@ export default function SearchPlayerDialog({ trigger }: SearchPlayerDialogProps)
           )}
         </div>
       </DialogContent>
+
+      {selectedPlayer && (
+        <ContactPlayerDialog
+          isOpen={!!selectedPlayer}
+          onClose={() => setSelectedPlayer(null)}
+          playerId={selectedPlayer.id}
+          playerName={selectedPlayer.name}
+          playerEmail={selectedPlayer.email}
+        />
+      )}
     </Dialog>
   );
 }

@@ -268,6 +268,13 @@ export interface IStorage {
   revokeInvitation(id: string): Promise<boolean>;
   acceptInvitation(token: string, acceptData: { userId?: string; playerId?: string }): Promise<{ success: boolean; invitation?: Invitation; error?: string }>;
   cleanupExpiredInvitations(): Promise<number>;
+
+  // Notification operations
+  createNotification(notification: InsertNotification): Promise<Notification>;
+  getNotifications(recipientId: string, filters?: { status?: string }): Promise<Notification[]>;
+  getUnreadNotificationCount(recipientId: string): Promise<number>;
+  updateNotificationStatus(id: string, status: "read" | "accepted" | "declined"): Promise<Notification | undefined>;
+  deleteNotification(id: string): Promise<boolean>;
 }
 
 // MongoDB Storage Implementation
