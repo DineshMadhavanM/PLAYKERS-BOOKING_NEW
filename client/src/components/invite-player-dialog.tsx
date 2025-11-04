@@ -37,7 +37,7 @@ const inviteFormSchema = z.object({
 type InviteFormData = z.infer<typeof inviteFormSchema>;
 
 interface InvitePlayerDialogProps {
-  invitationType: "match" | "team";
+  invitationType?: "match" | "team";
   matchId?: string;
   teamId?: string;
   matchTitle?: string;
@@ -65,35 +65,36 @@ export default function InvitePlayerDialog({
     },
   });
 
+  // Build query URL for invitations
+  const invitationsQueryUrl = () => {
+    if (!matchId && !teamId) return "/api/invitations";
+    const params = new URLSearchParams();
+    if (matchId) params.append("matchId", matchId);
+    if (teamId) params.append("teamId", teamId);
+    return `/api/invitations?${params.toString()}`;
+  };
+
   // Fetch existing invitations
   const { data: invitations = [], isLoading: isLoadingInvitations } = useQuery<any[]>({
-    queryKey: ["/api/invitations", { matchId, teamId }],
-    queryFn: async () => {
-      const params = new URLSearchParams();
-      if (matchId) params.append("matchId", matchId);
-      if (teamId) params.append("teamId", teamId);
-      const response = await fetch(`/api/invitations?${params.toString()}`);
-      if (!response.ok) throw new Error("Failed to fetch invitations");
-      return response.json();
-    },
-    enabled: isOpen,
+    queryKey: [invitationsQueryUrl()],
+    enabled: isOpen && !!(matchId || teamId),
   });
 
   // Create invitation mutation
   const createInvitationMutation = useMutation({
     mutationFn: async (data: InviteFormData) => {
-      const response = await apiRequest("POST", "/api/invitations", {
-        ...data,
-        invitationType,
-        matchId,
-        teamId,
-        matchTitle,
-        teamName,
-      });
+      const payload: any = { ...data };
+      if (invitationType) payload.invitationType = invitationType;
+      if (matchId) payload.matchId = matchId;
+      if (teamId) payload.teamId = teamId;
+      if (matchTitle) payload.matchTitle = matchTitle;
+      if (teamName) payload.teamName = teamName;
+      
+      const response = await apiRequest("POST", "/api/invitations", payload);
       return response.json();
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/invitations", { matchId, teamId }] });
+      queryClient.invalidateQueries({ queryKey: [invitationsQueryUrl()] });
       toast({
         title: "Invitation sent!",
         description: `An invitation has been sent to ${form.getValues("email")}`,
@@ -116,7 +117,7 @@ export default function InvitePlayerDialog({
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/invitations", { matchId, teamId }] });
+      queryClient.invalidateQueries({ queryKey: [invitationsQueryUrl()] });
       toast({
         title: "Invitation revoked",
         description: "The invitation has been revoked successfully",
@@ -181,10 +182,16 @@ export default function InvitePlayerDialog({
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto" data-testid="dialog-invite-player">
         <DialogHeader>
           <DialogTitle>
-            Invite Players to {invitationType === "match" ? matchTitle : teamName}
+            {invitationType === "match" && matchTitle
+              ? `Invite Players to ${matchTitle}`
+              : invitationType === "team" && teamName
+              ? `Invite Players to ${teamName}`
+              : "Invite Player"}
           </DialogTitle>
           <DialogDescription>
-            Send email invitations or share a link for players to join
+            {matchId || teamId
+              ? "Send email invitations or share a link for players to join"
+              : "Send an email invitation to a player"}
           </DialogDescription>
         </DialogHeader>
 

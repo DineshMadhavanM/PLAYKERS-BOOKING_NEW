@@ -46,15 +46,12 @@ export default function SearchPlayerDialog({ trigger }: SearchPlayerDialogProps)
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
+  const queryUrl = searchQuery 
+    ? `/api/players?search=${encodeURIComponent(searchQuery)}`
+    : "/api/players";
+
   const { data: players = [], isLoading } = useQuery<Player[]>({
-    queryKey: ["/api/players", { search: searchQuery }],
-    queryFn: async () => {
-      const params = new URLSearchParams();
-      if (searchQuery) params.append("search", searchQuery);
-      const response = await fetch(`/api/players?${params.toString()}`);
-      if (!response.ok) throw new Error("Failed to fetch players");
-      return response.json();
-    },
+    queryKey: [queryUrl],
     enabled: isOpen,
   });
 

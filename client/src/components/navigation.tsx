@@ -91,7 +91,6 @@ export default function Navigation() {
                   }
                 />
                 <InvitePlayerDialog 
-                  invitationType="team"
                   trigger={
                     <Button variant="ghost" size="sm" data-testid="button-nav-invite-player">
                       <UserPlus className="h-4 w-4 mr-2" />
@@ -156,7 +155,6 @@ export default function Navigation() {
                         }
                       />
                       <InvitePlayerDialog 
-                        invitationType="team"
                         trigger={
                           <Button variant="ghost" className="w-full justify-start" data-testid="button-nav-invite-player-mobile">
                             <UserPlus className="mr-2 h-4 w-4" />
