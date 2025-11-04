@@ -154,7 +154,7 @@ export const insertPlayerSchema = z.object({
   userId: z.string().optional(), // Link to registered user if available
   teamId: z.string().optional(),
   teamName: z.string().optional(),
-  role: z.enum(["batsman", "bowler", "all-rounder", "wicket-keeper"]).optional(),
+  role: z.enum(["batsman", "bowler", "all-rounder", "wicket-keeper", "goalkeeper", "defender", "midfielder", "forward"]).optional(),
   battingStyle: z.enum(["right-handed", "left-handed"]).optional(),
   bowlingStyle: z.enum(["right-arm-fast", "left-arm-fast", "right-arm-medium", "left-arm-medium", "right-arm-spin", "left-arm-spin", "leg-spin", "off-spin"]).optional(),
   jerseyNumber: z.number().optional(),
