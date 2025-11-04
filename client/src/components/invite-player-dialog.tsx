@@ -107,10 +107,10 @@ export default function InvitePlayerDialog({
     return `/api/invitations?${params.toString()}`;
   };
 
-  // Fetch existing invitations
+  // Fetch existing invitations (always fetch when dialog is open to show user's invitations)
   const { data: invitations = [], isLoading: isLoadingInvitations } = useQuery<any[]>({
     queryKey: [invitationsQueryUrl()],
-    enabled: isOpen && !!(matchId || teamId),
+    enabled: isOpen,
   });
 
   // Create invitation mutation
@@ -431,9 +431,14 @@ export default function InvitePlayerDialog({
                               </p>
                             )}
                             {invitation.inviterName && (
-                              <p className="text-sm text-muted-foreground">
-                                Invited by: {invitation.inviterName}
-                              </p>
+                              <div className="text-sm text-muted-foreground">
+                                <p>Invited by: {invitation.inviterName}</p>
+                                {invitation.inviterId && (
+                                  <p className="text-xs" data-testid={`text-sender-id-${invitation.id}`}>
+                                    Sender ID: <span className="font-mono font-medium">{invitation.inviterId}</span>
+                                  </p>
+                                )}
+                              </div>
                             )}
                           </div>
                         </div>
@@ -480,20 +485,22 @@ export default function InvitePlayerDialog({
                         </div>
                       )}
                       {invitation.status === "accepted" && invitation.acceptedAt && (
-                        <div className="space-y-1">
-                          <p className="text-sm text-muted-foreground">
-                            Accepted on {new Date(invitation.acceptedAt).toLocaleDateString()}
+                        <div className="space-y-2 bg-muted/50 p-3 rounded-md">
+                          <p className="text-sm font-medium text-foreground">
+                            ✓ Accepted on {new Date(invitation.acceptedAt).toLocaleDateString()}
                           </p>
-                          {invitation.acceptedByUserId && (
-                            <p className="text-sm text-muted-foreground" data-testid={`text-receiver-user-id-${invitation.id}`}>
-                              User ID: <span className="font-mono font-medium">{invitation.acceptedByUserId}</span>
-                            </p>
-                          )}
-                          {invitation.acceptedByPlayerId && (
-                            <p className="text-sm text-muted-foreground" data-testid={`text-receiver-player-id-${invitation.id}`}>
-                              Player ID: <span className="font-mono font-medium">{invitation.acceptedByPlayerId}</span>
-                            </p>
-                          )}
+                          <div className="space-y-1 text-sm">
+                            {invitation.acceptedByUserId && (
+                              <p className="text-muted-foreground" data-testid={`text-receiver-user-id-${invitation.id}`}>
+                                Receiver User ID: <span className="font-mono font-medium text-foreground">{invitation.acceptedByUserId}</span>
+                              </p>
+                            )}
+                            {invitation.acceptedByPlayerId && (
+                              <p className="text-muted-foreground" data-testid={`text-receiver-player-id-${invitation.id}`}>
+                                Receiver Player ID: <span className="font-mono font-medium text-foreground">{invitation.acceptedByPlayerId}</span>
+                              </p>
+                            )}
+                          </div>
                         </div>
                       )}
                       {invitation.status === "expired" && (
