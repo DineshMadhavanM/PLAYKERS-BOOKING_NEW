@@ -141,7 +141,8 @@ export default function InvitePlayerDialog({
       return response.json();
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: [invitationsQueryUrl()] });
+      // Invalidate all invitation queries to ensure fresh data
+      queryClient.invalidateQueries({ queryKey: ["/api/invitations"] });
       toast({
         title: "Invitation sent!",
         description: `An invitation has been sent to ${form.getValues("email")}`,
@@ -164,7 +165,8 @@ export default function InvitePlayerDialog({
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [invitationsQueryUrl()] });
+      // Invalidate all invitation queries to ensure fresh data
+      queryClient.invalidateQueries({ queryKey: ["/api/invitations"] });
       toast({
         title: "Invitation revoked",
         description: "The invitation has been revoked successfully",
