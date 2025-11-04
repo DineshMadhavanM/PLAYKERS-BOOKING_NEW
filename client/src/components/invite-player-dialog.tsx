@@ -415,9 +415,27 @@ export default function InvitePlayerDialog({
                           <CardTitle className="text-base">
                             {invitation.email}
                           </CardTitle>
-                          <p className="text-sm text-muted-foreground mt-1">
-                            Sent {new Date(invitation.createdAt).toLocaleDateString()}
-                          </p>
+                          <div className="space-y-1 mt-1">
+                            <p className="text-sm text-muted-foreground">
+                              Sent {new Date(invitation.createdAt).toLocaleDateString()}
+                            </p>
+                            {invitation.invitationType && (
+                              <p className="text-sm text-muted-foreground">
+                                Type: <span className="font-medium capitalize">{invitation.invitationType}</span>
+                                {invitation.invitationType === "match" && invitation.matchTitle && (
+                                  <span> - {invitation.matchTitle}</span>
+                                )}
+                                {invitation.invitationType === "team" && invitation.teamName && (
+                                  <span> - {invitation.teamName}</span>
+                                )}
+                              </p>
+                            )}
+                            {invitation.inviterName && (
+                              <p className="text-sm text-muted-foreground">
+                                Invited by: {invitation.inviterName}
+                              </p>
+                            )}
+                          </div>
                         </div>
                         <Badge variant={getStatusColor(invitation.status)}>
                           {invitation.status}
@@ -462,9 +480,21 @@ export default function InvitePlayerDialog({
                         </div>
                       )}
                       {invitation.status === "accepted" && invitation.acceptedAt && (
-                        <p className="text-sm text-muted-foreground">
-                          Accepted on {new Date(invitation.acceptedAt).toLocaleDateString()}
-                        </p>
+                        <div className="space-y-1">
+                          <p className="text-sm text-muted-foreground">
+                            Accepted on {new Date(invitation.acceptedAt).toLocaleDateString()}
+                          </p>
+                          {invitation.acceptedByUserId && (
+                            <p className="text-sm text-muted-foreground" data-testid={`text-receiver-user-id-${invitation.id}`}>
+                              User ID: <span className="font-mono font-medium">{invitation.acceptedByUserId}</span>
+                            </p>
+                          )}
+                          {invitation.acceptedByPlayerId && (
+                            <p className="text-sm text-muted-foreground" data-testid={`text-receiver-player-id-${invitation.id}`}>
+                              Player ID: <span className="font-mono font-medium">{invitation.acceptedByPlayerId}</span>
+                            </p>
+                          )}
+                        </div>
                       )}
                       {invitation.status === "expired" && (
                         <p className="text-sm text-muted-foreground">
