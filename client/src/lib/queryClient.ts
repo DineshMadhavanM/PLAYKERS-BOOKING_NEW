@@ -8,10 +8,15 @@ async function throwIfResNotOk(res: Response) {
     try {
       const errorData = JSON.parse(text);
       if (errorData.message) {
+        // Successfully parsed JSON with a message, throw just the message
         throw new Error(errorData.message);
       }
-    } catch {
-      // If JSON parsing fails, use the raw text
+    } catch (parseError) {
+      // If it's already an Error (from the throw above), re-throw it
+      if (parseError instanceof Error && parseError.message !== text) {
+        throw parseError;
+      }
+      // If JSON parsing actually failed, fall through to the default error
     }
     
     // Fallback to including status code if no JSON message found
