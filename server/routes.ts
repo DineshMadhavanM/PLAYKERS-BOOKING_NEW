@@ -1303,9 +1303,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const playerData = insertPlayerSchema.parse(req.body);
       
-      // Check for email conflicts if email is provided
-      if (playerData.email) {
-        const existingPlayer = await storage.getPlayerByEmail(playerData.email);
+      // Check for email conflicts within the same team if email is provided
+      if (playerData.email && playerData.teamId) {
+        const existingPlayer = await storage.getPlayerByEmail(playerData.email, playerData.teamId);
         if (existingPlayer) {
           return res.status(409).json({
             message: "Email conflict detected",
@@ -1344,9 +1344,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const playerData = insertPlayerSchema.partial().parse(req.body);
       
-      // Check for email conflicts if email is being updated
-      if (playerData.email) {
-        const existingPlayer = await storage.getPlayerByEmail(playerData.email, req.params.id);
+      // Check for email conflicts within the same team if email is being updated
+      if (playerData.email && playerData.teamId) {
+        const existingPlayer = await storage.getPlayerByEmail(playerData.email, playerData.teamId, req.params.id);
         if (existingPlayer) {
           return res.status(409).json({
             message: "Email conflict detected",

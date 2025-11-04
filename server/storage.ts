@@ -215,7 +215,7 @@ export interface IStorage {
   }>): Promise<{ success: boolean; playersUpdated?: number; errors?: string[]; cacheInvalidation?: { players: string[] } }>;
 
   // Player merge operations
-  getPlayerByEmail(email: string, excludePlayerId?: string): Promise<Player | undefined>;
+  getPlayerByEmail(email: string, teamId?: string, excludePlayerId?: string): Promise<Player | undefined>;
   mergePlayer(targetPlayerId: string, sourcePlayerId: string, mergedData: Partial<InsertPlayer>, mergeCareerStats?: boolean): Promise<{
     success: boolean;
     mergedPlayer?: Player;
