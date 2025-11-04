@@ -1,6 +1,6 @@
 import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
-import { Bell, Plus, User, Menu, Settings } from "lucide-react";
+import { Bell, Plus, User, Menu, Settings, Search, UserPlus } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import {
   DropdownMenu,
@@ -12,6 +12,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import SearchPlayerDialog from "@/components/search-player-dialog";
+import InvitePlayerDialog from "@/components/invite-player-dialog";
 
 export default function Navigation() {
   const [location] = useLocation();
@@ -79,7 +81,24 @@ export default function Navigation() {
 
           {isAuthenticated && (
             <div className="hidden md:block">
-              <div className="ml-4 flex items-center md:ml-6 space-x-4">
+              <div className="ml-4 flex items-center md:ml-6 space-x-2">
+                <SearchPlayerDialog 
+                  trigger={
+                    <Button variant="ghost" size="sm" data-testid="button-nav-search-player">
+                      <Search className="h-4 w-4 mr-2" />
+                      Search Player
+                    </Button>
+                  }
+                />
+                <InvitePlayerDialog 
+                  invitationType="team"
+                  trigger={
+                    <Button variant="ghost" size="sm" data-testid="button-nav-invite-player">
+                      <UserPlus className="h-4 w-4 mr-2" />
+                      Invite Player
+                    </Button>
+                  }
+                />
                 <Button variant="ghost" size="icon" data-testid="button-notifications">
                   <Bell className="h-5 w-5" />
                 </Button>
@@ -128,6 +147,23 @@ export default function Navigation() {
                   <NavItems mobile />
                   {isAuthenticated && (
                     <>
+                      <SearchPlayerDialog 
+                        trigger={
+                          <Button variant="ghost" className="w-full justify-start" data-testid="button-nav-search-player-mobile">
+                            <Search className="mr-2 h-4 w-4" />
+                            Search Player
+                          </Button>
+                        }
+                      />
+                      <InvitePlayerDialog 
+                        invitationType="team"
+                        trigger={
+                          <Button variant="ghost" className="w-full justify-start" data-testid="button-nav-invite-player-mobile">
+                            <UserPlus className="mr-2 h-4 w-4" />
+                            Invite Player
+                          </Button>
+                        }
+                      />
                       <Link href="/profile" data-testid="link-profile-mobile">
                         <Button variant="ghost" className="w-full justify-start">
                           <User className="mr-2 h-4 w-4" />
