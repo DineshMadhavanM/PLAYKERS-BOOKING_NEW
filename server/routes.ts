@@ -1336,7 +1336,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (error.name === 'ZodError') {
         return res.status(400).json({ message: "Validation error", issues: error.issues });
       }
-      res.status(500).json({ message: "Failed to create player" });
+      // Return the actual error message so users know what went wrong
+      res.status(500).json({ message: error.message || "Failed to create player" });
     }
   });
 
@@ -1380,7 +1381,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (error.name === 'ZodError') {
         return res.status(400).json({ message: "Validation error", issues: error.issues });
       }
-      res.status(500).json({ message: "Failed to update player" });
+      // Return the actual error message so users know what went wrong
+      res.status(500).json({ message: error.message || "Failed to update player" });
     }
   });
 
