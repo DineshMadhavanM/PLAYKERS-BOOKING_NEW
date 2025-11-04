@@ -242,7 +242,20 @@ export default function Matches() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {teams
-            .filter(team => mode === 'team-selection' || team.id !== selectedTeamId)
+            .filter(team => {
+              // For team selection, show all teams
+              if (mode === 'team-selection') return true;
+              
+              // For opponent selection, filter out the selected team
+              if (team.id === selectedTeamId) return false;
+              
+              // For opponent selection, only show teams from the same sport
+              if (mode === 'opponent-selection' && selectedTeam) {
+                return team.sport === selectedTeam.sport;
+              }
+              
+              return true;
+            })
             .map((team) => (
               <TeamCard 
                 key={team.id} 
