@@ -57,6 +57,28 @@ export default function NotificationsDropdown() {
     },
   });
 
+  const acceptNotificationMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const response = await apiRequest("POST", `/api/notifications/${id}/accept`);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/notifications/unread-count"] });
+      toast({
+        title: "Request accepted",
+        description: "The sender has been notified with your contact details",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to accept notification",
+        variant: "destructive",
+      });
+    },
+  });
+
   const deleteNotificationMutation = useMutation({
     mutationFn: async (id: string) => {
       const response = await apiRequest("DELETE", `/api/notifications/${id}`);
@@ -79,11 +101,7 @@ export default function NotificationsDropdown() {
   });
 
   const handleAccept = (id: string) => {
-    updateStatusMutation.mutate({ id, status: "accepted" });
-    toast({
-      title: "Request accepted",
-      description: "The sender has been notified",
-    });
+    acceptNotificationMutation.mutate(id);
   };
 
   const handleDecline = (id: string) => {

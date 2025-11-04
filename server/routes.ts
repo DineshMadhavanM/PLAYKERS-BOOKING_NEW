@@ -2269,6 +2269,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/notifications/:id/accept", async (req, res) => {
+    try {
+      const user = (req as any).user;
+      if (!user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      // Get the notification being accepted
+      const allNotifications = await storage.getNotifications(user.id);
+      const notification = allNotifications.find(n => n.id === req.params.id);
+      
+      if (!notification) {
+        return res.status(404).json({ message: "Notification not found" });
+      }
+
+      // Update notification status to accepted
+      const updatedNotification = await storage.updateNotificationStatus(req.params.id, "accepted");
+
+      // Send notification back to original sender
+      try {
+        // Look up player by sender's email
+        const senderPlayer = await storage.getPlayerByEmail(notification.senderEmail);
+        
+        if (senderPlayer) {
+          // Create acceptance notification for the sender
+          const accepterName = user.firstName && user.lastName 
+            ? `${user.firstName} ${user.lastName}` 
+            : user.email;
+          
+          await storage.createNotification({
+            recipientPlayerId: senderPlayer.id,
+            recipientEmail: notification.senderEmail,
+            senderName: accepterName,
+            senderEmail: user.email,
+            senderPhone: user.phoneNumber || "Not provided",
+            matchType: notification.matchType,
+            location: notification.location,
+            message: `${accepterName} accepted your match request! Please contact them to finalize the details.`,
+          });
+          
+          console.log(`✅ Sent acceptance notification to ${notification.senderEmail}`);
+        } else {
+          console.log(`⚠️  Could not find player with email ${notification.senderEmail} to send acceptance notification`);
+        }
+      } catch (error) {
+        console.error("Error sending acceptance notification:", error);
+        // Don't fail the request if sending notification fails
+      }
+
+      res.json(updatedNotification);
+    } catch (error) {
+      console.error("Error accepting notification:", error);
+      res.status(500).json({ message: "Failed to accept notification" });
+    }
+  });
+
   app.patch("/api/notifications/:id/status", async (req, res) => {
     try {
       const user = (req as any).user;
