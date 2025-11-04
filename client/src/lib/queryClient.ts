@@ -12,11 +12,12 @@ async function throwIfResNotOk(res: Response) {
         throw new Error(errorData.message);
       }
     } catch (parseError) {
-      // If it's already an Error (from the throw above), re-throw it
-      if (parseError instanceof Error && parseError.message !== text) {
+      // Only rethrow if it's NOT a SyntaxError (which means JSON parsing succeeded
+      // and we're rethrowing the deliberately created error with the extracted message)
+      if (parseError instanceof Error && parseError.name !== 'SyntaxError') {
         throw parseError;
       }
-      // If JSON parsing actually failed, fall through to the default error
+      // If JSON parsing failed (SyntaxError), fall through to the default error
     }
     
     // Fallback to including status code if no JSON message found
