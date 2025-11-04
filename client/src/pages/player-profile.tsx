@@ -265,49 +265,44 @@ export default function PlayerProfile() {
       </Card>
 
       {/* Career Stats Overview */}
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 mb-8">
-        <Card>
-          <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-blue-600">{careerStats.totalMatches || 0}</div>
-            <div className="text-sm text-gray-600 dark:text-gray-400">Matches</div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-green-600">{careerStats.matchesWon || 0}</div>
-            <div className="text-sm text-gray-600 dark:text-gray-400">Wins</div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-orange-600">{careerStats.totalRuns || 0}</div>
-            <div className="text-sm text-gray-600 dark:text-gray-400">Runs</div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-red-600">{careerStats.totalWickets || 0}</div>
-            <div className="text-sm text-gray-600 dark:text-gray-400">Wickets</div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-purple-600">{battingAverage}</div>
-            <div className="text-sm text-gray-600 dark:text-gray-400">Bat Avg</div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-yellow-600">{strikeRate}</div>
-            <div className="text-sm text-gray-600 dark:text-gray-400">Strike Rate</div>
-          </CardContent>
-        </Card>
-      </div>
+      <Card className="mb-8">
+        <CardHeader>
+          <CardTitle>Career Stats Overview</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
+            <div className="text-center">
+              <div className="text-2xl font-bold text-blue-600">{careerStats.totalMatches || 0}</div>
+              <div className="text-sm text-gray-600 dark:text-gray-400">Matches</div>
+            </div>
+            
+            <div className="text-center">
+              <div className="text-2xl font-bold text-green-600">{careerStats.matchesWon || 0}</div>
+              <div className="text-sm text-gray-600 dark:text-gray-400">Wins</div>
+            </div>
+            
+            <div className="text-center">
+              <div className="text-2xl font-bold text-orange-600">{careerStats.totalRuns || 0}</div>
+              <div className="text-sm text-gray-600 dark:text-gray-400">Runs</div>
+            </div>
+            
+            <div className="text-center">
+              <div className="text-2xl font-bold text-red-600">{careerStats.totalWickets || 0}</div>
+              <div className="text-sm text-gray-600 dark:text-gray-400">Wickets</div>
+            </div>
+            
+            <div className="text-center">
+              <div className="text-2xl font-bold text-purple-600">{battingAverage}</div>
+              <div className="text-sm text-gray-600 dark:text-gray-400">Bat Avg</div>
+            </div>
+            
+            <div className="text-center">
+              <div className="text-2xl font-bold text-yellow-600">{strikeRate}</div>
+              <div className="text-sm text-gray-600 dark:text-gray-400">Strike Rate</div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Main Content Tabs */}
       <Tabs defaultValue="stats" className="space-y-6">
