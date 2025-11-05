@@ -25,9 +25,18 @@ import AcceptInvite from "@/pages/accept-invite";
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
 
-  // Public route for accepting invitations
+  // Public routes that don't require authentication
   if (window.location.pathname.startsWith('/accept-invite/')) {
     return <AcceptInvite />;
+  }
+
+  // Allow public access to spectator view
+  if (window.location.pathname.match(/^\/match\/[^/]+\/spectate$/)) {
+    return (
+      <Switch>
+        <Route path="/match/:id/spectate" component={MatchSpectator} />
+      </Switch>
+    );
   }
 
   // If not authenticated, redirect all routes to landing page
