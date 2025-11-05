@@ -23,36 +23,21 @@ export default function MatchSpectator() {
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [lastRefresh, setLastRefresh] = useState(new Date());
 
-  // Redirect to login if not authenticated
-  useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
-      toast({
-        title: "Unauthorized",
-        description: "You are logged out. Logging in again...",
-        variant: "destructive",
-      });
-      setTimeout(() => {
-        window.location.href = "/api/login";
-      }, 500);
-      return;
-    }
-  }, [isAuthenticated, isLoading, toast]);
-
   const { data: match, isLoading: matchLoading, refetch } = useQuery<Match>({
     queryKey: ["/api/matches", params?.id],
-    enabled: isAuthenticated && !!params?.id,
+    enabled: !!params?.id,
     refetchInterval: autoRefresh ? 5000 : false, // Auto-refresh every 5 seconds
   });
 
   const { data: participants = [] } = useQuery<MatchParticipant[]>({
     queryKey: ["/api/matches", params?.id, "participants"],
-    enabled: isAuthenticated && !!params?.id,
+    enabled: !!params?.id,
     refetchInterval: autoRefresh ? 5000 : false,
   });
 
   const { data: rosterPlayers = [] } = useQuery<any[]>({
     queryKey: ["/api/matches", params?.id, "roster"],
-    enabled: isAuthenticated && !!params?.id && match?.sport === 'cricket',
+    enabled: !!params?.id && match?.sport === 'cricket',
     refetchInterval: autoRefresh ? 5000 : false,
   });
 
@@ -63,10 +48,10 @@ export default function MatchSpectator() {
     }
   }, [match]);
 
-  if (isLoading || matchLoading) {
+  if (matchLoading) {
     return (
       <div className="min-h-screen bg-background">
-        <Navigation />
+        {isAuthenticated && <Navigation />}
         <div className="flex items-center justify-center h-96">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
@@ -77,8 +62,18 @@ export default function MatchSpectator() {
     );
   }
 
-  if (!isAuthenticated || !match) {
-    return null;
+  if (!match) {
+    return (
+      <div className="min-h-screen bg-background">
+        {isAuthenticated && <Navigation />}
+        <div className="flex items-center justify-center h-96">
+          <div className="text-center">
+            <p className="text-xl text-muted-foreground">Match not found</p>
+            <p className="text-sm text-muted-foreground mt-2">Please check the match ID and try again</p>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   const handleManualRefresh = () => {
@@ -138,16 +133,18 @@ export default function MatchSpectator() {
 
   return (
     <div className="min-h-screen bg-background">
-      <Navigation />
+      {isAuthenticated && <Navigation />}
       <div className="container mx-auto px-4 py-8">
         {/* Header Section */}
         <div className="mb-6">
-          <Link href="/matches">
-            <Button variant="ghost" size="sm" className="mb-4" data-testid="button-back-matches">
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Matches
-            </Button>
-          </Link>
+          {isAuthenticated && (
+            <Link href="/matches">
+              <Button variant="ghost" size="sm" className="mb-4" data-testid="button-back-matches">
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Back to Matches
+              </Button>
+            </Link>
+          )}
 
           <div className="flex items-start justify-between">
             <div className="flex-1">
