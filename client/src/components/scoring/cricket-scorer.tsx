@@ -2586,7 +2586,7 @@ export default function CricketScorer({ match, onScoreUpdate, isLive, rosterPlay
       )}
 
       {/* Team Batting and Bowling Statistics Sections */}
-      {isLive && (
+      {(isLive || (battingStats.length > 0 || bowlingStats.length > 0)) && (
         <div className="space-y-6">
           {/* Team A (Team 1) Batting Statistics */}
           <Card className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/10 dark:to-blue-800/10 border-2 border-blue-200 dark:border-blue-800">
