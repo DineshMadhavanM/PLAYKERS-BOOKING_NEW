@@ -1,6 +1,6 @@
 import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
-import { Bell, Plus, User, Menu, Settings, Search, UserPlus } from "lucide-react";
+import { Bell, Plus, User, Menu, Settings, Search, UserPlus, Eye } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import {
   DropdownMenu,
@@ -14,6 +14,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import SearchPlayerDialog from "@/components/search-player-dialog";
 import InvitePlayerDialog from "@/components/invite-player-dialog";
+import WatchLiveMatchDialog from "@/components/watch-live-match-dialog";
 import NotificationsDropdown from "@/components/notifications-dropdown";
 
 export default function Navigation() {
@@ -99,6 +100,14 @@ export default function Navigation() {
                     </Button>
                   }
                 />
+                <WatchLiveMatchDialog 
+                  trigger={
+                    <Button variant="ghost" size="sm" data-testid="button-nav-watch-live">
+                      <Eye className="h-4 w-4 mr-2" />
+                      Watch Live
+                    </Button>
+                  }
+                />
                 <NotificationsDropdown />
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -158,6 +167,14 @@ export default function Navigation() {
                           <Button variant="ghost" className="w-full justify-start" data-testid="button-nav-invite-player-mobile">
                             <UserPlus className="mr-2 h-4 w-4" />
                             Invite Player
+                          </Button>
+                        }
+                      />
+                      <WatchLiveMatchDialog 
+                        trigger={
+                          <Button variant="ghost" className="w-full justify-start" data-testid="button-nav-watch-live-mobile">
+                            <Eye className="mr-2 h-4 w-4" />
+                            Watch Live Match
                           </Button>
                         }
                       />

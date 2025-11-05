@@ -17,7 +17,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { apiRequest } from "@/lib/queryClient";
-import { Calendar, MapPin, Users, Play, Pause, Square } from "lucide-react";
+import { Calendar, MapPin, Users, Play, Pause, Square, Copy, Check } from "lucide-react";
 import type { Match, MatchParticipant } from "@shared/schema";
 
 
@@ -34,6 +34,7 @@ export default function MatchScorer() {
   const [striker, setStriker] = useState<string>('');
   const [nonStriker, setNonStriker] = useState<string>('');
   const [bowler, setBowler] = useState<string>('');
+  const [matchIdCopied, setMatchIdCopied] = useState(false);
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -406,6 +407,26 @@ export default function MatchScorer() {
     });
   };
 
+  const handleCopyMatchId = async () => {
+    if (params?.id) {
+      try {
+        await navigator.clipboard.writeText(params.id);
+        setMatchIdCopied(true);
+        toast({
+          title: "Match ID Copied!",
+          description: "Share this ID with spectators to watch the match live",
+        });
+        setTimeout(() => setMatchIdCopied(false), 2000);
+      } catch (error) {
+        toast({
+          title: "Failed to copy",
+          description: "Please copy the match ID manually",
+          variant: "destructive",
+        });
+      }
+    }
+  };
+
 
   const renderScorer = () => {
     const scorerProps = {
@@ -477,6 +498,46 @@ export default function MatchScorer() {
             </div>
           </CardHeader>
           <CardContent>
+            {/* Match ID Display - Show when match is live or completed */}
+            {(matchStatus === 'live' || matchStatus === 'completed') && (
+              <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-950 border-2 border-blue-200 dark:border-blue-800 rounded-lg">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-blue-900 dark:text-blue-100 mb-1">
+                      Match ID - Share with Spectators
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <code className="text-lg font-mono font-bold text-blue-700 dark:text-blue-300 bg-white dark:bg-blue-900 px-3 py-1 rounded" data-testid="text-match-id">
+                        {params?.id}
+                      </code>
+                      <Button
+                        size="sm"
+                        variant={matchIdCopied ? "default" : "outline"}
+                        onClick={handleCopyMatchId}
+                        data-testid="button-copy-match-id"
+                      >
+                        {matchIdCopied ? (
+                          <>
+                            <Check className="h-4 w-4 mr-2" />
+                            Copied!
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="h-4 w-4 mr-2" />
+                            Copy ID
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="text-sm text-blue-600 dark:text-blue-400">
+                    <p>Spectators can use this ID to</p>
+                    <p>watch the match live</p>
+                  </div>
+                </div>
+              </div>
+            )}
+            
             <div className="flex gap-4">
               {matchStatus === 'upcoming' && (
                 <Button 
