@@ -17,6 +17,7 @@ import Profile from "@/pages/profile";
 import Shop from "@/pages/shop";
 import CreateMatch from "@/pages/create-match";
 import MatchScorer from "@/pages/match-scorer";
+import MatchSpectator from "@/pages/match-spectator";
 import Admin from "@/pages/admin";
 import PlayerProfile from "@/pages/player-profile";
 import AcceptInvite from "@/pages/accept-invite";
@@ -48,6 +49,7 @@ function Router() {
       <Route path="/shop" component={Shop} />
       <Route path="/create-match" component={CreateMatch} />
       <Route path="/match/:id/score" component={MatchScorer} />
+      <Route path="/match/:id/spectate" component={MatchSpectator} />
       <Route path="/admin" component={Admin} />
       <Route path="/accept-invite/:token" component={AcceptInvite} />
       <Route component={NotFound} />

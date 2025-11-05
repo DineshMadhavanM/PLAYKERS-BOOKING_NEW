@@ -1,12 +1,13 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, MapPin, Users, Share } from "lucide-react";
+import { Calendar, MapPin, Users, Share, Eye } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import MatchScorecardDialog from "@/components/match-scorecard-dialog";
+import { Link } from "wouter";
 import type { Match } from "@shared/schema";
 
 interface MatchCardProps {
@@ -144,7 +145,18 @@ export default function MatchCard({ match, showActions = true, teamStats }: Matc
 
         {showActions && (
           <div className="flex gap-2 mt-4">
-            {canJoinMatch ? (
+            {match.status === 'live' || match.status === 'completed' ? (
+              <Link href={`/match/${match.id}/spectate`} className="flex-1">
+                <Button 
+                  className="w-full" 
+                  variant={match.status === 'live' ? "default" : "outline"}
+                  data-testid={`button-watch-match-${match.id}`}
+                >
+                  <Eye className="h-4 w-4 mr-2" />
+                  {match.status === 'live' ? "Watch Live" : "View Results"}
+                </Button>
+              </Link>
+            ) : canJoinMatch ? (
               <Button 
                 className="flex-1" 
                 onClick={() => joinMatchMutation.mutate()}
