@@ -1368,11 +1368,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const isOwner = existingPlayer.email && user?.email && 
                       existingPlayer.email.toLowerCase() === user.email.toLowerCase();
       
+      // Debug logging
+      console.log('🔐 Authorization check for player update:');
+      console.log('  User email:', user?.email);
+      console.log('  User isAdmin:', user?.isAdmin);
+      console.log('  Existing player email:', existingPlayer.email);
+      console.log('  isOwner:', isOwner);
+      console.log('  isAdmin:', isAdmin);
+      
       if (!isAdmin && !isOwner) {
+        console.log('❌ Authorization DENIED - User cannot edit this player');
         return res.status(403).json({ 
           message: "You don't have permission to edit this player profile" 
         });
       }
+      
+      console.log('✅ Authorization GRANTED - User can edit this player');
       
       // Check for email conflicts within the same team if email is being updated
       if (playerData.email && playerData.teamId) {
