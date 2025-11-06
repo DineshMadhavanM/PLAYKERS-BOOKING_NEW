@@ -1356,14 +1356,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const playerData = insertPlayerSchema.partial().parse(req.body);
       
+      // Get the existing player to check authorization
+      const existingPlayer = await storage.getPlayer(req.params.id);
+      if (!existingPlayer) {
+        return res.status(404).json({ message: "Player not found" });
+      }
+      
+      // Check if user is authorized to edit this player
+      const user = (req as any).session.user;
+      const isAdmin = user?.isAdmin === true;
+      const isOwner = existingPlayer.email && user?.email && 
+                      existingPlayer.email.toLowerCase() === user.email.toLowerCase();
+      
+      if (!isAdmin && !isOwner) {
+        return res.status(403).json({ 
+          message: "You don't have permission to edit this player profile" 
+        });
+      }
+      
       // Check for email conflicts within the same team if email is being updated
       if (playerData.email && playerData.teamId) {
-        const existingPlayer = await storage.getPlayerByEmail(playerData.email, playerData.teamId, req.params.id);
-        if (existingPlayer) {
+        const conflictPlayer = await storage.getPlayerByEmail(playerData.email, playerData.teamId, req.params.id);
+        if (conflictPlayer) {
           return res.status(409).json({
             message: "Email conflict detected",
             conflictType: "email_exists",
-            existingPlayer: existingPlayer, // Include full player profile
+            existingPlayer: conflictPlayer, // Include full player profile
             suggestedAction: "merge_profiles"
           });
         }
@@ -1399,6 +1417,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete('/api/players/:id', requireAuth, async (req, res) => {
     try {
+      // Get the existing player to check authorization
+      const existingPlayer = await storage.getPlayer(req.params.id);
+      if (!existingPlayer) {
+        return res.status(404).json({ message: "Player not found" });
+      }
+      
+      // Check if user is authorized to delete this player
+      const user = (req as any).session.user;
+      const isAdmin = user?.isAdmin === true;
+      const isOwner = existingPlayer.email && user?.email && 
+                      existingPlayer.email.toLowerCase() === user.email.toLowerCase();
+      
+      if (!isAdmin && !isOwner) {
+        return res.status(403).json({ 
+          message: "You don't have permission to delete this player profile" 
+        });
+      }
+      
       const success = await storage.deletePlayer(req.params.id);
       if (!success) {
         return res.status(404).json({ message: "Player not found" });

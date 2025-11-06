@@ -543,40 +543,44 @@ export default function PlayerManagement({ teamId, teamName, teamSport, players,
                       </Button>
                     </Link>
                     
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => startEditing(player)}
-                      data-testid={`button-edit-player-${player.id}`}
-                    >
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button variant="outline" size="sm" className="text-red-600 hover:text-red-700">
-                          <Trash2 className="h-4 w-4" />
+                    {canEditPlayer(player) && (
+                      <>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => startEditing(player)}
+                          data-testid={`button-edit-player-${player.id}`}
+                        >
+                          <Edit className="h-4 w-4" />
                         </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Remove Player</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            Are you sure you want to remove "{player.name}" from the team?
-                            This will remove them from all future matches but preserve their statistics.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancel</AlertDialogCancel>
-                          <AlertDialogAction
-                            className="bg-red-600 hover:bg-red-700"
-                            onClick={() => deletePlayerMutation.mutate(player.id)}
-                          >
-                            Remove Player
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
+                        
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="outline" size="sm" className="text-red-600 hover:text-red-700">
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Remove Player</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Are you sure you want to remove "{player.name}" from the team?
+                                This will remove them from all future matches but preserve their statistics.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction
+                                className="bg-red-600 hover:bg-red-700"
+                                onClick={() => deletePlayerMutation.mutate(player.id)}
+                              >
+                                Remove Player
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </>
+                    )}
                   </div>
                 </div>
               </CardContent>
