@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 import { insertPlayerSchema } from "@shared/schema";
 import type { InsertPlayer, Player } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -28,6 +29,7 @@ interface PlayerManagementProps {
 
 export default function PlayerManagement({ teamId, teamName, teamSport, players, isLoading }: PlayerManagementProps) {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [editingPlayer, setEditingPlayer] = useState<Player | null>(null);
   
@@ -38,6 +40,21 @@ export default function PlayerManagement({ teamId, teamName, teamSport, players,
   const [conflictData, setConflictData] = useState<any>(null);
   const [pendingPlayerData, setPendingPlayerData] = useState<Partial<InsertPlayer> | null>(null);
   const [isConflictModalOpen, setIsConflictModalOpen] = useState(false);
+
+  // Check if current user can edit a player
+  const canEditPlayer = (player: Player): boolean => {
+    if (!user) return false;
+    
+    // Admin users can edit all players
+    if (user.isAdmin) return true;
+    
+    // Users can edit players that match their email
+    if (player.email && user.email && player.email.toLowerCase() === user.email.toLowerCase()) {
+      return true;
+    }
+    
+    return false;
+  };
 
   // Add player form
   const addForm = useForm<InsertPlayer>({
